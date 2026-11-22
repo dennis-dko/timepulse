@@ -19,10 +19,12 @@ var formerName = regexp.MustCompile(`(?i)go[-_ ]?time[-_ ]?recording|(^|[^a-z0-9
 
 // oldNameKeptOnPurpose are the files that may still use the former name, each
 // with its reason. A row whose file has stopped using it fails as well, so the
-// list cannot go on excusing what is no longer there.
-var oldNameKeptOnPurpose = map[string]string{
-	"doc/audit-ledger.md": "it quotes what a file said on the day it was read, and a record is not rewritten",
-}
+// list cannot go on excusing what is no longer there. It is empty: the seal
+// conversion stopped naming the former marker on 2026-11-22, once every
+// installation had run it, and the audit ledger's quotes of a database name
+// were brought to the present name the same day - examples in findings about
+// how a connection is written, which the name does not change.
+var oldNameKeptOnPurpose = map[string]string{}
 
 // The project was renamed to TimePulse on 2026-11-17, and the sweep that did it
 // looked for the spellings it thought of. One got past it: the Android app's
