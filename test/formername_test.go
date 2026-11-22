@@ -9,30 +9,45 @@ import (
 	"testing"
 )
 
-// formerName matches what the project was called before 2026-11-17 however it
-// is written - the three words joined by a hyphen, an underscore, a space or
-// nothing, in any case - and the three-letter abbreviation its cookies, token
-// prefixes, variables and sealed secrets carried, as a word of its own: not
-// after a letter or a digit, nor after the + or / that would make it the inside
-// of a hash. Both are spelled so that this file does not match them.
-var formerName = regexp.MustCompile(`(?i)go[-_ ]?time[-_ ]?recording|(^|[^a-z0-9+/])g[t]r`)
+// formerName matches every name that is not this project's, however it is
+// written: what the project was called before 2026-11-17, and the two names of
+// the ticket system cloned from it on 2026-11-12 - its first and the one it
+// carries now - which this tree has no reason to name and since 2026-11-22 is
+// held to not naming, because a change carried over between the two is how one
+// would arrive. A name is its words joined by a hyphen, an underscore, a space
+// or nothing, in any case, and its abbreviations go with it: the three letters
+// the former name and the ticket system's first name carried in their cookies,
+// token prefixes, variables and sealed secrets, and the two the ticket system's
+// backups carry.
+//
+// The three letters count as a word of their own after anything but a letter
+// or a digit; glued to a word where no + or / before them could make them the
+// inside of a hash; and anywhere before a separator their prefixes used, which
+// is how a value glued to the option in front of it carries them, as a MySQL
+// password follows -p. All of it is spelled so that this file does not match
+// it.
+var formerName = regexp.MustCompile(`(?i)go[-_ ]?time[-_ ]?recording|go[-_ ]?tick[e]t[-_ ]?system|` +
+	`qubit[-_ ]?de[s]k|q[d](bak|backup)|(^|[^a-z0-9])g[t][rs]([^a-z0-9]|$)|(^|[^a-z0-9+/])g[t][rs]|` +
+	`g[t][rs][_.:-]`)
 
-// oldNameKeptOnPurpose are the files that may still use the former name, each
-// with its reason. A row whose file has stopped using it fails as well, so the
-// list cannot go on excusing what is no longer there.
-var oldNameKeptOnPurpose = map[string]string{
-	"doc/audit-ledger.md": "it quotes what a file said on the day it was read, and a record is not rewritten",
-	"internal/infrastructure/persistence/migration/migration.go": "it converts, once, the marker that secrets sealed before " +
-		"the rename carry in a database from then",
-	"internal/infrastructure/persistence/migration/seal_marker_test.go": "it seals secrets the old way to prove that conversion",
-}
+// oldNameKeptOnPurpose are the files that may still use a name formerName
+// matches, each with its reason. A row whose file has stopped using it fails as well, so the
+// list cannot go on excusing what is no longer there. It is empty: the seal
+// conversion stopped naming the former marker on 2026-11-22, once every
+// installation had run it, and the audit ledger's quotes of a database name
+// were brought to the present name the same day - examples in findings about
+// how a connection is written, which the name does not change.
+var oldNameKeptOnPurpose = map[string]string{}
 
 // The project was renamed to TimePulse on 2026-11-17, and the sweep that did it
 // looked for the spellings it thought of. One got past it: the Android app's
 // download keeper marked every page it prepared with the former name in camel
 // case, which nothing reported, because nothing reads that mark but the script
-// that sets it. So every spelling is looked for here at once, in every text
-// file git keeps.
+// that sets it. The ticket system's own sweep later let its first name's
+// abbreviation past where it was glued to an option, in two health checks that
+// went on passing because mysqladmin ping answers success to a refused
+// password. So every spelling of every name is looked for here at once, in
+// every text file git keeps and in the name of every file.
 func TestNothingStillCarriesTheFormerName(t *testing.T) {
 	// safe.directory, because in the Linux container the suite runs in here the
 	// mounted repository belongs to another user and git refuses it otherwise.
@@ -50,6 +65,10 @@ func TestNothingStillCarriesTheFormerName(t *testing.T) {
 
 	for _, line := range listed {
 		meta, path, _ := strings.Cut(line, "\t")
+		if formerName.MatchString(path) {
+			t.Errorf("%s is named with a name that is not this project's", path)
+		}
+
 		if strings.HasPrefix(meta, "i/-text") {
 			continue
 		}
@@ -69,14 +88,15 @@ func TestNothingStillCarriesTheFormerName(t *testing.T) {
 			usesIt[path] = true
 
 			if _, kept := oldNameKeptOnPurpose[path]; !kept {
-				t.Errorf("%s:%d still uses the project's former name: %s", path, n+1, strings.TrimSpace(text))
+				t.Errorf("%s:%d names what this project is not called: %s", path, n+1, strings.TrimSpace(text))
 			}
 		}
 	}
 
 	for path, reason := range oldNameKeptOnPurpose {
 		if !usesIt[path] {
-			t.Errorf("%s no longer uses the former name, so its row (%q) excuses nothing; remove it", path, reason)
+			t.Errorf("%s no longer uses a name formerName matches, so its row (%q) excuses nothing; remove it",
+				path, reason)
 		}
 	}
 }
