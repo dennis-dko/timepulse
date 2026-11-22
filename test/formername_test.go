@@ -22,9 +22,6 @@ var formerName = regexp.MustCompile(`(?i)go[-_ ]?time[-_ ]?recording|(^|[^a-z0-9
 // list cannot go on excusing what is no longer there.
 var oldNameKeptOnPurpose = map[string]string{
 	"doc/audit-ledger.md": "it quotes what a file said on the day it was read, and a record is not rewritten",
-	"internal/infrastructure/persistence/migration/migration.go": "it converts, once, the marker that secrets sealed before " +
-		"the rename carry in a database from then",
-	"internal/infrastructure/persistence/migration/seal_marker_test.go": "it seals secrets the old way to prove that conversion",
 }
 
 // The project was renamed to TimePulse on 2026-11-17, and the sweep that did it
