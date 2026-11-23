@@ -15,6 +15,7 @@ import (
 
 	"github.com/dennis-dko/timepulse/internal/application/v1/service"
 	"github.com/dennis-dko/timepulse/internal/domain/model"
+	"github.com/dennis-dko/timepulse/internal/support/apperror"
 )
 
 // administrativeChanges is every change the administration log records: the route
@@ -275,7 +276,8 @@ func NewAdminLogHandler(log *service.AdminLogService, authz *Authorizer) *AdminL
 	return &AdminLogHandler{log: log, authz: authz}
 }
 
-// adminLogPage is how many changes the log answers at a time.
+// adminLogPage is how many changes the log answers at a time to a request that
+// names no limit.
 const adminLogPage = 50
 
 // AdminLogEntryResponse is one change as the log shows it; a name is empty for an
@@ -295,15 +297,21 @@ type AdminLogNameResponse struct {
 	Name string `json:"name"`
 }
 
-// AdminLogResponse is a page of the log, newest first, and whether older changes
-// remain.
+// AdminLogResponse is a page of the log, newest first, whether older changes
+// remain, and how many changes match altogether.
 type AdminLogResponse struct {
-	Entries []AdminLogEntryResponse `json:"entries"`
-	More    bool                    `json:"more"`
+	Entries    []AdminLogEntryResponse `json:"entries"`
+	More       bool                    `json:"more"`
+	TotalCount uint                    `json:"totalCount"`
 }
 
-// Changes handles GET /api/v1/admin/changes, a page at a time: ?before= the id of
-// the oldest change already shown.
+// adminLogSearchMax is the longest search the log takes: as long as a change's
+// detail can be, since a longer text cannot be found in one.
+const adminLogSearchMax = 255
+
+// Changes handles GET /api/v1/admin/changes, a page at a time: ?offset= and
+// ?limit=, or ?before= the id of the oldest change already shown, narrowed by
+// ?q= and ?area=.
 func (h *AdminLogHandler) Changes(c *gofr.Context) (any, error) {
 	if _, err := h.authz.Require(c, model.PermSettingsManage); err != nil {
 		return nil, err
@@ -314,14 +322,36 @@ func (h *AdminLogHandler) Changes(c *gofr.Context) (any, error) {
 		return nil, toHTTPError(err)
 	}
 
-	entries, more, err := h.log.Page(c, before, adminLogPage)
+	limit, offset, err := pageOf(c)
 	if err != nil {
 		return nil, toHTTPError(err)
 	}
 
-	answer := AdminLogResponse{Entries: make([]AdminLogEntryResponse, 0, len(entries)), More: more}
+	// The page this endpoint answered before it took a limit, for a client that
+	// still names none.
+	if c.Param("limit") == "" {
+		limit = adminLogPage
+	}
 
-	for _, entry := range entries {
+	search := strings.TrimSpace(c.Param("q"))
+	if model.TooLong(search, adminLogSearchMax) {
+		return nil, toHTTPError(apperror.InvalidFields("q"))
+	}
+
+	page, err := h.log.Page(c, service.AdminLogQuery{
+		Text: search, Area: c.Param("area"), BeforeID: before, Offset: offset, Limit: limit,
+	})
+	if err != nil {
+		return nil, toHTTPError(err)
+	}
+
+	answer := AdminLogResponse{
+		Entries:    make([]AdminLogEntryResponse, 0, len(page.Entries)),
+		More:       page.More,
+		TotalCount: page.Total,
+	}
+
+	for _, entry := range page.Entries {
 		shown := AdminLogEntryResponse{
 			ID: entry.ID, At: entry.At.UTC(), Action: entry.Action, Detail: entry.Detail,
 			Actor: AdminLogNameResponse{ID: entry.ActorID, Name: entry.ActorName},

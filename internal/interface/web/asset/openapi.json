@@ -2989,7 +2989,61 @@
           "settings"
         ],
         "summary": "Who changed how the installation is run",
-        "description": "Answers {\"entries\": [{\"id\", \"at\", \"actor\": {\"id\", \"name\"}, \"action\": \"user.role\", \"target\": {\"id\", \"name\"}, \"detail\": \"user-admin\"}], \"more\"}, newest first, fifty at a time; ?before= the id of the oldest entry already shown reads the page before it. Every change that went through to an account (user.created, user.updated, user.deleted, user.role, user.password, users.imported), a role (role.created, role.updated, role.deleted, roles.imported), a setting (settings.maintenance with detail true or false, settings.branding, settings.ldap, settings.openid, settings.operational, settings.timezone, settings.holidays, settings.datasource, settings.telemetry) or the installation (directory.synchronised, installation.restart, installation.update, installation.setup) is recorded with the account that made it. Ids are kept and names read now: an account erased since has an empty name, and target is left out for a change to the installation as a whole. Needs settings:manage.",
+        "description": "Answers {\"entries\": [{\"id\", \"at\", \"actor\": {\"id\", \"name\"}, \"action\": \"user.role\", \"target\": {\"id\", \"name\"}, \"detail\": \"user-admin\"}], \"more\", \"totalCount\"}, newest first, a page at a time: `offset` and `limit`, or `before`, the id of the oldest entry already shown, which reads the page before it. `totalCount` is how many changes match altogether, wherever the page starts, so a page shorter than it means there is another one; `q` and `area` narrow what matches. Every change that went through to an account (user.created, user.updated, user.deleted, user.role, user.password, users.imported), a role (role.created, role.updated, role.deleted, roles.imported), a setting (settings.maintenance with detail true or false, settings.branding, settings.ldap, settings.openid, settings.operational, settings.timezone, settings.holidays, settings.datasource, settings.telemetry) or the installation (directory.synchronised, installation.restart, installation.update, installation.setup) is recorded with the account that made it. Ids are kept and names read now: an account erased since has an empty name, and target is left out for a change to the installation as a whole. Needs settings:manage.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "description": "Only the changes made by or to an account or a role whose name contains this text as it is called now, or whose action or detail contains it, whatever its case. Matched as written: a percent sign or an underscore is a character, not a wildcard. A name is folded on every database; in an action or a detail SQLite folds only ASCII letters, so there `Ä` does not find `ä`. Longer than 255 characters, a detail's length, is refused."
+          },
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "accounts",
+                "roles",
+                "settings",
+                "installation",
+                "directory"
+              ]
+            },
+            "description": "Only the changes to one part of the installation: accounts (user.*, users.*), roles (role.*, roles.*), settings (settings.*), installation (installation.*) or directory (directory.*). Any other value is refused rather than answered with an empty log, which would read as nothing having changed."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 500,
+              "default": 50
+            },
+            "description": "Changes per page. Default 50, maximum 500; above that the request is refused."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "How many matching changes to skip, newest first."
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Only the changes older than the one with this id: paging by the last entry shown, which cannot skip or repeat one while new changes arrive."
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"

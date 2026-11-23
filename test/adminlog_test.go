@@ -89,26 +89,8 @@ func TestEveryAdministrativeChangeIsInTheAdministrationLog(t *testing.T) {
 // log's table has its sentence, and the screen's table holds no code the log
 // never records.
 func TestEveryRecordedChangeHasItsSentence(t *testing.T) {
-	table := read(t, filepath.Join("..", "internal", "interface", "api", "v1", "rest", "adminlog.go"))
 	script := read(t, filepath.Join("..", "internal", "interface", "web", "asset", "app.js"))
-
-	var recorded []string
-
-	for _, match := range regexp.MustCompile(`\{http\.Method\w+, "[^"]+", "([^"]+)", "[^"]*"\}`).
-		FindAllStringSubmatch(table, -1) {
-		recorded = append(recorded, match[1])
-	}
-
-	// A change no request makes is written by the code that makes it, so its code
-	// is read from there - and a row whose file no longer writes it fails, rather
-	// than keeping a sentence alive for a change nothing records.
-	for action, writer := range recordedWithoutARoute {
-		if !strings.Contains(read(t, filepath.Join("..", writer.file)), `"`+action+`"`) {
-			t.Errorf("%s is named as recorded by %s, which no longer writes it", action, writer.file)
-		}
-
-		recorded = append(recorded, action)
-	}
+	recorded := recordedChanges(t)
 
 	sentences := regexp.MustCompile(`(?s)const CHANGE_SENTENCES = \{(.*?)\n\};`).FindStringSubmatch(script)
 	if sentences == nil || len(recorded) < 20 {
@@ -132,4 +114,72 @@ func TestEveryRecordedChangeHasItsSentence(t *testing.T) {
 			t.Errorf("the screen has a sentence for %s, which the administration log never records", action)
 		}
 	}
+}
+
+// Every change the log records belongs to exactly one of the areas its filter
+// offers. One in none of them could be found only with the filter off, and one
+// in two would be counted under both.
+func TestEveryRecordedChangeBelongsToOneAreaOfTheLogsFilter(t *testing.T) {
+	source := read(t, filepath.Join("..", "internal", "application", "v1", "service",
+		"adminlog_application_service.go"))
+
+	table := regexp.MustCompile(`(?s)var adminLogAreas = map\[string\]\[\]string\{(.*?)\n\}`).FindStringSubmatch(source)
+	if table == nil {
+		t.Fatal("the service no longer declares adminLogAreas, so this scan has stopped reading")
+	}
+
+	areas := map[string][]string{}
+
+	for _, row := range regexp.MustCompile(`"(\w+)":\s*\{([^}]*)\}`).FindAllStringSubmatch(table[1], -1) {
+		for _, prefix := range regexp.MustCompile(`"([^"]+)"`).FindAllStringSubmatch(row[2], -1) {
+			areas[row[1]] = append(areas[row[1]], prefix[1])
+		}
+	}
+
+	if len(areas) < 5 {
+		t.Fatalf("read %d areas from adminLogAreas, so the scan has stopped reading", len(areas))
+	}
+
+	for _, action := range recordedChanges(t) {
+		var in []string
+
+		for area, prefixes := range areas {
+			if slices.ContainsFunc(prefixes, func(prefix string) bool { return strings.HasPrefix(action, prefix) }) {
+				in = append(in, area)
+			}
+		}
+
+		if len(in) != 1 {
+			t.Errorf("the log records %s, which belongs to the areas %q of its filter, want exactly one", action, in)
+		}
+	}
+}
+
+// recordedChanges are the codes of every change the administration log records:
+// the ones its table of routes names, and the ones written by code no request
+// runs.
+func recordedChanges(t *testing.T) []string {
+	t.Helper()
+
+	table := read(t, filepath.Join("..", "internal", "interface", "api", "v1", "rest", "adminlog.go"))
+
+	var recorded []string
+
+	for _, match := range regexp.MustCompile(`\{http\.Method\w+, "[^"]+", "([^"]+)", "[^"]*"\}`).
+		FindAllStringSubmatch(table, -1) {
+		recorded = append(recorded, match[1])
+	}
+
+	// A change no request makes is written by the code that makes it, so its code
+	// is read from there - and a row whose file no longer writes it fails, rather
+	// than keeping a sentence alive for a change nothing records.
+	for action, writer := range recordedWithoutARoute {
+		if !strings.Contains(read(t, filepath.Join("..", writer.file)), `"`+action+`"`) {
+			t.Errorf("%s is named as recorded by %s, which no longer writes it", action, writer.file)
+		}
+
+		recorded = append(recorded, action)
+	}
+
+	return recorded
 }

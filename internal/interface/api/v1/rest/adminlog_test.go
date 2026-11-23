@@ -10,6 +10,7 @@ import (
 
 	"github.com/dennis-dko/timepulse/internal/application/v1/service"
 	"github.com/dennis-dko/timepulse/internal/domain/model"
+	"github.com/dennis-dko/timepulse/internal/domain/repository"
 	"github.com/dennis-dko/timepulse/internal/infrastructure/persistence/memory"
 )
 
@@ -72,7 +73,7 @@ func TestAnAdministrativeChangeIsRecordedOnceItWentThrough(t *testing.T) {
 		t.Errorf("the handler read %q, want the request whole", handled)
 	}
 
-	recorded, err := events.Before(context.Background(), 0, 10)
+	recorded, _, err := events.Find(context.Background(), repository.AdminEventFilter{Limit: 10})
 	if err != nil {
 		t.Fatalf("read the log: %v", err)
 	}
