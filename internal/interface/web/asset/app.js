@@ -2297,15 +2297,29 @@ function fillTable(tbody, rows, columnCount, emptyText) {
 }
 
 /**
+ * What a table's bars stand beside: the box it scrolls in, or the table itself
+ * where it stands in its card directly.
+ *
+ * Never simply the table's parent. The backup table had no box, so its parent
+ * was the card, and a bar put above the parent stood between two cards on the
+ * page's background, with nothing beside it saying which list it counted.
+ */
+function tableAnchor(table) {
+  const wrap = table.parentElement;
+
+  return wrap && wrap.classList.contains('table-wrap') ? wrap : table;
+}
+
+/**
  * The bar belonging to one table.
  *
  * Found by the table's own id rather than by position, so a card that grows a
  * second table later cannot end up driving the wrong bar.
  */
 function bulkBarOf(table) {
-  const card = table.parentElement && table.parentElement.parentElement;
+  const home = table.closest('.card') ?? tableAnchor(table).parentElement;
 
-  return card ? card.querySelector(`.bulk-bar[data-for="${table.id}"]`) : null;
+  return home ? home.querySelector(`.bulk-bar[data-for="${table.id}"]`) : null;
 }
 
 /**
@@ -2410,8 +2424,8 @@ function ensureBulkBar(table) {
   const existing = bulkBarOf(table);
   if (existing) return existing;
 
-  const wrap = table.parentElement;
-  if (!wrap || !wrap.parentElement) return null;
+  const anchor = tableAnchor(table);
+  if (!anchor.parentElement) return null;
 
   const bar = el('div', { class: 'bulk-bar', 'data-for': table.id },
     el('span', { class: 'bulk-count' }),
@@ -2435,7 +2449,7 @@ function ensureBulkBar(table) {
 
   // Above the table rather than below it: in a long table the bar would be off
   // the screen, and the rows being ticked start at the top.
-  wrap.parentElement.insertBefore(bar, wrap);
+  anchor.parentElement.insertBefore(bar, anchor);
 
   return bar;
 }
