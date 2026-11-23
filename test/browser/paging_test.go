@@ -4,12 +4,13 @@ package browser
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/chromedp/chromedp"
 )
 
-// The entries screen shows a page and offers the rest, rather than quietly
+// The entries screen shows a page and the pages after it, rather than quietly
 // stopping at the first hundred.
 //
 // Only a browser can check this. The screen used to ask for every entry the
@@ -83,7 +84,7 @@ func TestTheEntriesScreenPagesInsteadOfTruncating(t *testing.T) {
 	p.readyWorker()
 
 	// One more than a page, so there is exactly one row that a truncating screen
-	// would lose and a paging one would offer.
+	// would lose and a paging one would put on the next page.
 	const seeded = 26
 
 	// Seeded before the view is opened, so the table's first render is already the
@@ -94,7 +95,9 @@ func TestTheEntriesScreenPagesInsteadOfTruncating(t *testing.T) {
 	seedEntries(t, p, seeded)
 	showTimeView(p)
 
-	p.waitShown("#ts-more-row")
+	const nav = `#entries-card .pager`
+
+	p.waitShown(nav)
 
 	shown := p.count("#table-timesheets tbody tr")
 	if shown == seeded {
@@ -106,18 +109,21 @@ func TestTheEntriesScreenPagesInsteadOfTruncating(t *testing.T) {
 		t.Fatal("the table is empty after seeding")
 	}
 
-	// The screen has to say the list is longer than what is on it. Without this a
-	// bounded table and a complete one are the same picture.
-	if summary := p.text("#ts-shown"); summary == "" {
-		t.Error("nothing on the screen says how many entries there are altogether")
+	// The screen has to say the list is longer than what is on it, and by how
+	// much - counted by the server, not by what arrived. Without this a bounded
+	// table and a complete one are the same picture.
+	if summary := p.text(nav + ` .pager-range`); summary != "1–25 of 26" {
+		t.Errorf("the pager says %q, want 1–25 of 26", summary)
 	}
 
-	p.run("ask for the rest", p.click("#ts-more"))
+	// The one entry past the first page is on the next one: the oldest, since the
+	// list is newest first.
+	p.run("go to the next page", p.click(nav+` [data-page="next"]`))
+	p.waitForText(nav+` .pager-range`, "26–26 of 26")
 
-	p.waitGone("#ts-more-row")
-
-	if after := p.count("#table-timesheets tbody tr"); after != seeded {
-		t.Errorf("after asking for more the table holds %d of %d entries", after, seeded)
+	if after := p.text("#table-timesheets tbody"); !strings.Contains(after, "seeded 0") ||
+		p.count("#table-timesheets tbody tr") != 1 {
+		t.Errorf("the second page holds %q, want the oldest entry alone", truncateText(after, 120))
 	}
 }
 
@@ -132,7 +138,7 @@ func TestNothingOffersMoreWhenThereIsNoMore(t *testing.T) {
 
 	p.waitForText("#table-timesheets tbody", "seeded 2")
 
-	if p.visible("#ts-more-row") {
-		t.Error("the screen offers to show more with three entries and nothing hidden")
+	if p.visible(`#entries-card .pager`) {
+		t.Error("the screen offers pages with three entries and nothing hidden")
 	}
 }

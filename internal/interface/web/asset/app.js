@@ -459,6 +459,7 @@ function errorMessage(body) {
  */
 const FIELD_NAMES = {
   actor: 'Caller',
+  area: 'Made to',
   banner: 'Banner text',
   baseDn: 'Base DN',
   code: 'Code',
@@ -2275,10 +2276,28 @@ function balanceCell(value) {
 
 const projectName = (id) => cache.projects.find((p) => p.id === id)?.name ?? `#${id}`;
 
-/** Replaces a tbody with rows, or a single "empty" row when there are none. */
+/**
+ * Replaces a tbody with rows, or a single "empty" row when there are none.
+ *
+ * A table that pages in the browser keeps every row it is given and shows a
+ * page of them; see pagerOf.
+ */
 function fillTable(tbody, rows, columnCount, emptyText) {
   // Before the rows go in, while they can still be read for delete buttons.
   const picking = prepareBulkDelete(tbody, rows);
+
+  const table = tbody.closest('table');
+  const pager = table ? pagerOf(table) : null;
+
+  if (pager && !pager.server) {
+    pager.rows = rows;
+    pager.texts = rows.map(searchTextOf);
+    pager.columnCount = columnCount + (picking ? 1 : 0);
+    pager.emptyText = emptyText;
+    showPage(table, pager);
+
+    return;
+  }
 
   tbody.replaceChildren();
 
@@ -2293,7 +2312,492 @@ function fillTable(tbody, rows, columnCount, emptyText) {
   // are ticked out of the table, so refreshing it before this line counted the rows
   // of the previous render: delete two of three, and the bar stayed up saying
   // "3 selected" over a table where nothing was ticked at all.
-  if (picking) refreshBulkBar(tbody.closest('table'));
+  if (picking) refreshBulkBar(table);
+}
+
+// ------------------------------------------------------------------ long tables
+
+/**
+ * The page sizes a long table offers. The first is also the length from which it
+ * offers them: a table of ten rows or fewer is shown whole, because a search box
+ * and a row of page buttons over something that fits in a glance are furniture.
+ */
+const PAGE_SIZES = [10, 25, 50, 100];
+
+/** The page size a table starts on until its reader chooses another. */
+const DEFAULT_PAGE_SIZE = 25;
+
+/**
+ * The paging of each table that pages, by table.
+ *
+ * Every table filled through fillTable pages, so a list nobody expected to grow
+ * cannot become an endless card - unless it says data-pager="off", because its
+ * length is fixed: twelve months are twelve rows whatever happens, and a pager
+ * over them would offer to split a year in two. A table whose rows live on the
+ * server says data-pager="server": its loader asks pageWindow which part to
+ * fetch and reports what matched with pagedOnServer, and its own form does the
+ * searching, because only the server can search what it has not sent. Every
+ * other table is given all its rows and searches, filters and pages them here.
+ */
+const pagers = new Map();
+
+/**
+ * What reloads a server-paged table, by its id, for a page button or a page
+ * size to call. Each loader reads pageWindow itself.
+ */
+const SERVER_PAGE_LOADERS = {};
+
+function pagerOf(table) {
+  if (table.dataset.pager === 'off') return null;
+
+  let pager = pagers.get(table);
+
+  if (!pager) {
+    pager = {
+      server: table.dataset.pager === 'server',
+      rows: [],
+      texts: [],
+      columnCount: 1,
+      emptyText: '',
+      query: '',
+      choice: '',
+      page: 0,
+      size: storedPageSize(table),
+      total: 0,
+      tools: null,
+      nav: null,
+    };
+
+    pagers.set(table, pager);
+  }
+
+  return pager;
+}
+
+/**
+ * The page size this reader chose for a table, per account like the screen they
+ * were last on, so two people sharing a browser do not inherit each other's.
+ * Storage that refuses costs nothing but the choice.
+ */
+function storedPageSize(table) {
+  try {
+    const size = Number(localStorage.getItem(pageSizeKey(table)));
+
+    return PAGE_SIZES.includes(size) ? size : DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
+  }
+}
+
+function pageSizeKey(table) {
+  return `timepulse_pagesize_${me.user?.id ?? 0}_${table.id}`;
+}
+
+/** Text as a search compares it: lower case, and without accents. */
+function folded(text) {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/**
+ * What a row is found by: the text of its cells, without its tick box and its
+ * buttons. With the buttons, every row of a list would contain "delete", and a
+ * search for it would find them all.
+ */
+function searchTextOf(row) {
+  return folded(cellsOf(row)
+    .filter((cell) => !cell.classList.contains('actions'))
+    .map((cell) => cell.textContent)
+    .join(' '));
+}
+
+/** A row's own cells, without the tick box the selection puts in front of them. */
+function cellsOf(row) {
+  return [...(row.cells ?? [])].filter((cell) => !cell.classList.contains('pick'));
+}
+
+/**
+ * The column a table can be narrowed by, which its heading names with
+ * data-filter: the kind of value a list is sorted into, such as a role or a
+ * status. -1 for a table with none, which is searched only.
+ */
+function filterColumnOf(table) {
+  const headings = cellsOf(table.tHead?.rows[0] ?? {});
+
+  return headings.findIndex((heading) => heading.hasAttribute('data-filter'));
+}
+
+function filterValueOf(row, column) {
+  return cellsOf(row)[column]?.textContent.trim() ?? '';
+}
+
+/** Whether a table is long enough to search and page. */
+function pagesAtAll(pager) {
+  return (pager.server ? pager.total : pager.rows.length) > PAGE_SIZES[0];
+}
+
+/** The rows a table's search and filter let through, on every page. */
+function matchingRows(table, pager) {
+  const column = filterColumnOf(table);
+
+  return pager.rows.filter((row, i) => (!pager.query || pager.texts[i].includes(pager.query))
+    && (!pager.choice || column < 0 || filterValueOf(row, column) === pager.choice));
+}
+
+/**
+ * Every row a paged table lets through, on every page, for what is read off the
+ * screen rather than looked at - a document is the list somebody narrowed, not
+ * the page of it they happened to be on. Null for a table that shows every row
+ * anyway.
+ */
+function pagedRows(table) {
+  const pager = pagers.get(table);
+  if (!pager || pager.server || !pagesAtAll(pager)) return null;
+
+  return matchingRows(table, pager);
+}
+
+/**
+ * Draws the page a browser-paged table is on.
+ *
+ * A changed search, filter, page or page size unticks every row first. A
+ * selection that outlived the page it was made on would delete rows nobody can
+ * see, which is the reason a reload drops one too.
+ */
+function showPage(table, pager) {
+  const tbody = table.tBodies[0];
+
+  // Short again - most of a list deleted - leaves nothing narrowed behind a
+  // search box that is about to disappear.
+  if (!pagesAtAll(pager)) {
+    pager.query = '';
+    pager.choice = '';
+    pager.page = 0;
+
+    const search = pager.tools?.querySelector('.pager-query');
+    if (search) search.value = '';
+  }
+
+  // A filter value the reloaded rows no longer hold - the last account of a
+  // role deleted - would narrow the list to nothing under a choice that is not
+  // offered any more.
+  if (pager.choice && !filterValuesOf(table, pager).includes(pager.choice)) pager.choice = '';
+
+  const matching = pagesAtAll(pager) ? matchingRows(table, pager) : pager.rows;
+  const pages = Math.max(1, Math.ceil(matching.length / pager.size));
+
+  pager.page = Math.min(pager.page, pages - 1);
+
+  const shown = pagesAtAll(pager)
+    ? matching.slice(pager.page * pager.size, (pager.page + 1) * pager.size)
+    : matching;
+
+  tbody.replaceChildren();
+
+  if (shown.length === 0) {
+    const nothing = pager.rows.length === 0
+      ? pager.emptyText
+      : t('pager.none', 'Nothing in this list matches.');
+
+    tbody.append(el('tr', {}, el('td', { class: 'empty', colspan: pager.columnCount, text: nothing })));
+  } else {
+    tbody.append(...shown);
+  }
+
+  drawPager(table, pager, matching.length);
+
+  // After the rows are in, for the reason fillTable gives.
+  if (bulkBarOf(table)) refreshBulkBar(table);
+}
+
+/** Unticks every row a table holds, on every page. */
+function untickAll(pager) {
+  for (const row of pager.rows) {
+    for (const box of row.querySelectorAll?.('.row-pick') ?? []) box.checked = false;
+  }
+}
+
+/** Moves a table to another page, page size, search or filter. */
+function turnPage(table, pager, change) {
+  change();
+
+  if (pager.server) {
+    SERVER_PAGE_LOADERS[table.id]?.();
+
+    return;
+  }
+
+  untickAll(pager);
+  showPage(table, pager);
+}
+
+/**
+ * The part of a server-paged table to fetch: how many rows to skip and how
+ * many to ask for.
+ */
+function pageWindow(table) {
+  const pager = pagerOf(table);
+
+  return { offset: pager.page * pager.size, limit: pager.size };
+}
+
+/**
+ * Tells a server-paged table how many rows match altogether, once its page has
+ * been drawn. A page that came back empty although rows remain - the last few
+ * deleted from the last page - goes back to the page that is now last.
+ */
+function pagedOnServer(table, total) {
+  const pager = pagerOf(table);
+
+  pager.total = total;
+
+  const pages = Math.max(1, Math.ceil(total / pager.size));
+
+  if (pager.page > pages - 1) {
+    pager.page = pages - 1;
+    SERVER_PAGE_LOADERS[table.id]?.();
+
+    return;
+  }
+
+  drawPager(table, pager, total);
+}
+
+/** Starts a server-paged table again at its first page, for a changed filter. */
+function firstPage(table) {
+  pagerOf(table).page = 0;
+}
+
+/**
+ * Builds a table's controls the first time it is long enough to need them, and
+ * writes every word on them each time it is drawn - written once, they kept the
+ * language they were made in.
+ */
+function drawPager(table, pager, matched) {
+  const long = pagesAtAll(pager);
+
+  if (long) ensurePagerControls(table, pager);
+
+  const anchor = tableAnchor(table);
+
+  if (anchor !== table) {
+    anchor.classList.toggle('paged', long);
+    markScrollEdge(anchor);
+  }
+
+  if (pager.tools) {
+    pager.tools.hidden = !long;
+
+    const search = pager.tools.querySelector('.pager-query');
+    search.setAttribute('placeholder', t('pager.searchHint', 'a name, a word, a date'));
+    pager.tools.querySelector('.pager-query-label').textContent = t('pager.search', 'Search this list');
+
+    const choice = pager.tools.querySelector('.pager-choice');
+    if (choice) drawFilterChoices(table, pager, choice);
+  }
+
+  if (!pager.nav) return;
+
+  pager.nav.hidden = !long;
+  if (!long) return;
+
+  const pages = Math.max(1, Math.ceil(matched / pager.size));
+  const first = matched === 0 ? 0 : pager.page * pager.size + 1;
+  const last = Math.min(matched, (pager.page + 1) * pager.size);
+  const count = (n) => new Intl.NumberFormat(activeLocale()).format(n);
+
+  pager.nav.querySelector('.pager-size-label').textContent = t('pager.size', 'Per page');
+  pager.nav.querySelector('.pager-range').textContent = fillIn(t('pager.range', '{0}–{1} of {2}'),
+    [count(first), count(last), count(matched)]);
+  pager.nav.querySelector('.pager-page').textContent = fillIn(t('pager.page', 'Page {0} of {1}'),
+    [count(pager.page + 1), count(pages)]);
+  pager.nav.querySelector('.pager-size').value = String(pager.size);
+
+  // One page has nowhere to step to. The size stays, which is how somebody who
+  // wants fewer rows at a time asks for them, and so does the count.
+  pager.nav.querySelector('.pager-buttons').hidden = pages <= 1;
+
+  const buttons = {
+    first: [t('pager.first', 'First page'), pager.page === 0],
+    previous: [t('pager.previous', 'Previous page'), pager.page === 0],
+    next: [t('pager.next', 'Next page'), pager.page >= pages - 1],
+    last: [t('pager.last', 'Last page'), pager.page >= pages - 1],
+  };
+
+  for (const [which, [label, off]] of Object.entries(buttons)) {
+    const button = pager.nav.querySelector(`[data-page="${which}"]`);
+
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.disabled = off;
+  }
+}
+
+/**
+ * The search above a table and the pages below it.
+ *
+ * The search goes above the selection bar and the bar above the table, so what
+ * narrows the list, what acts on it and the list itself read in that order. A
+ * table whose rows live on the server has no search here: its own form is
+ * where it is searched.
+ */
+function ensurePagerControls(table, pager) {
+  const anchor = tableAnchor(table);
+  if (!anchor.parentElement) return;
+
+  if (!pager.tools && !pager.server) {
+    const search = el('input', {
+      type: 'search',
+      class: 'pager-query',
+      autocomplete: 'off',
+      oninput: (event) => turnPage(table, pager, () => {
+        pager.query = folded(event.target.value.trim());
+        pager.page = 0;
+      }),
+    });
+
+    const column = filterColumnOf(table);
+    const choice = column < 0 ? null : el('select', {
+      class: 'pager-choice',
+      onchange: (event) => turnPage(table, pager, () => {
+        pager.choice = event.target.value;
+        pager.page = 0;
+      }),
+    });
+
+    pager.tools = el('div', { class: 'list-tools' },
+      el('label', {}, el('span', { class: 'pager-query-label' }), search),
+      choice ? el('label', {}, el('span', { class: 'pager-choice-label' }), choice) : null);
+
+    anchor.parentElement.insertBefore(pager.tools, bulkBarOf(table) ?? anchor);
+  }
+
+  if (!pager.nav) {
+    const step = (which, sign) => el('button', {
+      type: 'button',
+      class: 'secondary',
+      'data-page': which,
+      text: sign,
+      onclick: () => turnPage(table, pager, () => {
+        const pages = Math.max(1, Math.ceil((pager.server ? pager.total
+          : matchingRows(table, pager).length) / pager.size));
+
+        pager.page = {
+          first: 0,
+          previous: Math.max(0, pager.page - 1),
+          next: Math.min(pages - 1, pager.page + 1),
+          last: pages - 1,
+        }[which];
+      }),
+    });
+
+    const size = el('select', {
+      class: 'pager-size',
+      onchange: (event) => turnPage(table, pager, () => {
+        pager.size = Number(event.target.value);
+        pager.page = 0;
+
+        try {
+          localStorage.setItem(pageSizeKey(table), String(pager.size));
+        } catch {
+          // The choice holds for this page; storage that refuses keeps no more.
+        }
+      }),
+    }, ...PAGE_SIZES.map((n) => el('option', { value: String(n), text: String(n) })));
+
+    pager.nav = el('div', { class: 'pager' },
+      el('label', {}, el('span', { class: 'pager-size-label' }), size),
+      el('span', { class: 'pager-range muted' }),
+      el('span', { class: 'pager-buttons' },
+        step('first', '«'), step('previous', '‹'),
+        el('span', { class: 'pager-page' }),
+        step('next', '›'), step('last', '»')));
+
+    anchor.after(pager.nav);
+
+    // The fading edge follows the box: scrolled, shown on a tab that hid it, or
+    // narrowed with the window. Once per box, which outlives the controls a
+    // sign-out takes away.
+    if (anchor !== table && !watchedEdges.has(anchor)) {
+      watchedEdges.add(anchor);
+      anchor.addEventListener('scroll', () => markScrollEdge(anchor), { passive: true });
+      scrollEdgeWatch().observe(anchor);
+    }
+  }
+}
+
+/** Says whether a long table's box holds more rows below what it shows. */
+function markScrollEdge(box) {
+  box.classList.toggle('more-below',
+    box.classList.contains('paged') && box.scrollTop + box.clientHeight < box.scrollHeight - 1);
+}
+
+/** The boxes whose edge is already followed. */
+const watchedEdges = new WeakSet();
+
+let scrollEdges = null;
+
+/** The one observer that marks a box's edge again when the box changes size. */
+function scrollEdgeWatch() {
+  scrollEdges ??= new ResizeObserver((changed) => {
+    for (const { target } of changed) markScrollEdge(target);
+  });
+
+  return scrollEdges;
+}
+
+/**
+ * Fills a table's filter with the values its column holds now, keeping the one
+ * chosen while it is still among them.
+ */
+function drawFilterChoices(table, pager, choice) {
+  const heading = cellsOf(table.tHead.rows[0])[filterColumnOf(table)];
+
+  pager.tools.querySelector('.pager-choice-label').textContent = heading?.textContent.trim() ?? '';
+  choice.replaceChildren(
+    el('option', { value: '', text: t('pager.all', 'All') }),
+    ...filterValuesOf(table, pager).map((value) => el('option', { value, text: value })));
+  choice.value = pager.choice;
+}
+
+/** The values a table's filter column holds, each once, in the reader's order. */
+function filterValuesOf(table, pager) {
+  const column = filterColumnOf(table);
+  if (column < 0) return [];
+
+  const collator = new Intl.Collator(activeLocale(), { numeric: true, sensitivity: 'base' });
+
+  return [...new Set(pager.rows.map((row) => filterValueOf(row, column)))]
+    .filter(Boolean)
+    .sort(collator.compare);
+}
+
+/**
+ * Forgets every table's search, filter and page for whoever signs in next: what
+ * somebody searched for is theirs, as the entry filter's form says of its own.
+ */
+function forgetPagers() {
+  for (const pager of pagers.values()) {
+    pager.tools?.remove();
+    pager.nav?.remove();
+  }
+
+  for (const wrap of $$('.table-wrap.paged')) wrap.classList.remove('paged', 'more-below');
+
+  pagers.clear();
+}
+
+/**
+ * What a table's bars stand beside: the box it scrolls in, or the table itself
+ * where it stands in its card directly.
+ *
+ * Never simply the table's parent. The backup table had no box, so its parent
+ * was the card, and a bar put above the parent stood between two cards on the
+ * page's background, with nothing beside it saying which list it counted.
+ */
+function tableAnchor(table) {
+  const wrap = table.parentElement;
+
+  return wrap && wrap.classList.contains('table-wrap') ? wrap : table;
 }
 
 /**
@@ -2303,9 +2807,9 @@ function fillTable(tbody, rows, columnCount, emptyText) {
  * second table later cannot end up driving the wrong bar.
  */
 function bulkBarOf(table) {
-  const card = table.parentElement && table.parentElement.parentElement;
+  const home = table.closest('.card') ?? tableAnchor(table).parentElement;
 
-  return card ? card.querySelector(`.bulk-bar[data-for="${table.id}"]`) : null;
+  return home ? home.querySelector(`.bulk-bar[data-for="${table.id}"]`) : null;
 }
 
 /**
@@ -2410,8 +2914,8 @@ function ensureBulkBar(table) {
   const existing = bulkBarOf(table);
   if (existing) return existing;
 
-  const wrap = table.parentElement;
-  if (!wrap || !wrap.parentElement) return null;
+  const anchor = tableAnchor(table);
+  if (!anchor.parentElement) return null;
 
   const bar = el('div', { class: 'bulk-bar', 'data-for': table.id },
     el('span', { class: 'bulk-count' }),
@@ -2435,7 +2939,7 @@ function ensureBulkBar(table) {
 
   // Above the table rather than below it: in a long table the bar would be off
   // the screen, and the rows being ticked start at the top.
-  wrap.parentElement.insertBefore(bar, wrap);
+  anchor.parentElement.insertBefore(bar, anchor);
 
   return bar;
 }
@@ -3884,6 +4388,13 @@ function forgetEveryRedraw() {
 
 function redrawAll() {
   for (const draw of redraws.values()) draw();
+
+  // The words on a long table's search and pages, for a table no draw above
+  // refills: they are written when the table is drawn, and some tables are drawn
+  // only when their own data changes.
+  for (const [table, pager] of pagers) {
+    drawPager(table, pager, pager.server ? pager.total : matchingRows(table, pager).length);
+  }
 
   // The greeting is written entirely by the script and is drawn on arrival
   // rather than by any loader, so nothing else would put it back into the
@@ -6026,20 +6537,6 @@ async function reloadTimeViews() {
   await loadNotices();
 }
 
-/**
- * How many entries the list asks for at a time.
- *
- * A screenful rather than everything. This list used to ask for every entry the
- * account had ever booked, on every load and again after every save, and the
- * request grew for as long as somebody kept recording time - the kind of slow
- * that arrives a week at a time and never becomes a bug report.
- *
- * Smaller than the API's own default page, deliberately: the endpoint answers
- * clients that are fetching rather than showing, and a table asks for what it can
- * put on a screen. Both are bounded, which is the part that matters.
- */
-const TIMESHEET_PAGE = 25;
-
 /** The entries the table is showing, which is a page of them at a time. */
 let timesheetEntries = [];
 
@@ -6050,27 +6547,33 @@ let timesheetTotal = 0;
 let timesheetLoads = 0;
 
 /**
- * Loads the entries, one page at a time.
+ * Loads the page of entries the table's pager is on.
  *
- * `more` appends the next page instead of starting again. Everything else -
- * changing the filter, booking, correcting, deleting - starts again from the
- * first page on purpose: the list has changed underneath, and an offset into a
- * list that has moved skips one entry and repeats another.
+ * A page rather than everything. This list used to ask for every entry the
+ * account had ever booked, on every load and again after every save, and the
+ * request grew for as long as somebody kept recording time - the kind of slow
+ * that arrives a week at a time and never becomes a bug report. The page is the
+ * pager's size, a screenful by default and smaller than the API's own default:
+ * the endpoint answers clients that are fetching rather than showing.
+ *
+ * Booking, correcting and deleting read the same page again; a changed filter
+ * starts again from the first, through searchTimesheets, because a page of the
+ * old answer is not a page of the new one.
  *
  * Only the newest load's answer is kept. Each one emptied the list as it began
  * and added its answer when it came back, so two at once - stepping through the
  * filter with the arrow keys sends one per step - put two projects' entries under
- * a filter naming one, and two presses of "more" the same page twice.
+ * a filter naming one.
  */
-async function loadTimesheets(more = false) {
+async function loadTimesheets() {
   if (!can('timesheets:read:own')) return;
 
+  const table = $('#table-timesheets');
   const params = timesheetFilterParams();
+  const { offset, limit } = pageWindow(table);
 
-  const before = more ? timesheetEntries : [];
-
-  params.set('limit', String(TIMESHEET_PAGE));
-  params.set('offset', String(before.length));
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
 
   timesheetLoads += 1;
   const asked = timesheetLoads;
@@ -6084,7 +6587,7 @@ async function loadTimesheets(more = false) {
   // What the server says, not what arrived: those differ exactly when there is
   // another page, which is the whole question this screen has to answer.
   timesheetTotal = answer?.totalCount ?? page.length;
-  timesheetEntries = before.concat(page);
+  timesheetEntries = page;
 
   const entries = timesheetEntries;
 
@@ -6107,8 +6610,7 @@ async function loadTimesheets(more = false) {
   });
 
   fillTable($('#table-timesheets tbody'), rows, 5, t('ts.empty', 'No entries for this filter.'));
-
-  showTimesheetTally();
+  pagedOnServer(table, timesheetTotal);
 
   // The link answers to the filter as soon as the list does, from the count it
   // already has: the new count comes back a request later, and until then a list
@@ -6146,22 +6648,10 @@ function drawUnassigned() {
   link.textContent = fillIn(t('ts.unassigned', '{0} without a project'), [unassignedEntries]);
 }
 
-/**
- * Says how much of the list is on screen, and offers the rest.
- *
- * Both go down together once everything is showing. A table that is complete and
- * one that has been cut short are otherwise the same picture, which is the only
- * way bounding the request could have gone wrong quietly.
- */
-function showTimesheetTally() {
-  const more = timesheetEntries.length < timesheetTotal;
-
-  $('#ts-more-row').hidden = !more;
-
-  $('#ts-shown').textContent = more
-    ? fillIn(t('ts.showing', 'Showing {0} of {1} entries'),
-      [timesheetEntries.length, timesheetTotal])
-    : '';
+/** Reads the entries again from the first page, for a filter that changed what they are. */
+function searchTimesheets() {
+  firstPage($('#table-timesheets'));
+  mutate(loadTimesheets, null, null);
 }
 
 // --------------------------------------------------------------- week grid
@@ -6435,7 +6925,7 @@ function showTheDaysEntries(date, key) {
 
   switchView('timesheets');
   openTheTabOf($('#entries-card'));
-  mutate(loadTimesheets, null, null);
+  searchTimesheets();
 }
 
 /**
@@ -8834,22 +9324,52 @@ async function loadAdmin() {
 
 // ------------------------------------------------------- administration log
 
-/** The changes shown so far, oldest last, and whether older ones remain. */
-let adminChanges = { entries: [], more: false };
+/**
+ * The page of the log on screen, how many changes match altogether, and whether
+ * the card's search or area narrowed them - which decides what an empty page
+ * says.
+ */
+let adminChanges = { entries: [], total: 0, narrowed: false };
+
+/** How many loads of the log have begun, so an answer can tell it was overtaken. */
+let changeLoads = 0;
 
 /**
- * Reads the administration log: the newest page, or the page before the oldest
- * change shown when older ones are asked for.
+ * Reads the page of the administration log its pager is on, narrowed by the
+ * card's search and area.
+ *
+ * On the server rather than here: the log keeps ids and reads names when it is
+ * shown, so the browser holds the names of one page of changes, and a search
+ * of that page would miss every change made to somebody further back.
+ *
+ * Only the newest load's answer is kept, as the entry list keeps its own: the
+ * search asks once its typing pauses, and an older answer arriving last would
+ * leave its page under the newer search's words.
  */
-async function loadChanges(older = false) {
-  if (!can('settings:manage') || !$('#changes-card')) return;
+async function loadChanges() {
+  const table = $('#table-changes');
+  if (!can('settings:manage') || !table) return;
 
-  const before = older ? adminChanges.entries.at(-1)?.id : null;
-  const page = await api(`/admin/changes${before ? `?before=${before}` : ''}`);
+  const { offset, limit } = pageWindow(table);
+  const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+
+  const search = $('#filter-changes-q')?.value.trim() ?? '';
+  const area = $('#filter-changes-area')?.value ?? '';
+
+  if (search) params.set('q', search);
+  if (area) params.set('area', area);
+
+  changeLoads += 1;
+  const asked = changeLoads;
+
+  const page = await api(`/admin/changes?${params}`);
+
+  if (asked !== changeLoads) return;
 
   adminChanges = {
-    entries: older ? [...adminChanges.entries, ...page.entries] : page.entries,
-    more: page.more,
+    entries: page?.entries ?? [],
+    total: page?.totalCount ?? 0,
+    narrowed: Boolean(search || area),
   };
 
   redrawable('changes', drawChanges);
@@ -8868,8 +9388,10 @@ function drawChanges() {
     el('td', { text: describeChange(entry) }),
   ));
 
-  fillTable($('#table-changes tbody'), rows, 3, t('changes.empty', 'Nothing has been changed yet.'));
-  $('#changes-more').hidden = !adminChanges.more;
+  fillTable($('#table-changes tbody'), rows, 3, adminChanges.narrowed
+    ? t('changes.none', 'No change matches this search.')
+    : t('changes.empty', 'Nothing has been changed yet.'));
+  pagedOnServer($('#table-changes'), adminChanges.total);
 }
 
 /**
@@ -9023,7 +9545,34 @@ function cropPreview(dataURI, crop, into) {
 }
 
 function wireAdmin() {
-  $('#changes-more').addEventListener('click', () => mutate(() => loadChanges(true), null, null));
+  // The log's pages, and its search and area, as the entry list takes its own:
+  // an area at once, the search once the typing pauses, Enter without waiting -
+  // each from the first page, because a page of the old answer is not a page of
+  // the new one.
+  SERVER_PAGE_LOADERS['table-changes'] = () => mutate(loadChanges, null, null);
+
+  const changeFilters = $('#form-changes-filters');
+  const searchChanges = () => {
+    firstPage($('#table-changes'));
+    mutate(loadChanges, null, null);
+  };
+
+  let changeSearchPause = null;
+
+  changeFilters.addEventListener('change', (event) => {
+    if (event.target.id !== 'filter-changes-q') searchChanges();
+  });
+
+  $('#filter-changes-q').addEventListener('input', () => {
+    clearTimeout(changeSearchPause);
+    changeSearchPause = setTimeout(searchChanges, 300);
+  });
+
+  changeFilters.addEventListener('submit', (event) => {
+    event.preventDefault();
+    clearTimeout(changeSearchPause);
+    searchChanges();
+  });
 
   $('#logo-file').addEventListener('change', (e) => {
     const file = e.target.files?.[0];
@@ -10206,19 +10755,19 @@ function forgetTheLastAccount() {
   // empty table offering to delete three things.
   for (const bar of $$('.bulk-bar')) bar.remove();
 
-  // And the entry list's own memory, with the line that counts it. "Showing 25 of
-  // 26 entries" is how much the last account recorded, and it is a div beside the
-  // list rather than a table, so the sweep above did not reach it: it stood over
-  // an emptied table until some loader replaced it, which for an account without
+  // And the long tables' searches, filters and pages, with the counts beside
+  // them: "1-25 of 312" is how much the last account had.
+  forgetPagers();
+
+  // And the entry list's own memory. The line that counts it, "1-25 of 26", is
+  // how much the last account recorded, and it is a row beside the list rather
+  // than a table, so the sweep above did not reach it: it stood over an emptied
+  // table until some loader replaced it, which for an account without
   // timesheets:read:own never happens. How much somebody recorded is theirs, by
-  // the same reasoning that hides the project record.
-  //
-  // Through showTimesheetTally rather than by emptying the span here, so one place
-  // still knows how that line is drawn - and it takes the "load more" row down
-  // with it, which would otherwise offer to fetch the rest of somebody else's.
+  // the same reasoning that hides the project record. forgetPagers above takes
+  // the line, and with it the steps that would fetch more of somebody else's.
   timesheetEntries = [];
   timesheetTotal = 0;
-  showTimesheetTally();
 
   // And an enrolment somebody was half way through. The panel holds a shared
   // secret, the otpauth URI that carries it together with the account's address,
@@ -14786,19 +15335,36 @@ function tableAsFigures(table) {
 
   if (wanted.length === 0) return null;
 
-  const rows = [...table.querySelectorAll('tbody tr')]
-    // The "nothing here" line is a message, not a row of figures. It is told
-    // apart by being the row's only cell, not by its class alone: a statement's
-    // "no rate yet" is marked empty as well, and its line was left out of the
-    // document with its hours.
-    .filter((row) => !(row.children.length === 1 && row.firstElementChild.matches('td.empty')));
+  // Every row the reader narrowed the table to, not the page of it on screen:
+  // a long table shows a page at a time, and a document cut off at the page
+  // somebody happened to be on would be missing the rest without saying so.
+  // They are put into the table while they are read, and the page put back
+  // after, within this one task, so nothing is drawn in between: whether a
+  // cell's parts stand one under another is the stylesheet's answer, and it
+  // gives none for a row outside the document.
+  const every = pagedRows(table);
+  const tbody = table.tBodies[0];
+  const page = every ? [...tbody.children] : null;
 
-  return {
-    columns: wanted.map((i) => headings[i].textContent.trim()),
-    numeric: wanted.map((i) => headings[i].classList.contains('num')),
-    rows: rows.map((row) => wanted.map((i) => cellAsFigure(row.children[i]))),
-    tones: rows.map((row) => wanted.map((i) => toneOf(row.children[i]))),
-  };
+  if (every) tbody.replaceChildren(...every);
+
+  try {
+    const rows = [...table.querySelectorAll('tbody tr')]
+      // The "nothing here" line is a message, not a row of figures. It is told
+      // apart by being the row's only cell, not by its class alone: a statement's
+      // "no rate yet" is marked empty as well, and its line was left out of the
+      // document with its hours.
+      .filter((row) => !(row.children.length === 1 && row.firstElementChild.matches('td.empty')));
+
+    return {
+      columns: wanted.map((i) => headings[i].textContent.trim()),
+      numeric: wanted.map((i) => headings[i].classList.contains('num')),
+      rows: rows.map((row) => wanted.map((i) => cellAsFigure(row.children[i]))),
+      tones: rows.map((row) => wanted.map((i) => toneOf(row.children[i]))),
+    };
+  } finally {
+    if (page) tbody.replaceChildren(...page);
+  }
 }
 
 /**
@@ -18542,14 +19108,13 @@ function wireForms() {
       });
   });
 
-  $('#filter-ts-project').addEventListener('change',
-    () => mutate(loadTimesheets, null, null));
+  $('#filter-ts-project').addEventListener('change', searchTimesheets);
 
   // Into the entries still waiting for a project, which is the project filter's
   // own "No project" - this only makes it findable.
   $('#ts-unassigned').addEventListener('click', () => {
     $('#filter-ts-project').value = 'none';
-    mutate(loadTimesheets, null, null);
+    searchTimesheets();
   });
 
   // A day is taken once it is complete - picked, or typed and left - and the
@@ -18558,27 +19123,26 @@ function wireForms() {
   const filters = $('#form-ts-filters');
 
   filters.addEventListener('change', (event) => {
-    if (event.target.id !== 'filter-ts-q') mutate(loadTimesheets, null, null);
+    if (event.target.id !== 'filter-ts-q') searchTimesheets();
   });
 
   let searchPause = null;
 
   $('#filter-ts-q').addEventListener('input', () => {
     clearTimeout(searchPause);
-    searchPause = setTimeout(() => mutate(loadTimesheets, null, null), 300);
+    searchPause = setTimeout(searchTimesheets, 300);
   });
 
   // Enter asks at once rather than waiting out the pause.
   filters.addEventListener('submit', (event) => {
     event.preventDefault();
     clearTimeout(searchPause);
-    mutate(loadTimesheets, null, null);
+    searchTimesheets();
   });
 
-  // Through mutate like every other loader, so a half-filled booking form is left
-  // alone while the table grows underneath it.
-  $('#ts-more').addEventListener('click',
-    () => mutate(() => loadTimesheets(true), null, null));
+  // The pages, through mutate like every other loader, so a half-filled booking
+  // form is left alone while the table changes underneath it.
+  SERVER_PAGE_LOADERS['table-timesheets'] = () => mutate(loadTimesheets, null, null);
 
   $('#tabs').addEventListener('click', (e) => {
     const tab = e.target.closest('.tab');

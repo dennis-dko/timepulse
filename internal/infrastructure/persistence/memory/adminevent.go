@@ -2,6 +2,8 @@ package memory
 
 import (
 	"context"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/dennis-dko/timepulse/internal/domain/model"
@@ -31,17 +33,56 @@ func (r *AdminEventRepository) Record(_ context.Context, event *model.AdminEvent
 	return nil
 }
 
-func (r *AdminEventRepository) Before(_ context.Context, beforeID uint, limit int) ([]model.AdminEvent, error) {
+func (r *AdminEventRepository) Find(
+	_ context.Context,
+	filter repository.AdminEventFilter,
+) ([]model.AdminEvent, uint, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	page := make([]model.AdminEvent, 0, limit)
+	var (
+		page    []model.AdminEvent
+		total   uint
+		skipped uint
+	)
 
-	for i := len(r.events) - 1; i >= 0 && len(page) < limit; i-- {
-		if beforeID == 0 || r.events[i].ID < beforeID {
-			page = append(page, r.events[i])
+	for i := len(r.events) - 1; i >= 0; i-- {
+		event := r.events[i]
+		if !keeps(filter, event) {
+			continue
+		}
+
+		total++
+
+		switch {
+		case filter.BeforeID > 0 && event.ID >= filter.BeforeID:
+		case skipped < filter.Offset:
+			skipped++
+		case filter.Limit == 0 || uint(len(page)) < filter.Limit:
+			page = append(page, event)
 		}
 	}
 
-	return page, nil
+	return page, total, nil
+}
+
+// keeps says whether a filter keeps a change, as the database's statement does.
+func keeps(filter repository.AdminEventFilter, event model.AdminEvent) bool {
+	if len(filter.Prefixes) > 0 && !slices.ContainsFunc(filter.Prefixes, func(prefix string) bool {
+		return strings.HasPrefix(event.Action, prefix)
+	}) {
+		return false
+	}
+
+	if filter.Text == "" {
+		return true
+	}
+
+	text := strings.ToLower(filter.Text)
+
+	return strings.Contains(strings.ToLower(event.Action), text) ||
+		strings.Contains(strings.ToLower(event.Detail), text) ||
+		slices.Contains(filter.People, event.ActorID) ||
+		(strings.HasPrefix(event.Action, "user.") && slices.Contains(filter.People, event.TargetID)) ||
+		(strings.HasPrefix(event.Action, "role.") && slices.Contains(filter.Roles, event.TargetID))
 }
