@@ -1007,6 +1007,68 @@ button.danger:not(.link) {
    as part of the table rather than of the card. */
 .table-wrap + .row { margin-top: 16px; }
 
+/* A long table's search and filter, above it. Folds rather than squeezing, like
+   the selection bar under it. */
+.list-tools {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.list-tools label { flex: 1 1 14em; max-width: 26em; }
+
+/* Its pages, below it: how many rows a page holds, which of how many are shown,
+   and the steps between pages - at the right, where the pointer that has just
+   pressed "next" still is. */
+.pager {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.pager + .row { margin-top: 16px; }
+
+.pager label { align-items: center; flex-direction: row; gap: 8px; }
+.pager select { width: auto; }
+.pager-buttons { align-items: center; display: inline-flex; gap: 6px; }
+.pager-buttons button { min-width: var(--control); padding: 0 12px; }
+.pager-page { font-variant-numeric: tabular-nums; padding-inline: 6px; white-space: nowrap; }
+.pager-range { font-variant-numeric: tabular-nums; }
+
+/* A long table scrolls inside its box rather than lengthening the page, and
+ * keeps its headings in view while it does.
+ *
+ * Only a long one: a short table has nothing to scroll, and a box with a
+ * scrollbar of its own around it would be a second scrollbar for nothing. The
+ * line under the headings is a shadow, because a collapsed border belongs to
+ * the table rather than to the cell, and it scrolled away with the first row. */
+.table-wrap.paged { max-height: min(70vh, 48rem); overflow-y: auto; }
+
+.table-wrap.paged thead th {
+  background: var(--surface);
+  box-shadow: inset 0 -1px 0 var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Pinned to the right as well as the top, so above both the headings it passes
+   and the pinned actions of the rows beneath. */
+.table-wrap.paged thead th.actions { z-index: 2; }
+
+/* The pinned edge the actions draw in a narrow window, which the line above
+   would otherwise replace in the heading. */
+@media (max-width: 900px) {
+  .table-wrap.paged thead th.actions {
+    box-shadow: inset 0 -1px 0 var(--border), -10px 0 8px -8px rgb(16 24 40 / 22%);
+  }
+}
+
 table { border-collapse: collapse; width: 100%; }
 
 /* Eight pixels a side rather than ten: the accounts table has eight columns, and

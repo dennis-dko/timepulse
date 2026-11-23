@@ -847,7 +847,7 @@
           <table id="table-templates">
             <thead>
               <tr>
-                <th data-i18n="field.project">Project</th>
+                <th data-filter data-i18n="field.project">Project</th>
                 <th class="num" data-i18n="field.hours">Hours</th>
                 <th data-i18n="field.description">Description</th>
                 <th class="actions" data-i18n="field.action">Action</th>
@@ -1077,7 +1077,7 @@
             <thead>
               <tr>
                 <th data-i18n="field.day">Day</th>
-                <th data-i18n="field.kind">Reason</th>
+                <th data-filter data-i18n="field.kind">Reason</th>
                 <th class="actions" data-i18n="field.action">Action</th>
               </tr>
             </thead>
@@ -1152,7 +1152,7 @@
           <span class="year-tile level-0 away"></span><span data-i18n="year.away">Away</span>
         </p>
         <div class="table-wrap">
-          <table id="table-year">
+          <table id="table-year" data-pager="off">
             <thead>
               <tr>
                 <th data-i18n="year.month">Month</th>
@@ -1253,7 +1253,7 @@
                 <th data-i18n="field.name">Name</th>
                 <th data-i18n="field.period">Period</th>
                 <th data-i18n="field.description">Description</th>
-                <th data-i18n="field.status">Status</th>
+                <th data-filter data-i18n="field.status">Status</th>
                 <th class="actions" data-i18n="field.action">Action</th>
               </tr>
             </thead>
@@ -1299,7 +1299,7 @@
               <tr>
                 <th data-i18n="field.name">Name</th>
                 <th data-i18n="field.email">Email</th>
-                <th data-i18n="field.role">Role</th>
+                <th data-filter data-i18n="field.role">Role</th>
                 <!-- Where the account is kept, which decides what may be done to
                      it here: a directory account's name and address are copied
                      from the entry on every synchronisation, and removing it here
@@ -1934,12 +1934,14 @@
           <p class="muted" data-i18n="backup.scheduleHint">Five fields - minute, hour, day of the month, month, day of the week - in the installation's timezone. Empty makes no backup on its own; after each one, the oldest go until this many are left.</p>
           <button type="submit" data-i18n="action.save">Save</button>
         </form>
-        <table id="table-backups">
-          <thead>
-            <tr><th data-i18n="backup.made">Made</th><th class="num" data-i18n="backup.size">Size</th><th></th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <div class="table-wrap">
+          <table id="table-backups">
+            <thead>
+              <tr><th data-i18n="backup.made">Made</th><th class="num" data-i18n="backup.size">Size</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
       <form method="post" id="form-maintenance" class="card form" data-tab="operation">

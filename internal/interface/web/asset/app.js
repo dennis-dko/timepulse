@@ -2275,10 +2275,28 @@ function balanceCell(value) {
 
 const projectName = (id) => cache.projects.find((p) => p.id === id)?.name ?? `#${id}`;
 
-/** Replaces a tbody with rows, or a single "empty" row when there are none. */
+/**
+ * Replaces a tbody with rows, or a single "empty" row when there are none.
+ *
+ * A table that pages in the browser keeps every row it is given and shows a
+ * page of them; see pagerOf.
+ */
 function fillTable(tbody, rows, columnCount, emptyText) {
   // Before the rows go in, while they can still be read for delete buttons.
   const picking = prepareBulkDelete(tbody, rows);
+
+  const table = tbody.closest('table');
+  const pager = table ? pagerOf(table) : null;
+
+  if (pager && !pager.server) {
+    pager.rows = rows;
+    pager.texts = rows.map(searchTextOf);
+    pager.columnCount = columnCount + (picking ? 1 : 0);
+    pager.emptyText = emptyText;
+    showPage(table, pager);
+
+    return;
+  }
 
   tbody.replaceChildren();
 
@@ -2293,7 +2311,440 @@ function fillTable(tbody, rows, columnCount, emptyText) {
   // are ticked out of the table, so refreshing it before this line counted the rows
   // of the previous render: delete two of three, and the bar stayed up saying
   // "3 selected" over a table where nothing was ticked at all.
-  if (picking) refreshBulkBar(tbody.closest('table'));
+  if (picking) refreshBulkBar(table);
+}
+
+// ------------------------------------------------------------------ long tables
+
+/**
+ * The page sizes a long table offers. The first is also the length from which it
+ * offers them: a table of ten rows or fewer is shown whole, because a search box
+ * and a row of page buttons over something that fits in a glance are furniture.
+ */
+const PAGE_SIZES = [10, 25, 50, 100];
+
+/** The page size a table starts on until its reader chooses another. */
+const DEFAULT_PAGE_SIZE = 25;
+
+/**
+ * The paging of each table that pages, by table.
+ *
+ * Every table filled through fillTable pages, so a list nobody expected to grow
+ * cannot become an endless card - unless it says data-pager="off", because its
+ * length is fixed: twelve months are twelve rows whatever happens, and a pager
+ * over them would offer to split a year in two. A table whose rows live on the
+ * server says data-pager="server": its loader asks pageWindow which part to
+ * fetch and reports what matched with pagedOnServer, and its own form does the
+ * searching, because only the server can search what it has not sent. Every
+ * other table is given all its rows and searches, filters and pages them here.
+ */
+const pagers = new Map();
+
+/**
+ * What reloads a server-paged table, by its id, for a page button or a page
+ * size to call. Each loader reads pageWindow itself.
+ */
+const SERVER_PAGE_LOADERS = {};
+
+function pagerOf(table) {
+  if (table.dataset.pager === 'off') return null;
+
+  let pager = pagers.get(table);
+
+  if (!pager) {
+    pager = {
+      server: table.dataset.pager === 'server',
+      rows: [],
+      texts: [],
+      columnCount: 1,
+      emptyText: '',
+      query: '',
+      choice: '',
+      page: 0,
+      size: storedPageSize(table),
+      total: 0,
+      tools: null,
+      nav: null,
+    };
+
+    pagers.set(table, pager);
+  }
+
+  return pager;
+}
+
+/**
+ * The page size this reader chose for a table, per account like the screen they
+ * were last on, so two people sharing a browser do not inherit each other's.
+ * Storage that refuses costs nothing but the choice.
+ */
+function storedPageSize(table) {
+  try {
+    const size = Number(localStorage.getItem(pageSizeKey(table)));
+
+    return PAGE_SIZES.includes(size) ? size : DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
+  }
+}
+
+function pageSizeKey(table) {
+  return `timepulse_pagesize_${me.user?.id ?? 0}_${table.id}`;
+}
+
+/** Text as a search compares it: lower case, and without accents. */
+function folded(text) {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/**
+ * What a row is found by: the text of its cells, without its tick box and its
+ * buttons. With the buttons, every row of a list would contain "delete", and a
+ * search for it would find them all.
+ */
+function searchTextOf(row) {
+  return folded(cellsOf(row)
+    .filter((cell) => !cell.classList.contains('actions'))
+    .map((cell) => cell.textContent)
+    .join(' '));
+}
+
+/** A row's own cells, without the tick box the selection puts in front of them. */
+function cellsOf(row) {
+  return [...(row.cells ?? [])].filter((cell) => !cell.classList.contains('pick'));
+}
+
+/**
+ * The column a table can be narrowed by, which its heading names with
+ * data-filter: the kind of value a list is sorted into, such as a role or a
+ * status. -1 for a table with none, which is searched only.
+ */
+function filterColumnOf(table) {
+  const headings = cellsOf(table.tHead?.rows[0] ?? {});
+
+  return headings.findIndex((heading) => heading.hasAttribute('data-filter'));
+}
+
+function filterValueOf(row, column) {
+  return cellsOf(row)[column]?.textContent.trim() ?? '';
+}
+
+/** Whether a table is long enough to search and page. */
+function pagesAtAll(pager) {
+  return (pager.server ? pager.total : pager.rows.length) > PAGE_SIZES[0];
+}
+
+/** The rows a table's search and filter let through, on every page. */
+function matchingRows(table, pager) {
+  const column = filterColumnOf(table);
+
+  return pager.rows.filter((row, i) => (!pager.query || pager.texts[i].includes(pager.query))
+    && (!pager.choice || column < 0 || filterValueOf(row, column) === pager.choice));
+}
+
+/**
+ * Every row a paged table lets through, on every page, for what is read off the
+ * screen rather than looked at - a document is the list somebody narrowed, not
+ * the page of it they happened to be on. Null for a table that shows every row
+ * anyway.
+ */
+function pagedRows(table) {
+  const pager = pagers.get(table);
+  if (!pager || pager.server || !pagesAtAll(pager)) return null;
+
+  return matchingRows(table, pager);
+}
+
+/**
+ * Draws the page a browser-paged table is on.
+ *
+ * A changed search, filter, page or page size unticks every row first. A
+ * selection that outlived the page it was made on would delete rows nobody can
+ * see, which is the reason a reload drops one too.
+ */
+function showPage(table, pager) {
+  const tbody = table.tBodies[0];
+
+  // Short again - most of a list deleted - leaves nothing narrowed behind a
+  // search box that is about to disappear.
+  if (!pagesAtAll(pager)) {
+    pager.query = '';
+    pager.choice = '';
+    pager.page = 0;
+
+    const search = pager.tools?.querySelector('.pager-query');
+    if (search) search.value = '';
+  }
+
+  // A filter value the reloaded rows no longer hold - the last account of a
+  // role deleted - would narrow the list to nothing under a choice that is not
+  // offered any more.
+  if (pager.choice && !filterValuesOf(table, pager).includes(pager.choice)) pager.choice = '';
+
+  const matching = pagesAtAll(pager) ? matchingRows(table, pager) : pager.rows;
+  const pages = Math.max(1, Math.ceil(matching.length / pager.size));
+
+  pager.page = Math.min(pager.page, pages - 1);
+
+  const shown = pagesAtAll(pager)
+    ? matching.slice(pager.page * pager.size, (pager.page + 1) * pager.size)
+    : matching;
+
+  tbody.replaceChildren();
+
+  if (shown.length === 0) {
+    const nothing = pager.rows.length === 0
+      ? pager.emptyText
+      : t('pager.none', 'Nothing in this list matches.');
+
+    tbody.append(el('tr', {}, el('td', { class: 'empty', colspan: pager.columnCount, text: nothing })));
+  } else {
+    tbody.append(...shown);
+  }
+
+  drawPager(table, pager, matching.length);
+
+  // After the rows are in, for the reason fillTable gives.
+  if (bulkBarOf(table)) refreshBulkBar(table);
+}
+
+/** Unticks every row a table holds, on every page. */
+function untickAll(pager) {
+  for (const row of pager.rows) {
+    for (const box of row.querySelectorAll?.('.row-pick') ?? []) box.checked = false;
+  }
+}
+
+/** Moves a table to another page, page size, search or filter. */
+function turnPage(table, pager, change) {
+  change();
+
+  if (pager.server) {
+    SERVER_PAGE_LOADERS[table.id]?.();
+
+    return;
+  }
+
+  untickAll(pager);
+  showPage(table, pager);
+}
+
+/**
+ * The part of a server-paged table to fetch: how many rows to skip and how
+ * many to ask for.
+ */
+function pageWindow(table) {
+  const pager = pagerOf(table);
+
+  return { offset: pager.page * pager.size, limit: pager.size };
+}
+
+/**
+ * Tells a server-paged table how many rows match altogether, once its page has
+ * been drawn. A page that came back empty although rows remain - the last few
+ * deleted from the last page - goes back to the page that is now last.
+ */
+function pagedOnServer(table, total) {
+  const pager = pagerOf(table);
+
+  pager.total = total;
+
+  const pages = Math.max(1, Math.ceil(total / pager.size));
+
+  if (pager.page > pages - 1) {
+    pager.page = pages - 1;
+    SERVER_PAGE_LOADERS[table.id]?.();
+
+    return;
+  }
+
+  drawPager(table, pager, total);
+}
+
+/** Starts a server-paged table again at its first page, for a changed filter. */
+function firstPage(table) {
+  pagerOf(table).page = 0;
+}
+
+/**
+ * Builds a table's controls the first time it is long enough to need them, and
+ * writes every word on them each time it is drawn - written once, they kept the
+ * language they were made in.
+ */
+function drawPager(table, pager, matched) {
+  const long = pagesAtAll(pager);
+
+  if (long) ensurePagerControls(table, pager);
+
+  table.parentElement?.classList.toggle('paged', long && tableAnchor(table) !== table);
+
+  if (pager.tools) {
+    pager.tools.hidden = !long;
+
+    const search = pager.tools.querySelector('.pager-query');
+    search.setAttribute('placeholder', t('pager.searchHint', 'a name, a word, a date'));
+    pager.tools.querySelector('.pager-query-label').textContent = t('pager.search', 'Search this list');
+
+    const choice = pager.tools.querySelector('.pager-choice');
+    if (choice) drawFilterChoices(table, pager, choice);
+  }
+
+  if (!pager.nav) return;
+
+  pager.nav.hidden = !long;
+  if (!long) return;
+
+  const pages = Math.max(1, Math.ceil(matched / pager.size));
+  const first = matched === 0 ? 0 : pager.page * pager.size + 1;
+  const last = Math.min(matched, (pager.page + 1) * pager.size);
+  const count = (n) => new Intl.NumberFormat(activeLocale()).format(n);
+
+  pager.nav.querySelector('.pager-size-label').textContent = t('pager.size', 'Per page');
+  pager.nav.querySelector('.pager-range').textContent = fillIn(t('pager.range', '{0}–{1} of {2}'),
+    [count(first), count(last), count(matched)]);
+  pager.nav.querySelector('.pager-page').textContent = fillIn(t('pager.page', 'Page {0} of {1}'),
+    [count(pager.page + 1), count(pages)]);
+  pager.nav.querySelector('.pager-size').value = String(pager.size);
+
+  const buttons = {
+    first: [t('pager.first', 'First page'), pager.page === 0],
+    previous: [t('pager.previous', 'Previous page'), pager.page === 0],
+    next: [t('pager.next', 'Next page'), pager.page >= pages - 1],
+    last: [t('pager.last', 'Last page'), pager.page >= pages - 1],
+  };
+
+  for (const [which, [label, off]] of Object.entries(buttons)) {
+    const button = pager.nav.querySelector(`[data-page="${which}"]`);
+
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.disabled = off;
+  }
+}
+
+/**
+ * The search above a table and the pages below it.
+ *
+ * The search goes above the selection bar and the bar above the table, so what
+ * narrows the list, what acts on it and the list itself read in that order. A
+ * table whose rows live on the server has no search here: its own form is
+ * where it is searched.
+ */
+function ensurePagerControls(table, pager) {
+  const anchor = tableAnchor(table);
+  if (!anchor.parentElement) return;
+
+  if (!pager.tools && !pager.server) {
+    const search = el('input', {
+      type: 'search',
+      class: 'pager-query',
+      autocomplete: 'off',
+      oninput: (event) => turnPage(table, pager, () => {
+        pager.query = folded(event.target.value.trim());
+        pager.page = 0;
+      }),
+    });
+
+    const column = filterColumnOf(table);
+    const choice = column < 0 ? null : el('select', {
+      class: 'pager-choice',
+      onchange: (event) => turnPage(table, pager, () => {
+        pager.choice = event.target.value;
+        pager.page = 0;
+      }),
+    });
+
+    pager.tools = el('div', { class: 'list-tools' },
+      el('label', {}, el('span', { class: 'pager-query-label' }), search),
+      choice ? el('label', {}, el('span', { class: 'pager-choice-label' }), choice) : null);
+
+    anchor.parentElement.insertBefore(pager.tools, bulkBarOf(table) ?? anchor);
+  }
+
+  if (!pager.nav) {
+    const step = (which, sign) => el('button', {
+      type: 'button',
+      class: 'secondary',
+      'data-page': which,
+      text: sign,
+      onclick: () => turnPage(table, pager, () => {
+        const pages = Math.max(1, Math.ceil((pager.server ? pager.total
+          : matchingRows(table, pager).length) / pager.size));
+
+        pager.page = {
+          first: 0,
+          previous: Math.max(0, pager.page - 1),
+          next: Math.min(pages - 1, pager.page + 1),
+          last: pages - 1,
+        }[which];
+      }),
+    });
+
+    const size = el('select', {
+      class: 'pager-size',
+      onchange: (event) => turnPage(table, pager, () => {
+        pager.size = Number(event.target.value);
+        pager.page = 0;
+
+        try {
+          localStorage.setItem(pageSizeKey(table), String(pager.size));
+        } catch {
+          // The choice holds for this page; storage that refuses keeps no more.
+        }
+      }),
+    }, ...PAGE_SIZES.map((n) => el('option', { value: String(n), text: String(n) })));
+
+    pager.nav = el('div', { class: 'pager' },
+      el('label', {}, el('span', { class: 'pager-size-label' }), size),
+      el('span', { class: 'pager-range muted' }),
+      el('span', { class: 'pager-buttons' },
+        step('first', '«'), step('previous', '‹'),
+        el('span', { class: 'pager-page' }),
+        step('next', '›'), step('last', '»')));
+
+    anchor.after(pager.nav);
+  }
+}
+
+/**
+ * Fills a table's filter with the values its column holds now, keeping the one
+ * chosen while it is still among them.
+ */
+function drawFilterChoices(table, pager, choice) {
+  const heading = cellsOf(table.tHead.rows[0])[filterColumnOf(table)];
+
+  pager.tools.querySelector('.pager-choice-label').textContent = heading?.textContent.trim() ?? '';
+  choice.replaceChildren(
+    el('option', { value: '', text: t('pager.all', 'All') }),
+    ...filterValuesOf(table, pager).map((value) => el('option', { value, text: value })));
+  choice.value = pager.choice;
+}
+
+/** The values a table's filter column holds, each once, in the reader's order. */
+function filterValuesOf(table, pager) {
+  const column = filterColumnOf(table);
+  if (column < 0) return [];
+
+  const collator = new Intl.Collator(activeLocale(), { numeric: true, sensitivity: 'base' });
+
+  return [...new Set(pager.rows.map((row) => filterValueOf(row, column)))]
+    .filter(Boolean)
+    .sort(collator.compare);
+}
+
+/**
+ * Forgets every table's search, filter and page for whoever signs in next: what
+ * somebody searched for is theirs, as the entry filter's form says of its own.
+ */
+function forgetPagers() {
+  for (const pager of pagers.values()) {
+    pager.tools?.remove();
+    pager.nav?.remove();
+  }
+
+  for (const wrap of $$('.table-wrap.paged')) wrap.classList.remove('paged');
+
+  pagers.clear();
 }
 
 /**
@@ -3898,6 +4349,13 @@ function forgetEveryRedraw() {
 
 function redrawAll() {
   for (const draw of redraws.values()) draw();
+
+  // The words on a long table's search and pages, for a table no draw above
+  // refills: they are written when the table is drawn, and some tables are drawn
+  // only when their own data changes.
+  for (const [table, pager] of pagers) {
+    drawPager(table, pager, pager.server ? pager.total : matchingRows(table, pager).length);
+  }
 
   // The greeting is written entirely by the script and is drawn on arrival
   // rather than by any loader, so nothing else would put it back into the
@@ -10220,6 +10678,10 @@ function forgetTheLastAccount() {
   // empty table offering to delete three things.
   for (const bar of $$('.bulk-bar')) bar.remove();
 
+  // And the long tables' searches, filters and pages, with the counts beside
+  // them: "1-25 of 312" is how much the last account had.
+  forgetPagers();
+
   // And the entry list's own memory, with the line that counts it. "Showing 25 of
   // 26 entries" is how much the last account recorded, and it is a div beside the
   // list rather than a table, so the sweep above did not reach it: it stood over
@@ -14800,19 +15262,36 @@ function tableAsFigures(table) {
 
   if (wanted.length === 0) return null;
 
-  const rows = [...table.querySelectorAll('tbody tr')]
-    // The "nothing here" line is a message, not a row of figures. It is told
-    // apart by being the row's only cell, not by its class alone: a statement's
-    // "no rate yet" is marked empty as well, and its line was left out of the
-    // document with its hours.
-    .filter((row) => !(row.children.length === 1 && row.firstElementChild.matches('td.empty')));
+  // Every row the reader narrowed the table to, not the page of it on screen:
+  // a long table shows a page at a time, and a document cut off at the page
+  // somebody happened to be on would be missing the rest without saying so.
+  // They are put into the table while they are read, and the page put back
+  // after, within this one task, so nothing is drawn in between: whether a
+  // cell's parts stand one under another is the stylesheet's answer, and it
+  // gives none for a row outside the document.
+  const every = pagedRows(table);
+  const tbody = table.tBodies[0];
+  const page = every ? [...tbody.children] : null;
 
-  return {
-    columns: wanted.map((i) => headings[i].textContent.trim()),
-    numeric: wanted.map((i) => headings[i].classList.contains('num')),
-    rows: rows.map((row) => wanted.map((i) => cellAsFigure(row.children[i]))),
-    tones: rows.map((row) => wanted.map((i) => toneOf(row.children[i]))),
-  };
+  if (every) tbody.replaceChildren(...every);
+
+  try {
+    const rows = [...table.querySelectorAll('tbody tr')]
+      // The "nothing here" line is a message, not a row of figures. It is told
+      // apart by being the row's only cell, not by its class alone: a statement's
+      // "no rate yet" is marked empty as well, and its line was left out of the
+      // document with its hours.
+      .filter((row) => !(row.children.length === 1 && row.firstElementChild.matches('td.empty')));
+
+    return {
+      columns: wanted.map((i) => headings[i].textContent.trim()),
+      numeric: wanted.map((i) => headings[i].classList.contains('num')),
+      rows: rows.map((row) => wanted.map((i) => cellAsFigure(row.children[i]))),
+      tones: rows.map((row) => wanted.map((i) => toneOf(row.children[i]))),
+    };
+  } finally {
+    if (page) tbody.replaceChildren(...page);
+  }
 }
 
 /**
