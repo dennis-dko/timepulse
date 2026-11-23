@@ -84,5 +84,6 @@ func keeps(filter repository.AdminEventFilter, event model.AdminEvent) bool {
 		strings.Contains(strings.ToLower(event.Detail), text) ||
 		slices.Contains(filter.People, event.ActorID) ||
 		(strings.HasPrefix(event.Action, "user.") && slices.Contains(filter.People, event.TargetID)) ||
-		(strings.HasPrefix(event.Action, "role.") && slices.Contains(filter.Roles, event.TargetID))
+		(strings.HasPrefix(event.Action, "role.") && slices.Contains(filter.Roles, event.TargetID)) ||
+		slices.Contains(filter.Actions, event.Action)
 }

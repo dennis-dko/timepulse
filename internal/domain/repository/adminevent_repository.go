@@ -33,6 +33,11 @@ type AdminEventFilter struct {
 	People []uint
 	Roles  []uint
 
+	// Actions are the actions whose sentence on screen contains Text, which only
+	// the screen can work out - it words the log, in its reader's language - and
+	// a change of one of them matches Text as well. Not asked without Text.
+	Actions []string
+
 	// BeforeID keeps the changes older than this one; zero reads from the newest.
 	BeforeID uint
 

@@ -3042,6 +3042,14 @@
               "type": "integer"
             },
             "description": "Only the changes older than the one with this id: paging by the last entry shown, which cannot skip or repeat one while new changes arrive."
+          },
+          {
+            "name": "actions",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated actions, such as `user.created,role.created`, whose sentence on screen contains `q`: a change of one of them matches `q` as well. The log is worded by the screen, in its reader's language, and kept here as codes, so only the screen can say which codes its words mean. Not asked without `q`. Anything not shaped like an action, and more than 64 of them, are refused."
           }
         ],
         "responses": {
