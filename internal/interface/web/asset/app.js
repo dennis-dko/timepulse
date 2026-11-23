@@ -9307,22 +9307,52 @@ async function loadAdmin() {
 
 // ------------------------------------------------------- administration log
 
-/** The changes shown so far, oldest last, and whether older ones remain. */
-let adminChanges = { entries: [], more: false };
+/**
+ * The page of the log on screen, how many changes match altogether, and whether
+ * the card's search or area narrowed them - which decides what an empty page
+ * says.
+ */
+let adminChanges = { entries: [], total: 0, narrowed: false };
+
+/** How many loads of the log have begun, so an answer can tell it was overtaken. */
+let changeLoads = 0;
 
 /**
- * Reads the administration log: the newest page, or the page before the oldest
- * change shown when older ones are asked for.
+ * Reads the page of the administration log its pager is on, narrowed by the
+ * card's search and area.
+ *
+ * On the server rather than here: the log keeps ids and reads names when it is
+ * shown, so the browser holds the names of one page of changes, and a search
+ * of that page would miss every change made to somebody further back.
+ *
+ * Only the newest load's answer is kept, as the entry list keeps its own: the
+ * search asks once its typing pauses, and an older answer arriving last would
+ * leave its page under the newer search's words.
  */
-async function loadChanges(older = false) {
-  if (!can('settings:manage') || !$('#changes-card')) return;
+async function loadChanges() {
+  const table = $('#table-changes');
+  if (!can('settings:manage') || !table) return;
 
-  const before = older ? adminChanges.entries.at(-1)?.id : null;
-  const page = await api(`/admin/changes${before ? `?before=${before}` : ''}`);
+  const { offset, limit } = pageWindow(table);
+  const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+
+  const search = $('#filter-changes-q')?.value.trim() ?? '';
+  const area = $('#filter-changes-area')?.value ?? '';
+
+  if (search) params.set('q', search);
+  if (area) params.set('area', area);
+
+  changeLoads += 1;
+  const asked = changeLoads;
+
+  const page = await api(`/admin/changes?${params}`);
+
+  if (asked !== changeLoads) return;
 
   adminChanges = {
-    entries: older ? [...adminChanges.entries, ...page.entries] : page.entries,
-    more: page.more,
+    entries: page?.entries ?? [],
+    total: page?.totalCount ?? 0,
+    narrowed: Boolean(search || area),
   };
 
   redrawable('changes', drawChanges);
@@ -9341,8 +9371,10 @@ function drawChanges() {
     el('td', { text: describeChange(entry) }),
   ));
 
-  fillTable($('#table-changes tbody'), rows, 3, t('changes.empty', 'Nothing has been changed yet.'));
-  $('#changes-more').hidden = !adminChanges.more;
+  fillTable($('#table-changes tbody'), rows, 3, adminChanges.narrowed
+    ? t('changes.none', 'No change matches this search.')
+    : t('changes.empty', 'Nothing has been changed yet.'));
+  pagedOnServer($('#table-changes'), adminChanges.total);
 }
 
 /**
@@ -9496,7 +9528,34 @@ function cropPreview(dataURI, crop, into) {
 }
 
 function wireAdmin() {
-  $('#changes-more').addEventListener('click', () => mutate(() => loadChanges(true), null, null));
+  // The log's pages, and its search and area, as the entry list takes its own:
+  // an area at once, the search once the typing pauses, Enter without waiting -
+  // each from the first page, because a page of the old answer is not a page of
+  // the new one.
+  SERVER_PAGE_LOADERS['table-changes'] = () => mutate(loadChanges, null, null);
+
+  const changeFilters = $('#form-changes-filters');
+  const searchChanges = () => {
+    firstPage($('#table-changes'));
+    mutate(loadChanges, null, null);
+  };
+
+  let changeSearchPause = null;
+
+  changeFilters.addEventListener('change', (event) => {
+    if (event.target.id !== 'filter-changes-q') searchChanges();
+  });
+
+  $('#filter-changes-q').addEventListener('input', () => {
+    clearTimeout(changeSearchPause);
+    changeSearchPause = setTimeout(searchChanges, 300);
+  });
+
+  changeFilters.addEventListener('submit', (event) => {
+    event.preventDefault();
+    clearTimeout(changeSearchPause);
+    searchChanges();
+  });
 
   $('#logo-file').addEventListener('change', (e) => {
     const file = e.target.files?.[0];

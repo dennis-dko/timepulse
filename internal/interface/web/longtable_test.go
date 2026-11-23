@@ -106,3 +106,35 @@ var (
 	tableBlock   = regexp.MustCompile(`(?s)<table(?:\s[^>]*)?>.*?</table>`)
 	tableWrap    = regexp.MustCompile(`^<div\s[^>]*\bclass="(?:[^"]*\s)?table-wrap(?:\s[^"]*)?"[^>]*>$`)
 )
+
+// A table paged on the server has a loader its page buttons call. Without one,
+// a press on "next" changes the page number the table keeps and nothing else.
+func TestEveryServerPagedTableHasItsLoader(t *testing.T) {
+	markup := withoutComments(readAsset(t, "index.html"))
+	script := readAsset(t, "app.js")
+
+	var paged int
+
+	for _, tag := range tableTag.FindAllString(markup, -1) {
+		if !strings.Contains(tag, `data-pager="server"`) {
+			continue
+		}
+
+		paged++
+
+		id := elementID.FindStringSubmatch(tag)
+		if id == nil {
+			t.Errorf("a table without an id is paged on the server: %s", tag)
+
+			continue
+		}
+
+		if !strings.Contains(script, "SERVER_PAGE_LOADERS['"+id[1]+"'] = ") {
+			t.Errorf(`%s says data-pager="server" and app.js registers no loader for it in SERVER_PAGE_LOADERS`, id[1])
+		}
+	}
+
+	if paged == 0 {
+		t.Fatal(`no table says data-pager="server", so this test is no longer reading the markup`)
+	}
+}
