@@ -2221,6 +2221,46 @@
         }
       }
     },
+    "/me/workdays/export": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Your working time as a spreadsheet",
+        "description": "The period /me/workdays answers - `from` and `to`, the current month in your timezone when neither is given - as an .xlsx of one sheet: the day, when it began and finished, its breaks in minutes, and the hours worked and booked, as numbers a spreadsheet adds up. A day booked on without its times recorded carries only its booked hours. The Working Hours Act's notices stay with the document the screen exports. `lang` words the headings.",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The language of the headings, `de` or `en`; English when absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook"
+          }
+        }
+      }
+    },
     "/me/workdays/{date}": {
       "put": {
         "tags": [

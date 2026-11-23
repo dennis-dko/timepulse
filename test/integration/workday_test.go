@@ -3,9 +3,12 @@
 package integration
 
 import (
+	"bytes"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/xuri/excelize/v2"
 )
 
 type workDays struct {
@@ -148,5 +151,55 @@ func TestWhatTheWorkingHoursActSaysTravelsWithTheDay(t *testing.T) {
 
 	if ordinary.Notices == nil || len(ordinary.Notices) != 0 {
 		t.Errorf("the 13th says %+v, want an empty list rather than none", ordinary.Notices)
+	}
+}
+
+// The working time of a period leaves as a spreadsheet of figures: the day, when
+// it began and finished, its breaks, and the hours worked and booked - numbers a
+// spreadsheet can add up, not "8.25 h" as text - with its headings in the
+// language asked for. A day booked on without its times recorded is there with
+// its booked hours and nothing invented for the rest.
+func TestTheWorkingTimeLeavesAsASpreadsheetOfFigures(t *testing.T) {
+	t.Parallel()
+
+	_, _, worker := startWithWorker(t)
+
+	worker.must(worker.api(http.MethodPut, "/me/workdays/2026-08-03", map[string]any{
+		"start": "08:00", "end": "16:30", "breakMinutes": 30,
+	}), http.StatusOK)
+	entryOf(t, worker, map[string]any{"date": "2026-08-03", "durationHours": 7.5})
+	entryOf(t, worker, map[string]any{"date": "2026-08-04", "durationHours": 2})
+
+	exported := worker.must(worker.api(http.MethodGet, "/me/workdays/export?from=2026-08-01&to=2026-08-31&lang=de", nil),
+		http.StatusOK)
+
+	book, err := excelize.OpenReader(bytes.NewReader(exported.Body))
+	if err != nil {
+		t.Fatalf("opening the workbook: %v", err)
+	}
+
+	defer func() { _ = book.Close() }()
+
+	rows, err := book.GetRows("Arbeitszeit")
+	if err != nil {
+		t.Fatalf("reading the German sheet: %v (sheets %v)", err, book.GetSheetList())
+	}
+
+	if len(rows) != 3 || strings.Join(rows[0], "|") != "Datum|Beginn|Ende|Pausen (Minuten)|Gearbeitet|Gebucht" {
+		t.Fatalf("the sheet reads %q, want the headings and the two days", rows)
+	}
+
+	if got := strings.Join(rows[1], "|"); got != "2026-08-03|08:00|16:30|30|8|7.5" {
+		t.Errorf("the recorded day reads %q", got)
+	}
+
+	if got := strings.Join(rows[2], "|"); got != "2026-08-04|||||2" {
+		t.Errorf("the day booked without its times reads %q", got)
+	}
+
+	// Figures, not text: a spreadsheet adds up what is numeric.
+	kind, err := book.GetCellType("Arbeitszeit", "E2")
+	if err != nil || kind != excelize.CellTypeNumber && kind != excelize.CellTypeUnset {
+		t.Errorf("the hours worked are a cell of type %v (%v), want a number", kind, err)
 	}
 }

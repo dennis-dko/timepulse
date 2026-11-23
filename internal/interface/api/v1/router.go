@@ -217,6 +217,7 @@ func RegisterRoutes(app *gofr.App, h Handlers) {
 
 	// When somebody worked, a day at a time - theirs, like their entries.
 	app.GET(base+"/me/workdays", h.WorkDays.List)
+	app.GET(base+"/me/workdays/export", h.WorkDays.Export)
 	app.PUT(base+"/me/workdays/{date}", h.WorkDays.Record)
 	app.DELETE(base+"/me/workdays/{date}", h.WorkDays.Remove)
 
