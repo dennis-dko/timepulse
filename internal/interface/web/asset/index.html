@@ -789,7 +789,7 @@
         <div class="table-wrap">
           <!-- data-assigns: the selection bar also offers to give the ticked
                entries a project. -->
-          <table id="table-timesheets" data-assigns>
+          <table id="table-timesheets" data-assigns data-pager="server">
             <thead>
               <tr>
                 <th data-i18n="field.date">Date</th>
@@ -801,10 +801,6 @@
             </thead>
             <tbody></tbody>
           </table>
-        </div>
-        <div class="row" id="ts-more-row" hidden>
-          <button type="button" class="secondary" id="ts-more" data-i18n="ts.more">Show more</button>
-          <span class="muted" id="ts-shown"></span>
         </div>
       </div>
       <div class="card" id="workbook-card" data-perm="timesheets:read:own" data-tab="sheet">

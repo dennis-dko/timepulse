@@ -6499,20 +6499,6 @@ async function reloadTimeViews() {
   await loadNotices();
 }
 
-/**
- * How many entries the list asks for at a time.
- *
- * A screenful rather than everything. This list used to ask for every entry the
- * account had ever booked, on every load and again after every save, and the
- * request grew for as long as somebody kept recording time - the kind of slow
- * that arrives a week at a time and never becomes a bug report.
- *
- * Smaller than the API's own default page, deliberately: the endpoint answers
- * clients that are fetching rather than showing, and a table asks for what it can
- * put on a screen. Both are bounded, which is the part that matters.
- */
-const TIMESHEET_PAGE = 25;
-
 /** The entries the table is showing, which is a page of them at a time. */
 let timesheetEntries = [];
 
@@ -6523,27 +6509,33 @@ let timesheetTotal = 0;
 let timesheetLoads = 0;
 
 /**
- * Loads the entries, one page at a time.
+ * Loads the page of entries the table's pager is on.
  *
- * `more` appends the next page instead of starting again. Everything else -
- * changing the filter, booking, correcting, deleting - starts again from the
- * first page on purpose: the list has changed underneath, and an offset into a
- * list that has moved skips one entry and repeats another.
+ * A page rather than everything. This list used to ask for every entry the
+ * account had ever booked, on every load and again after every save, and the
+ * request grew for as long as somebody kept recording time - the kind of slow
+ * that arrives a week at a time and never becomes a bug report. The page is the
+ * pager's size, a screenful by default and smaller than the API's own default:
+ * the endpoint answers clients that are fetching rather than showing.
+ *
+ * Booking, correcting and deleting read the same page again; a changed filter
+ * starts again from the first, through searchTimesheets, because a page of the
+ * old answer is not a page of the new one.
  *
  * Only the newest load's answer is kept. Each one emptied the list as it began
  * and added its answer when it came back, so two at once - stepping through the
  * filter with the arrow keys sends one per step - put two projects' entries under
- * a filter naming one, and two presses of "more" the same page twice.
+ * a filter naming one.
  */
-async function loadTimesheets(more = false) {
+async function loadTimesheets() {
   if (!can('timesheets:read:own')) return;
 
+  const table = $('#table-timesheets');
   const params = timesheetFilterParams();
+  const { offset, limit } = pageWindow(table);
 
-  const before = more ? timesheetEntries : [];
-
-  params.set('limit', String(TIMESHEET_PAGE));
-  params.set('offset', String(before.length));
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
 
   timesheetLoads += 1;
   const asked = timesheetLoads;
@@ -6557,7 +6549,7 @@ async function loadTimesheets(more = false) {
   // What the server says, not what arrived: those differ exactly when there is
   // another page, which is the whole question this screen has to answer.
   timesheetTotal = answer?.totalCount ?? page.length;
-  timesheetEntries = before.concat(page);
+  timesheetEntries = page;
 
   const entries = timesheetEntries;
 
@@ -6580,8 +6572,7 @@ async function loadTimesheets(more = false) {
   });
 
   fillTable($('#table-timesheets tbody'), rows, 5, t('ts.empty', 'No entries for this filter.'));
-
-  showTimesheetTally();
+  pagedOnServer(table, timesheetTotal);
 
   // The link answers to the filter as soon as the list does, from the count it
   // already has: the new count comes back a request later, and until then a list
@@ -6619,22 +6610,10 @@ function drawUnassigned() {
   link.textContent = fillIn(t('ts.unassigned', '{0} without a project'), [unassignedEntries]);
 }
 
-/**
- * Says how much of the list is on screen, and offers the rest.
- *
- * Both go down together once everything is showing. A table that is complete and
- * one that has been cut short are otherwise the same picture, which is the only
- * way bounding the request could have gone wrong quietly.
- */
-function showTimesheetTally() {
-  const more = timesheetEntries.length < timesheetTotal;
-
-  $('#ts-more-row').hidden = !more;
-
-  $('#ts-shown').textContent = more
-    ? fillIn(t('ts.showing', 'Showing {0} of {1} entries'),
-      [timesheetEntries.length, timesheetTotal])
-    : '';
+/** Reads the entries again from the first page, for a filter that changed what they are. */
+function searchTimesheets() {
+  firstPage($('#table-timesheets'));
+  mutate(loadTimesheets, null, null);
 }
 
 // --------------------------------------------------------------- week grid
@@ -6908,7 +6887,7 @@ function showTheDaysEntries(date, key) {
 
   switchView('timesheets');
   openTheTabOf($('#entries-card'));
-  mutate(loadTimesheets, null, null);
+  searchTimesheets();
 }
 
 /**
@@ -10742,19 +10721,15 @@ function forgetTheLastAccount() {
   // them: "1-25 of 312" is how much the last account had.
   forgetPagers();
 
-  // And the entry list's own memory, with the line that counts it. "Showing 25 of
-  // 26 entries" is how much the last account recorded, and it is a div beside the
-  // list rather than a table, so the sweep above did not reach it: it stood over
-  // an emptied table until some loader replaced it, which for an account without
+  // And the entry list's own memory. The line that counts it, "1-25 of 26", is
+  // how much the last account recorded, and it is a row beside the list rather
+  // than a table, so the sweep above did not reach it: it stood over an emptied
+  // table until some loader replaced it, which for an account without
   // timesheets:read:own never happens. How much somebody recorded is theirs, by
-  // the same reasoning that hides the project record.
-  //
-  // Through showTimesheetTally rather than by emptying the span here, so one place
-  // still knows how that line is drawn - and it takes the "load more" row down
-  // with it, which would otherwise offer to fetch the rest of somebody else's.
+  // the same reasoning that hides the project record. forgetPagers above takes
+  // the line, and with it the steps that would fetch more of somebody else's.
   timesheetEntries = [];
   timesheetTotal = 0;
-  showTimesheetTally();
 
   // And an enrolment somebody was half way through. The panel holds a shared
   // secret, the otpauth URI that carries it together with the account's address,
@@ -19095,14 +19070,13 @@ function wireForms() {
       });
   });
 
-  $('#filter-ts-project').addEventListener('change',
-    () => mutate(loadTimesheets, null, null));
+  $('#filter-ts-project').addEventListener('change', searchTimesheets);
 
   // Into the entries still waiting for a project, which is the project filter's
   // own "No project" - this only makes it findable.
   $('#ts-unassigned').addEventListener('click', () => {
     $('#filter-ts-project').value = 'none';
-    mutate(loadTimesheets, null, null);
+    searchTimesheets();
   });
 
   // A day is taken once it is complete - picked, or typed and left - and the
@@ -19111,27 +19085,26 @@ function wireForms() {
   const filters = $('#form-ts-filters');
 
   filters.addEventListener('change', (event) => {
-    if (event.target.id !== 'filter-ts-q') mutate(loadTimesheets, null, null);
+    if (event.target.id !== 'filter-ts-q') searchTimesheets();
   });
 
   let searchPause = null;
 
   $('#filter-ts-q').addEventListener('input', () => {
     clearTimeout(searchPause);
-    searchPause = setTimeout(() => mutate(loadTimesheets, null, null), 300);
+    searchPause = setTimeout(searchTimesheets, 300);
   });
 
   // Enter asks at once rather than waiting out the pause.
   filters.addEventListener('submit', (event) => {
     event.preventDefault();
     clearTimeout(searchPause);
-    mutate(loadTimesheets, null, null);
+    searchTimesheets();
   });
 
-  // Through mutate like every other loader, so a half-filled booking form is left
-  // alone while the table grows underneath it.
-  $('#ts-more').addEventListener('click',
-    () => mutate(() => loadTimesheets(true), null, null));
+  // The pages, through mutate like every other loader, so a half-filled booking
+  // form is left alone while the table changes underneath it.
+  SERVER_PAGE_LOADERS['table-timesheets'] = () => mutate(loadTimesheets, null, null);
 
   $('#tabs').addEventListener('click', (e) => {
     const tab = e.target.closest('.tab');
