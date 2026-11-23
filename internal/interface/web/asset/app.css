@@ -768,14 +768,14 @@ button {
    weak as the rule above, so each of those wins with a rule of its own. The
    list is written twice more, for the shadow below and for a touch screen. */
 button:where(:not(.link, .link-button, .tab, .screen-tab, .app-title, .nav-toggle, .logo-use-button,
-  .password-toggle, .date-open, .toast-close)) {
+  .password-toggle, .date-open, .toast-close, .sort-toggle)) {
   min-height: var(--control);
   padding: 0 22px;
 }
 
 /* The form's own answer, lifted off the card on a shadow of its own colour. */
 button:where(:not(.secondary, .link, .link-button, .tab, .screen-tab, .danger, .app-title, .nav-toggle,
-  .logo-use-button, .password-toggle, .date-open, .toast-close, :disabled)) {
+  .logo-use-button, .password-toggle, .date-open, .toast-close, .sort-toggle, :disabled)) {
   box-shadow: 0 4px 12px var(--ring);
 }
 
@@ -1058,8 +1058,54 @@ button.danger:not(.link) {
 }
 
 /* Pinned to the right as well as the top, so above both the headings it passes
-   and the pinned actions of the rows beneath. */
-.table-wrap.paged thead th.actions { z-index: 2; }
+   and the pinned actions of the rows beneath; and the select-all box's cell
+   above the heading beside it, as it is in a table that does not scroll. */
+.table-wrap.paged thead th.actions,
+.table-wrap.paged thead th.pick { z-index: 2; }
+
+/* A heading that sorts its table.
+ *
+ * The button covers the whole cell and draws nothing of its own, so the cell is
+ * what a finger presses - forty-four pixels, as every button here is - and the
+ * heading's text stays the heading's: a document and the filter read it. The
+ * arrow is the cell's own, faint until its column is the one sorted by. */
+th.sortable {
+  height: var(--control);
+  position: relative;
+}
+
+/* The select-all box's cell above the heading beside it, where the two meet:
+ * that heading's button reached half a pixel into this cell, and a finger at
+ * the box's right-hand edge pressed "sort" instead of "select all". */
+th.pick {
+  position: relative;
+  z-index: 2;
+}
+
+th.sortable::after {
+  content: '\2195';
+  margin-left: 6px;
+  opacity: 0.4;
+}
+
+th.sortable[aria-sort="ascending"]::after { content: '\2191'; opacity: 1; }
+th.sortable[aria-sort="descending"]::after { content: '\2193'; opacity: 1; }
+th.sortable:hover { color: var(--text); }
+
+.sort-toggle {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  inset: 0;
+  min-height: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.sort-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* More rows below than the box shows: its lower edge fades, so the row it cuts
  * in half reads as the start of the rest rather than as the end of the list.
@@ -3416,7 +3462,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   /* The fields and the buttons that act are as high as a finger needs on every
      screen already; written again here so the line above does not lower them. */
   button:where(:not(.link, .link-button, .tab, .screen-tab, .app-title, .nav-toggle, .logo-use-button,
-  .password-toggle, .date-open, .toast-close)),
+  .password-toggle, .date-open, .toast-close, .sort-toggle)),
   select,
   input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
     min-height: var(--control);

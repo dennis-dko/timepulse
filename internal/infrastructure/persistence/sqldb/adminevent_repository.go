@@ -56,8 +56,13 @@ func (r *AdminEventRepository) Find(
 		args = append(args, filter.BeforeID)
 	}
 
+	direction := " DESC"
+	if filter.Ascending {
+		direction = " ASC"
+	}
+
 	query := "SELECT id, at, actor_id, action, target_id, detail FROM admin_events" + where(conditions) +
-		" ORDER BY id DESC"
+		" ORDER BY id" + direction
 
 	if filter.Limit > 0 {
 		query += " LIMIT ? OFFSET ?"

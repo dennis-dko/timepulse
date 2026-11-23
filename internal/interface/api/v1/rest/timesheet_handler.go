@@ -13,6 +13,7 @@ import (
 	"github.com/dennis-dko/timepulse/internal/application/v1/query"
 	"github.com/dennis-dko/timepulse/internal/application/v1/service"
 	"github.com/dennis-dko/timepulse/internal/domain/model"
+	"github.com/dennis-dko/timepulse/internal/domain/repository"
 	domainservice "github.com/dennis-dko/timepulse/internal/domain/service"
 	"github.com/dennis-dko/timepulse/internal/support/apperror"
 )
@@ -61,6 +62,11 @@ func (h *TimesheetHandler) List(c *gofr.Context) (any, error) {
 		return nil, toHTTPError(err)
 	}
 
+	order, err := timesheetOrderOf(c)
+	if err != nil {
+		return nil, toHTTPError(err)
+	}
+
 	result, err := h.timesheets.ListTimesheets(c, query.ListTimesheetsQuery{
 		UserID:         scope.UserID,
 		ProjectID:      scope.ProjectID,
@@ -70,6 +76,7 @@ func (h *TimesheetHandler) List(c *gofr.Context) (any, error) {
 		EndDate:        scope.To,
 		Limit:          limit,
 		Offset:         offset,
+		Order:          order,
 	})
 	if err != nil {
 		return nil, toHTTPError(err)
@@ -104,6 +111,42 @@ const (
 	DefaultPageSize = 100
 	MaxPageSize     = 500
 )
+
+// timesheetOrderOf reads what a listing is ordered by: ?sort= date, hours or
+// description, and ?order= asc or desc, the newest day first when neither is
+// given. Anything else is refused rather than answered in the default order,
+// which would read as the order that was asked for.
+func timesheetOrderOf(c *gofr.Context) (repository.TimesheetOrder, error) {
+	var order repository.TimesheetOrder
+
+	switch c.Param("sort") {
+	case "", "date":
+		order.By = repository.ByDate
+	case "hours":
+		order.By = repository.ByHours
+	case "description":
+		order.By = repository.ByDescription
+	default:
+		return order, apperror.InvalidFields("sort")
+	}
+
+	ascending, err := ascendingOf(c)
+	order.Ascending = ascending
+
+	return order, err
+}
+
+// ascendingOf reads ?order=, asc or desc, descending when it is not given.
+func ascendingOf(c *gofr.Context) (bool, error) {
+	switch c.Param("order") {
+	case "", "desc":
+		return false, nil
+	case "asc":
+		return true, nil
+	default:
+		return false, apperror.InvalidFields("order")
+	}
+}
 
 // pageOf reads the paging parameters, applying the default and refusing a page
 // larger than the maximum.
