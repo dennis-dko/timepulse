@@ -418,6 +418,7 @@
   "feed.unread": "noch nie",
   "field.action": "Aktion",
   "field.actor": "Aufrufer",
+  "field.area": "Betrifft",
   "field.banner": "Banner-Text",
   "field.baseDn": "Basis-DN",
   "field.breakMinutes": "Pausen (Minuten)",

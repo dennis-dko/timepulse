@@ -459,6 +459,7 @@ function errorMessage(body) {
  */
 const FIELD_NAMES = {
   actor: 'Caller',
+  area: 'Made to',
   banner: 'Banner text',
   baseDn: 'Base DN',
   code: 'Code',
