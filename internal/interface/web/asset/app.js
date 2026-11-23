@@ -2577,7 +2577,12 @@ function drawPager(table, pager, matched) {
 
   if (long) ensurePagerControls(table, pager);
 
-  table.parentElement?.classList.toggle('paged', long && tableAnchor(table) !== table);
+  const anchor = tableAnchor(table);
+
+  if (anchor !== table) {
+    anchor.classList.toggle('paged', long);
+    markScrollEdge(anchor);
+  }
 
   if (pager.tools) {
     pager.tools.hidden = !long;
@@ -2606,6 +2611,10 @@ function drawPager(table, pager, matched) {
   pager.nav.querySelector('.pager-page').textContent = fillIn(t('pager.page', 'Page {0} of {1}'),
     [count(pager.page + 1), count(pages)]);
   pager.nav.querySelector('.pager-size').value = String(pager.size);
+
+  // One page has nowhere to step to. The size stays, which is how somebody who
+  // wants fewer rows at a time asks for them, and so does the count.
+  pager.nav.querySelector('.pager-buttons').hidden = pages <= 1;
 
   const buttons = {
     first: [t('pager.first', 'First page'), pager.page === 0],
@@ -2704,7 +2713,36 @@ function ensurePagerControls(table, pager) {
         step('next', '›'), step('last', '»')));
 
     anchor.after(pager.nav);
+
+    // The fading edge follows the box: scrolled, shown on a tab that hid it, or
+    // narrowed with the window. Once per box, which outlives the controls a
+    // sign-out takes away.
+    if (anchor !== table && !watchedEdges.has(anchor)) {
+      watchedEdges.add(anchor);
+      anchor.addEventListener('scroll', () => markScrollEdge(anchor), { passive: true });
+      scrollEdgeWatch().observe(anchor);
+    }
   }
+}
+
+/** Says whether a long table's box holds more rows below what it shows. */
+function markScrollEdge(box) {
+  box.classList.toggle('more-below',
+    box.classList.contains('paged') && box.scrollTop + box.clientHeight < box.scrollHeight - 1);
+}
+
+/** The boxes whose edge is already followed. */
+const watchedEdges = new WeakSet();
+
+let scrollEdges = null;
+
+/** The one observer that marks a box's edge again when the box changes size. */
+function scrollEdgeWatch() {
+  scrollEdges ??= new ResizeObserver((changed) => {
+    for (const { target } of changed) markScrollEdge(target);
+  });
+
+  return scrollEdges;
 }
 
 /**
@@ -2743,7 +2781,7 @@ function forgetPagers() {
     pager.nav?.remove();
   }
 
-  for (const wrap of $$('.table-wrap.paged')) wrap.classList.remove('paged');
+  for (const wrap of $$('.table-wrap.paged')) wrap.classList.remove('paged', 'more-below');
 
   pagers.clear();
 }

@@ -1014,7 +1014,7 @@ button.danger:not(.link) {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 12px;
+  margin: 16px 0 12px;
 }
 
 .list-tools label { flex: 1 1 14em; max-width: 26em; }
@@ -1060,6 +1060,31 @@ button.danger:not(.link) {
 /* Pinned to the right as well as the top, so above both the headings it passes
    and the pinned actions of the rows beneath. */
 .table-wrap.paged thead th.actions { z-index: 2; }
+
+/* More rows below than the box shows: its lower edge fades, so the row it cuts
+ * in half reads as the start of the rest rather than as the end of the list.
+ *
+ * A scrollbar alone does not say so everywhere. Where scrollbars appear only
+ * while something scrolls - a Mac, a telephone, the camera that takes the
+ * README's pictures - the box was a list ending mid-row, which looks broken.
+ * In the flow after the table and pinned to the box's lower edge, it takes back
+ * its own height so the box scrolls no further for it; .more-below is set by
+ * the script, which knows whether there is more. */
+.table-wrap.paged::after {
+  background: linear-gradient(transparent, var(--surface));
+  bottom: 0;
+  content: '';
+  display: block;
+  height: 32px;
+  left: 0;
+  margin-top: -32px;
+  pointer-events: none;
+  position: sticky;
+  visibility: hidden;
+  z-index: 3;
+}
+
+.table-wrap.paged.more-below::after { visibility: visible; }
 
 /* The pinned edge the actions draw in a narrow window, which the line above
    would otherwise replace in the heading. */

@@ -180,12 +180,49 @@ func TestALongTablePagesSearchesAndFilters(t *testing.T) {
 		t.Errorf("filtered to the finished projects, the table shows %q", truncateText(got, 200))
 	}
 
+	// Every row on one page: nowhere to step to, so no steps, and the count stays.
+	p.run("show every kind again", p.chooseOption(tools+` select.pager-choice`, ""))
+	p.run("show fifty a page", p.chooseOption(nav+` select.pager-size`, "50"))
+	p.waitForText(nav+` .pager-range`, "1–30 of 30")
+
+	if p.visible(nav + ` .pager-buttons`) {
+		t.Error("with every row on one page, the pager still offers steps to other pages")
+	}
+
+	// Thirty rows overflow the box, and its lower edge says there is more below
+	// until the box is scrolled to its end - the only sign of it where scrollbars
+	// show only while scrolling.
+	var box struct {
+		Overflows bool `json:"overflows"`
+		More      bool `json:"more"`
+	}
+
+	p.evalJSON(`(() => {
+		const box = document.querySelector('#table-projects').parentElement;
+		return JSON.stringify({ overflows: box.scrollHeight > box.clientHeight + 1, more: box.classList.contains('more-below') });
+	})()`, &box)
+
+	if !box.Overflows {
+		t.Fatal("thirty projects fit in the box, so the edge cannot be checked here")
+	}
+
+	if !box.More {
+		t.Error("the box holds rows below what it shows and its edge does not say so")
+	}
+
+	p.run("scroll the box to its end", chromedp.Evaluate(`(() => {
+		const box = document.querySelector('#table-projects').parentElement;
+		box.scrollTop = box.scrollHeight;
+	})()`, nil))
+	p.waitEvaluates("the edge stands down at the end",
+		`String(document.querySelector('#table-projects').parentElement.classList.contains('more-below'))`, "false")
+
 	// The page size is kept for the next visit, by this account.
 	var kept string
 
 	p.evalJSON(`JSON.stringify(localStorage.getItem('timepulse_pagesize_' + me.user.id + '_table-projects'))`, &kept)
 
-	if kept != "10" {
-		t.Errorf("the chosen page size was kept as %q, want 10", kept)
+	if kept != "50" {
+		t.Errorf("the chosen page size was kept as %q, want 50", kept)
 	}
 }
