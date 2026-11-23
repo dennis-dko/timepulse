@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"slices"
 	"strconv"
 	"testing"
@@ -12,9 +13,9 @@ import (
 	"github.com/dennis-dko/timepulse/internal/infrastructure/persistence/sqldb"
 )
 
-// released is every version this chain had shipped when this test was written.
-// It is a floor rather than a register: a version missing from it is fine as
-// long as it comes after all of these.
+// released is every version this chain had shipped on 2026-11-23, when the
+// first one was taken out of it. It is a floor rather than a register: a version
+// missing from it is fine as long as it comes after all of these.
 var released = []int64{
 	20260730120000, 20260730120100, 20260731010000, 20260731020000, 20260801010000,
 	20260801010100, 20260801020000, 20260801030000, 20260801040000, 20260801050000,
@@ -22,6 +23,21 @@ var released = []int64{
 	20260810020000, 20260810030000, 20260810040000, 20260810050000, 20260810060000,
 	20260811010000, 20260812010000, 20260813010000, 20260814010000, 20260818010000,
 	20260819010000, 20260824010000, 20260831010000,
+	20261009010000, 20261019010000, 20261019020000, 20261019030000, 20261019040000,
+	20261019050000, 20261019060000, 20261020010000, 20261020020000, 20261020030000,
+	20261020040000, 20261020050000, 20261020060000, 20261021010000, 20261021020000,
+	20261021030000, 20261021040000, 20261022010000, 20261022020000, 20261022030000,
+	20261022040000, 20261022050000, 20261022060000, 20261022070000, 20261022080000,
+	20261022090000, 20261103010000, 20261103020000, 20261110010000,
+}
+
+// removed is every released version taken out of the chain on purpose, with the
+// reason. An installation that ran one keeps it in gofr_migrations unless
+// somebody deletes the row, and GoFr reads the highest recorded version as the
+// line nothing below runs under - so a new migration comes after these as well.
+var removed = map[int64]string{
+	20261117010000: "converted the marker of secrets sealed before the rename to TimePulse; every " +
+		"installation had run it by 2026-11-22, and the maintainer took it out on 2026-11-23",
 }
 
 // A migration added to the chain comes after every one before it.
@@ -39,8 +55,9 @@ var released = []int64{
 // Three checks, because each catches what the others cannot. The versions in
 // the source are strictly increasing, which catches one appended with an older
 // number. Every released version is still there, which is what append-only
-// means. And every version this list has not seen is newer than all of it,
-// which catches one slipped into the middle in its sorted place.
+// means, unless it is named as removed. And every version these lists have not
+// seen is newer than all of them, which catches one slipped into the middle in
+// its sorted place - or under a removed one that an installation still records.
 func TestEveryNewMigrationComesAfterEveryReleasedOne(t *testing.T) {
 	inSource := versionsInSource(t)
 
@@ -59,10 +76,17 @@ func TestEveryNewMigrationComesAfterEveryReleasedOne(t *testing.T) {
 		}
 	}
 
-	newest := slices.Max(released)
+	for version := range removed {
+		if _, ok := chain[version]; ok {
+			t.Errorf("migration %d is named as removed and is still in the chain", version)
+		}
+	}
+
+	newest := max(slices.Max(released), slices.Max(slices.Collect(maps.Keys(removed))))
 
 	for version := range chain {
-		if !slices.Contains(released, version) && version <= newest {
+		_, wasRemoved := removed[version]
+		if !slices.Contains(released, version) && !wasRemoved && version <= newest {
 			t.Errorf("migration %d is not among the released ones and is not newer than %d, "+
 				"so every installation that has run %d would skip it", version, newest, newest)
 		}

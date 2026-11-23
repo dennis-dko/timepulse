@@ -192,13 +192,6 @@ func All(dialect string) map[int64]migration.Migrate {
 		20261110010000: {UP: func(d migration.Datasource) error {
 			return keepPushSubscriptions(d, dialect)
 		}},
-		// Moved every value sealed while the project had its former name to the
-		// marker sealing writes now. Every installation has run it and none holds
-		// a value under the former marker any more - the maintainer, 2026-11-22 -
-		// so it does nothing now and stays for its number: GoFr counts the
-		// versions an installation has applied, and a new installation has
-		// nothing sealed under that marker to move.
-		20261117010000: {UP: func(migration.Datasource) error { return nil }},
 	}
 }
 
