@@ -9350,14 +9350,14 @@ async function loadChanges() {
   const table = $('#table-changes');
   if (!can('settings:manage') || !table) return;
 
+  // Read where the document reads them, so the two cannot come to disagree
+  // about which changes the card is showing.
+  const params = changeFilters();
+  const narrowed = params.has('q') || params.has('area');
   const { offset, limit } = pageWindow(table);
-  const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
 
-  const search = $('#filter-changes-q')?.value.trim() ?? '';
-  const area = $('#filter-changes-area')?.value ?? '';
-
-  if (search) params.set('q', search);
-  if (area) params.set('area', area);
+  params.set('offset', String(offset));
+  params.set('limit', String(limit));
 
   changeLoads += 1;
   const asked = changeLoads;
@@ -9369,19 +9369,92 @@ async function loadChanges() {
   adminChanges = {
     entries: page?.entries ?? [],
     total: page?.totalCount ?? 0,
-    narrowed: Boolean(search || area),
+    narrowed,
   };
 
   redrawable('changes', drawChanges);
 }
 
-function drawChanges() {
-  // Nobody's account made a change numbered zero: that is the recover command,
-  // run on the server where no request and so no account is involved.
-  const changedBy = (actor) => (actor.id === 0
+/**
+ * Who made a change, as the log names them. Nobody's account made a change
+ * numbered zero: that is the recover command, run on the server where no
+ * request and so no account is involved.
+ */
+function changedBy(actor) {
+  return actor.id === 0
     ? t('changes.byCommand', 'The command line on the server')
-    : actor.name || `#${actor.id}`);
+    : actor.name || `#${actor.id}`;
+}
 
+/** The search and the area the log's card is narrowed by now, as the server reads them. */
+function changeFilters() {
+  const params = new URLSearchParams();
+  const search = $('#filter-changes-q')?.value.trim() ?? '';
+  const area = $('#filter-changes-area')?.value ?? '';
+
+  if (search) params.set('q', search);
+  if (area) params.set('area', area);
+
+  return params;
+}
+
+/** How many changes a document can hold: the server lays out no table longer. */
+const CHANGES_IN_A_DOCUMENT = 2000;
+
+/**
+ * The log as a document: every change its search and area let through, read
+ * from the server a page at a time rather than off the screen, which holds one
+ * page of it - in the sentences the screen words them in.
+ *
+ * A document has room for two thousand rows, so a log longer than that leaves
+ * as its newest two thousand, and says so above the table rather than ending
+ * where the room did as though that were where the log began.
+ */
+async function changesDocument() {
+  const entries = [];
+  let total = 0;
+
+  while (entries.length < CHANGES_IN_A_DOCUMENT) {
+    const params = changeFilters();
+
+    params.set('offset', String(entries.length));
+    params.set('limit', String(Math.min(500, CHANGES_IN_A_DOCUMENT - entries.length)));
+
+    const page = await api(`/admin/changes?${params}`);
+
+    total = page?.totalCount ?? 0;
+    entries.push(...(page?.entries ?? []));
+
+    if (!page?.more || !(page.entries ?? []).length) break;
+  }
+
+  const area = $('#filter-changes-area');
+  const search = $('#filter-changes-q')?.value.trim() ?? '';
+  const narrowed = [area?.value ? area.selectedOptions[0].textContent.trim() : '',
+    search ? fillIn(t('changes.searchedFor', 'search: {0}'), [search]) : '']
+    .filter(Boolean);
+
+  return {
+    title: t('changes.title', 'Changes to the installation'),
+    colours: screenColours(),
+    subtitle: narrowed.length ? narrowed.join(' · ') : t('changes.everything', 'Every change'),
+    sections: [{
+      heading: t('changes.title', 'Changes to the installation'),
+      caption: total > entries.length
+        ? fillIn(t('changes.documentNewest', 'The newest {0} of {1} changes; the search and the area narrow it further.'),
+          [entries.length, total])
+        : t('changes.documentCaption', 'Who changed how the installation is run, newest first.'),
+      table: {
+        columns: [t('changes.when', 'When'), t('changes.who', 'Who'), t('changes.what', 'What')],
+        numeric: [false, false, false],
+        rows: entries.map((entry) => [fmtMoment(entry.at), changedBy(entry.actor), describeChange(entry)]),
+        tones: entries.map(() => ['', '', '']),
+      },
+    }],
+  };
+}
+
+function drawChanges() {
   const rows = adminChanges.entries.map((entry) => el('tr', {},
     el('td', { text: fmtMoment(entry.at) }),
     el('td', { text: changedBy(entry.actor) }),
@@ -15598,6 +15671,8 @@ function wireDocumentExports() {
   wireDocumentExport('#workday-pdf', () => t('work.filename', 'working-time'), workDayDocument);
   wireDocumentExport('#statement-pdf', () => t('statement.filename', 'statement-of-work'),
     statementDocument);
+  wireDocumentExport('#changes-pdf', () => t('changes.filename', 'changes-to-the-installation'),
+    changesDocument);
 }
 
 // ------------------------------------------- export and import, table by table
