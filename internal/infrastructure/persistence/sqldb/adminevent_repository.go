@@ -2,6 +2,7 @@ package sqldb
 
 import (
 	"context"
+	"strings"
 
 	"github.com/dennis-dko/timepulse/internal/domain/model"
 	"github.com/dennis-dko/timepulse/internal/domain/repository"
@@ -34,19 +35,103 @@ func (r *AdminEventRepository) Record(ctx context.Context, event *model.AdminEve
 	return nil
 }
 
-// Before reads a page of the log, newest first, by id: an entry's id grows with
-// the moment it was written, and a page asked for by the last id it showed cannot
-// skip or repeat an entry the way one asked for by a moment can.
-func (r *AdminEventRepository) Before(ctx context.Context, beforeID uint, limit int) ([]model.AdminEvent, error) {
-	query := "SELECT id, at, actor_id, action, target_id, detail FROM admin_events ORDER BY id DESC LIMIT ?"
-	args := []any{limit}
+// Find reads the changes the filter keeps, newest first by id: an entry's id
+// grows with the moment it was written, and a page asked for by the last id it
+// showed cannot skip or repeat an entry the way one asked for by a moment can.
+func (r *AdminEventRepository) Find(
+	ctx context.Context,
+	filter repository.AdminEventFilter,
+) ([]model.AdminEvent, uint, error) {
+	conditions, args := adminEventConditions(filter)
 
-	if beforeID > 0 {
-		query = "SELECT id, at, actor_id, action, target_id, detail FROM admin_events WHERE id < ? " +
-			"ORDER BY id DESC LIMIT ?"
-		args = []any{beforeID, limit}
+	var total uint
+
+	row := r.db.QueryRowContext(ctx, r.rebind("SELECT COUNT(*) FROM admin_events"+where(conditions)), args...)
+	if err := row.Scan(&total); err != nil {
+		return nil, 0, apperror.Internal(err)
 	}
 
+	if filter.BeforeID > 0 {
+		conditions = append(conditions, "id < ?")
+		args = append(args, filter.BeforeID)
+	}
+
+	query := "SELECT id, at, actor_id, action, target_id, detail FROM admin_events" + where(conditions) +
+		" ORDER BY id DESC"
+
+	if filter.Limit > 0 {
+		query += " LIMIT ? OFFSET ?"
+		args = append(args, filter.Limit, filter.Offset)
+	}
+
+	events, err := r.read(ctx, query, args)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return events, total, nil
+}
+
+// adminEventConditions turns a filter into what a statement is narrowed by.
+//
+// The text is matched as written, through likeLiteral, and folded to lower case
+// on both sides, as the entry search is: a percent sign typed into the search is
+// a percent sign, and on SQLite only ASCII letters are folded.
+func adminEventConditions(filter repository.AdminEventFilter) ([]string, []any) {
+	var (
+		conditions []string
+		args       []any
+	)
+
+	if len(filter.Prefixes) > 0 {
+		kinds := make([]string, 0, len(filter.Prefixes))
+
+		for _, prefix := range filter.Prefixes {
+			kinds = append(kinds, "action LIKE ? ESCAPE '!'")
+			args = append(args, likeLiteral(prefix)+"%")
+		}
+
+		conditions = append(conditions, "("+strings.Join(kinds, " OR ")+")")
+	}
+
+	if filter.Text != "" {
+		text := "%" + likeLiteral(strings.ToLower(filter.Text)) + "%"
+		matches := []string{"LOWER(action) LIKE ? ESCAPE '!'", "LOWER(detail) LIKE ? ESCAPE '!'"}
+		args = append(args, text, text)
+
+		if len(filter.People) > 0 {
+			matches = append(matches,
+				"actor_id IN ("+placeholders(len(filter.People))+")",
+				"(action LIKE 'user.%' AND target_id IN ("+placeholders(len(filter.People))+"))")
+
+			for range 2 {
+				for _, id := range filter.People {
+					args = append(args, id)
+				}
+			}
+		}
+
+		if len(filter.Roles) > 0 {
+			matches = append(matches, "(action LIKE 'role.%' AND target_id IN ("+placeholders(len(filter.Roles))+"))")
+
+			for _, id := range filter.Roles {
+				args = append(args, id)
+			}
+		}
+
+		conditions = append(conditions, "("+strings.Join(matches, " OR ")+")")
+	}
+
+	return conditions, args
+}
+
+// placeholders is n question marks for an IN list, each a parameter.
+func placeholders(n int) string {
+	return strings.TrimSuffix(strings.Repeat("?, ", n), ", ")
+}
+
+// read runs a query for whole changes and reads them.
+func (r *AdminEventRepository) read(ctx context.Context, query string, args []any) ([]model.AdminEvent, error) {
 	rows, err := r.db.QueryContext(ctx, r.rebind(query), args...)
 	if err != nil {
 		return nil, apperror.Internal(err)

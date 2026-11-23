@@ -419,3 +419,50 @@ func TestTheAccountTableOffersTheSameSelection(t *testing.T) {
 		t.Errorf("the bar says %q, which does not name the two rows that are ticked", count)
 	}
 }
+
+// The bar is drawn inside the card of the table it acts on, directly above it.
+//
+// It is put above the box its table scrolls in. The backup table had no such box
+// and stood in its card directly, so "above the table's box" was above the whole
+// card: the bar landed between two cards, on the page's background, with nothing
+// beside it saying which list "4 selected" counted.
+func TestTheSelectionBarIsDrawnInsideItsTablesCard(t *testing.T) {
+	t.Parallel()
+
+	p := openWith(t, "BACKUP_PASSPHRASE=the installation's own passphrase")
+	p.readyAdmin()
+
+	p.run("open the settings", p.click(`.tab[data-view="admin"]`))
+	p.showTabOf("#backup-card")
+
+	p.run("make a backup", p.click("#backup-now"))
+	p.waitForText("#toast", "ackup made")
+	p.waitForNode(`#table-backups tbody input.row-pick`)
+
+	p.run("tick it", p.click(`#table-backups tbody input.row-pick`),
+		chromedp.WaitVisible(".bulk-bar.shown", chromedp.ByQuery))
+
+	var where struct {
+		InCard     bool `json:"inCard"`
+		AboveTable bool `json:"aboveTable"`
+	}
+
+	p.evalJSON(`(() => {
+		const bar = document.querySelector('.bulk-bar.shown');
+		const table = document.querySelector('#table-backups');
+		const next = bar.nextElementSibling;
+
+		return JSON.stringify({
+			inCard: bar.closest('.card') === table.closest('.card'),
+			aboveTable: !!next && (next === table || next.contains(table)),
+		});
+	})()`, &where)
+
+	if !where.InCard {
+		t.Error("the selection bar of the backup table is drawn outside the backup card")
+	}
+
+	if !where.AboveTable {
+		t.Error("the selection bar of the backup table does not stand directly above the table")
+	}
+}

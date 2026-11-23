@@ -11,13 +11,13 @@ import (
 
 // Signing out takes the count of the last account's entries off the screen.
 //
-// The tally reads "Showing 26 of 41 entries" above the list, and it is drawn from
+// The pager under the list reads "1–25 of 41", and it is drawn from
 // timesheetEntries and timesheetTotal - module state, like the calendar's month
 // and the stopwatch's interval. forgetTheLastAccount empties the tables and the
 // filled lists, and its own comment gives the rule: "a table whose loader returns
 // early keeps whatever it last held."
 //
-// The tally is not a table. It is a div beside the list, so nothing emptied it,
+// The count is not a table. It is a row beside the list, so nothing emptied it,
 // and it stood over an emptied table saying how much the previous account had
 // recorded. A loader replaces it - but every loader here returns at its first
 // line when the right is absent, so for an account without timesheets:read:own it
@@ -32,19 +32,16 @@ func TestSigningOutClearsTheEntryTally(t *testing.T) {
 	p := open(t)
 	p.readyWorker()
 
-	// One more than a page, which is what makes the tally appear at all.
+	// One more than a page, which is what makes the count appear at all.
 	seedEntries(t, p, 26)
 	showTimeView(p)
 
-	p.waitShown("#ts-more-row")
+	const nav = `#entries-card .pager`
 
-	var counted string
+	p.waitShown(nav)
 
-	p.run("read the tally", chromedp.Evaluate(
-		`document.querySelector('#ts-shown').textContent.trim()`, &counted))
-
-	if counted == "" {
-		t.Fatal("the tally is not showing, so this case would pass whatever the " +
+	if counted := p.text(nav + ` .pager-range`); counted == "" {
+		t.Fatal("the count is not showing, so this case would pass whatever the " +
 			"sign-out does")
 	}
 
@@ -59,16 +56,16 @@ func TestSigningOutClearsTheEntryTally(t *testing.T) {
 	var out string
 
 	p.run("read it after signing out", chromedp.Evaluate(`(() => {
-		const row = document.querySelector('#ts-more-row');
+		const pager = document.querySelector('#entries-card .pager');
 
 		return JSON.stringify({
-			text: document.querySelector('#ts-shown').textContent.trim(),
-			offers: row ? !row.hidden : false,
+			text: pager ? pager.textContent.trim() : '',
+			offers: Boolean(pager && !pager.hidden),
 		});
 	})()`, &out))
 
 	if err := json.Unmarshal([]byte(out), &after); err != nil {
-		t.Fatalf("reading the tally (%q): %v", out, err)
+		t.Fatalf("reading the count (%q): %v", out, err)
 	}
 
 	if after.Text != "" {
@@ -77,7 +74,7 @@ func TestSigningOutClearsTheEntryTally(t *testing.T) {
 	}
 
 	if after.Offers {
-		t.Error("after signing out the list still offers to load more of the " +
+		t.Error("after signing out the list still offers the pages of the " +
 			"previous account's entries")
 	}
 }

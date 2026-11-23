@@ -39,3 +39,84 @@ func TestTheSettingsScreenShowsWhoChangedWhat(t *testing.T) {
 	p.chooseLanguage("de")
 	p.waitForText("#table-changes tbody", "Konto Erika angelegt")
 }
+
+// The log on its card is searched, narrowed to a part of the installation and
+// paged - by the server, over every change it holds, so a name finds its change
+// however far back it is.
+func TestTheChangeLogIsSearchedNarrowedAndPagedOnItsCard(t *testing.T) {
+	t.Parallel()
+
+	p := open(t)
+	p.readyAdmin()
+
+	const (
+		rows   = `#table-changes tbody tr`
+		nav    = `#changes-card .pager`
+		range_ = nav + ` .pager-range`
+	)
+
+	// Twelve roles and an account, each a change of its own.
+	var total int
+
+	p.awaitJSON(`(async () => {
+		for (let i = 1; i <= 12; i++) {
+			await api('/roles', { method: 'POST', body: JSON.stringify({
+				name: 'reviewer-' + String(i).padStart(2, '0'), description: 'Reads what others booked',
+				permissions: ['timesheets:read:own'],
+			}) });
+		}
+		await api('/users', { method: 'POST', body: JSON.stringify({
+			name: 'Greta Grün', email: 'greta@example.com', role: 'user', password: 'greta-password-1',
+		}) });
+		await loadChanges();
+		return (await api('/admin/changes?limit=1')).totalCount;
+	})()`, &total)
+
+	if total < 13 {
+		t.Fatalf("the log counts %d changes after thirteen were made", total)
+	}
+
+	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
+		chromedp.WaitVisible("#changes-card", chromedp.ByID))
+
+	p.waitShown(nav)
+
+	// Ten a page, and the steps to the rest.
+	p.run("show ten a page", p.chooseOption(nav+` select.pager-size`, "10"))
+	p.waitForText(nav+` .pager-page`, "Page 1 of 2")
+
+	if got := p.count(rows); got != 10 {
+		t.Errorf("a page of ten shows %d changes", got)
+	}
+
+	p.run("go to the next page", p.click(nav+` [data-page="next"]`))
+	p.waitForText(nav+` .pager-page`, "Page 2 of 2")
+
+	if got := p.count(rows); got != total-10 {
+		t.Errorf("the second page shows %d changes, want the remaining %d", got, total-10)
+	}
+
+	// Narrowed to the roles, from the first page again, counted by the server.
+	p.run("show the role changes", p.chooseOption(`#filter-changes-area`, "roles"))
+	p.waitForText(range_, "1–10 of 12")
+
+	if got := p.text(rows); strings.Contains(got, "Greta") {
+		t.Errorf("narrowed to the roles, the log shows %q", truncateText(got, 200))
+	}
+
+	// A name found in every change, not in the page on screen, whatever its case.
+	p.run("show every kind again", p.chooseOption(`#filter-changes-area`, ""))
+	// Waited for by the count rather than by her name: as the newest change she
+	// is on the first page before the search has been asked at all.
+	p.run("search for her", chromedp.SendKeys(`#filter-changes-q`, "grün", chromedp.ByQuery))
+	p.waitForRows(rows, 1)
+
+	if got := p.text(rows); !strings.Contains(got, "Created the account Greta Grün") || p.visible(nav) {
+		t.Errorf("searching for her shows %q, and a pager: %v", got, p.visible(nav))
+	}
+
+	// And a search nothing matches says so, rather than that nothing was changed.
+	p.run("search for nobody", chromedp.SendKeys(`#filter-changes-q`, "-nobody", chromedp.ByQuery))
+	p.waitForText(rows, "No change matches")
+}
