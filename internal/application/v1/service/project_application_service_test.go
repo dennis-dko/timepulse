@@ -111,12 +111,13 @@ func TestAnEmptiedDescriptionIsNoDescription(t *testing.T) {
 	}
 }
 
+// Asked by somebody who may archive, so what refuses it is the status alone.
 func TestArchiveRequiresCompleted(t *testing.T) {
 	f := newFixture(t)
 
 	archived := model.ProjectStatusArchived
 	_, err := f.projects.UpdateProject(context.Background(),
-		command.UpdateProjectCommand{ID: f.projectID, Status: &archived})
+		command.UpdateProjectCommand{ID: f.projectID, Status: &archived, MayArchive: true})
 	requireKind(t, err, apperror.KindConflict)
 }
 

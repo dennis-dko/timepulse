@@ -96,6 +96,10 @@ type ProjectPlan struct {
 	SheetPlan
 
 	writable []plannedProject
+
+	// mayArchive is whether the importer holds projects:archive, planned with
+	// and written with, so the write cannot be asked more than the preview was.
+	mayArchive bool
 }
 
 // PlanProjects works out what a file of projects would do, without writing.
@@ -108,12 +112,16 @@ type ProjectPlan struct {
 // Every row becomes a project of the actor's own, because that is the only kind there
 // is. There was a mayShare beside this, deciding whether they were allowed to touch
 // the shared sort at all - a question with nothing left on either side of it.
+//
+// mayArchive says the actor holds projects:archive, which a row putting a project
+// into the archive or taking one out of it needs.
 func (s *ProjectWorkbookService) PlanProjects(
 	ctx context.Context,
 	language string,
 	rows []spreadsheet.ProjectRow,
 	problems []spreadsheet.RowError,
 	actor *model.User,
+	mayArchive bool,
 ) (*ProjectPlan, error) {
 	if actor == nil {
 		return nil, apperror.InvalidFields("actor")
@@ -133,7 +141,7 @@ func (s *ProjectWorkbookService) PlanProjects(
 		byName[strings.ToLower(project.Name)] = project
 	}
 
-	plan := &ProjectPlan{}
+	plan := &ProjectPlan{mayArchive: mayArchive}
 	plan.Columns = spreadsheet.ProjectColumns(language)
 
 	// The rows the file itself could not be read for belong in the preview: they
@@ -164,7 +172,7 @@ func (s *ProjectWorkbookService) PlanProjects(
 		// the project has now - so a row asking for it has to be refused here
 		// rather than at the write, where it would be a promise the preview had
 		// already made.
-		if err := checkArchiving(language, planned); err != nil {
+		if err := checkArchiving(language, planned, mayArchive); err != nil {
 			plan.add(problemRow(row.Number, cells, err))
 
 			continue
@@ -206,7 +214,22 @@ func checkProjectStatus(language, status string) error {
 // archived project and importing the file again was refused: the row says
 // "archived", the project is already archived, and the rule reads a status that is
 // not "completed" and says no - to a change that was not being asked for.
-func checkArchiving(language string, planned plannedProject) error {
+//
+// A row that puts a project into the archive or takes one out of it - a new one
+// created archived among them - needs projects:archive first, as the archive
+// route does.
+func checkArchiving(language string, planned plannedProject, mayArchive bool) error {
+	archives := planned.row.Status == model.ProjectStatusArchived
+	reachesTheArchive := archives && planned.existingID == 0 ||
+		planned.existingID != 0 && planned.changesStatus() &&
+			(archives || planned.existingStatus == model.ProjectStatusArchived)
+
+	if reachesTheArchive && !mayArchive {
+		return spreadsheet.Problemf("archiveNeedsTheRight",
+			"%q would go into the archive or out of it, which needs the permission %q",
+			planned.row.Name, model.PermProjectArchive)
+	}
+
 	if planned.existingID == 0 || !planned.changesStatus() {
 		return nil
 	}
@@ -282,7 +305,7 @@ func (s *ProjectWorkbookService) ApplyProjects(
 	written := 0
 
 	for _, planned := range plan.writable {
-		if err := s.write(ctx, planned, actor, today); err != nil {
+		if err := s.write(ctx, planned, actor, today, plan.mayArchive); err != nil {
 			return written, apperror.Conflictf("row %d: %v; %d rows were written before it",
 				planned.row.Number, err, written).
 				WithCode("importStoppedAtRow", planned.row.Number, written)
@@ -299,6 +322,7 @@ func (s *ProjectWorkbookService) write(
 	planned plannedProject,
 	actor *model.User,
 	today time.Time,
+	mayArchive bool,
 ) error {
 	row := planned.row
 
@@ -326,7 +350,7 @@ func (s *ProjectWorkbookService) write(
 		_, err := s.projects.UpdateProject(ctx, command.UpdateProjectCommand{
 			ID: planned.existingID, Name: &name, Description: description,
 			StartDate: &row.StartDate, EndDate: end, Status: status,
-			ActorID: actor.ID,
+			ActorID: actor.ID, MayArchive: mayArchive,
 		})
 
 		return err
@@ -339,6 +363,7 @@ func (s *ProjectWorkbookService) write(
 	_, err := s.projects.CreateProject(ctx, command.CreateProjectCommand{
 		Name: row.Name, Description: description, StartDate: row.StartDate,
 		EndDate: end, Status: row.Status, OwnerID: &owner, Today: today,
+		MayArchive: mayArchive,
 	})
 
 	return err

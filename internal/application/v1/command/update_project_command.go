@@ -43,6 +43,10 @@ type UpdateProjectCommand struct {
 	// ActorID is who is editing. A private project may only be changed by its
 	// owner; zero skips the check.
 	ActorID uint
+
+	// MayArchive says the editor holds projects:archive, without which a status
+	// moves neither into the archive nor out of it.
+	MayArchive bool
 }
 
 // UpdateProjectCommandResult command to get update result of existing project

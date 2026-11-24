@@ -150,6 +150,7 @@ func (h *ProjectHandler) Create(c *gofr.Context) (any, error) {
 		Billable:    req.Billable,
 		HourlyRate:  req.HourlyRate,
 		Currency:    req.Currency,
+		MayArchive:  principal.Can(model.PermProjectArchive),
 	}
 
 	// Whose it becomes. Zero means enforcement is switched off, and then there is no
@@ -209,6 +210,7 @@ func (h *ProjectHandler) Update(c *gofr.Context) (any, error) {
 		Billable:    req.Billable,
 		HourlyRate:  req.HourlyRate,
 		Currency:    req.Currency,
+		MayArchive:  principal.Can(model.PermProjectArchive),
 	}
 
 	if req.StartDate != nil {
