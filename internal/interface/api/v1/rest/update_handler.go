@@ -360,12 +360,17 @@ func (h *UpdateHandler) latest(c *gofr.Context) (selfupdate.Release, error) {
 		return h.cached, h.cacheErr
 	}
 
-	release, err := h.source.Latest(c)
+	return h.ask(c)
+}
 
+// ask asks the feed and records what it said, with mu held by the caller. A
+// failure is recorded beside the answer already known, which is kept rather
+// than thrown away with the attempt and returned with the error.
+func (h *UpdateHandler) ask(c *gofr.Context) (selfupdate.Release, error) {
+	release, err := h.source.Latest(c)
 	if err != nil {
 		h.cacheErr, h.failedAt = err, time.Now()
 
-		// The previous answer is kept rather than thrown away with the attempt.
 		return h.cached, err
 	}
 
@@ -420,14 +425,8 @@ func (h *UpdateHandler) refresh(c *gofr.Context) {
 	// slow request behind the first.
 	h.checkedManuallyAt = time.Now()
 
-	release, err := h.source.Latest(c)
-	if err != nil {
-		h.cacheErr, h.failedAt = err, time.Now()
-
-		return
-	}
-
-	h.cached, h.cachedAt, h.cacheErr = release, time.Now(), nil
+	// Its failure is recorded, and describe reports it.
+	_, _ = h.ask(c)
 }
 
 // waitingAfterFailure reports whether the last attempt failed recently enough
