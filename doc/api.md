@@ -42,6 +42,47 @@ the answers are one release's API.
 `GET /api/v1/branding` answers anybody, signed in or not, and its `version`
 says which release that is.
 
+## Connecting an AI assistant
+
+`/api/v1/mcp` speaks the [Model Context Protocol](https://modelcontextprotocol.io),
+so that an assistant such as Claude can read and book its user's time. It is
+reached with a personal token like any other client, and each of its tools is
+a call of the API route it stands for, made as the token's owner: an assistant
+does exactly what its user could do through the API with that token, and is
+refused for the same reasons in the same words, code included. The tools are
+the owner's own time and nothing else.
+
+| Tool | What it does | Route it calls |
+| --- | --- | --- |
+| `list_projects` | your projects, with their status and hour budgets | `GET /projects` |
+| `list_time_entries` | the entries of a period, narrowed by project or by text | `GET /timesheets` |
+| `summarize_hours` | a period's hours per day, per project and per #activity | `GET /me/statistics` |
+| `book_time` | books hours on a day | `POST /timesheets` |
+| `correct_time_entry` | corrects an entry, keeping the version it replaces | `PUT /timesheets/{id}` |
+| `delete_time_entry` | deletes an entry | `DELETE /timesheets/{id}` |
+| `get_stopwatch`, `start_stopwatch`, `stop_stopwatch` | the stopwatch; stopping books what it measured | `/me/timer` |
+| `get_balance` | the running balance and the bounds set for it | `GET /me/notices` |
+| `get_overtime` | a period's overtime, day by day | `GET /users/{id}/overtime` |
+| `get_leave` | a year's leave | `GET /me/vacation` |
+| `list_absences` | the days away in a period | `GET /me/absences` |
+
+It is the protocol's streamable HTTP without a stream: a message is POSTed and
+answered with JSON, nothing is sent unasked, and nothing is kept between
+messages. Everything the API's middleware does it does here - the rate limit
+counts a message once, maintenance turns it away, and a message carrying no
+token at all is answered 401. In Claude Code:
+
+```text
+claude mcp add --transport http timepulse https://time.example.com/api/v1/mcp \
+  --header "Authorization: Bearer timepulse_..."
+```
+
+A client that can only start a local command reaches it through a bridge such
+as `mcp-remote`. A token made for an assistant alone can be revoked without
+disconnecting anything else, and it carries its owner's role like every token:
+an assistant holding an administrator's or a manager's token still reaches only
+that person's own time, because no tool reaches further.
+
 ## What a refusal looks like
 
 Every refusal names itself. The name is what something other than an English

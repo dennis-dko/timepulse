@@ -42,6 +42,7 @@ import (
 	v1 "github.com/dennis-dko/timepulse/internal/interface/api/v1"
 	"github.com/dennis-dko/timepulse/internal/interface/api/v1/rest"
 	"github.com/dennis-dko/timepulse/internal/interface/installer"
+	"github.com/dennis-dko/timepulse/internal/interface/mcp"
 	"github.com/dennis-dko/timepulse/internal/interface/web"
 	"github.com/dennis-dko/timepulse/internal/support/backup"
 	"github.com/dennis-dko/timepulse/internal/support/hosting"
@@ -1008,6 +1009,9 @@ func main() {
 	app.UseMiddleware(rest.NewRateLimiter(cfg.RateLimit, cfg.RateLimitWindow).
 		WithTrustedProxies(cfg.TrustedProxies).
 		WithLimits(limits.RateLimit).Middleware())
+	// A program speaking the Model Context Protocol with no token at all is told
+	// to authenticate, before the CSRF check below would call it a forgery.
+	app.UseMiddleware(mcp.Gate(rest.APITokenHeader))
 	// Before the authentication middleware, so a forged request is turned away
 	// without a session ever being resolved for it.
 	app.UseMiddleware(rest.CSRFMiddleware())
@@ -1099,7 +1103,7 @@ func main() {
 		setupHandler = setupHandler.FromInstaller(installerToken, sessions)
 	}
 
-	v1.RegisterRoutes(app, v1.Handlers{
+	handlers := v1.Handlers{
 		Auth: rest.NewAuthHandler(sessions, authorizer, instanceName, instanceTimezone).
 			WithMaintenance(maintenanceState).
 			// The Android app's sign-in: it shows the web interface, and is
@@ -1170,7 +1174,20 @@ func main() {
 			WithRunningConnection(ds).
 			WithFileTelemetry(fileTelemetry).
 			WithOpenIDCheck(openIDSignIn.Check),
-	})
+	}
+
+	v1.RegisterRoutes(app, handlers)
+
+	// The Model Context Protocol, for an assistant reading and booking its user's
+	// time with that user's token. Last in the chain, behind the interface, which
+	// hands every API path on: what comes before it - the limit, the token, the
+	// maintenance switch - is what an API request meets, and this is one.
+	assistant, err := mcp.Endpoint(v1.ToolRoutes(handlers), mcp.Server{Version: version, Logger: app.Logger()})
+	if err != nil {
+		die(restoreOutput, "cannot serve the MCP endpoint: %v", err)
+	}
+
+	app.UseMiddleware(assistant)
 
 	// Expired sessions would otherwise accumulate forever.
 	app.AddCronJob("0 3 * * *", "prune-expired-sessions", func(ctx *gofr.Context) {

@@ -307,7 +307,7 @@ does.
 | **Calendar subscription** | Booked days and days away in Outlook, Google or a telephone's calendar | [Calendar](doc/feature.md#your-days-in-your-own-calendar) |
 | **Accounts and roles** | Roles and their rights administered at run time; an administrator who runs the installation without keeping hours in it; managers for the accounts assigned to them, where an installation switches them on | [Access](doc/access.md) |
 | **Sign-in** | Passwords with TOTP, passkeys, LDAP and Active Directory with synchronisation, Kerberos, OpenID Connect | [Sign-in](doc/access.md#ldap) |
-| **API** | REST under `/api/v1`, described at `/api-docs`, reached with personal tokens that never outrank their owner - one of which signs the Android app in | [API](doc/api.md) |
+| **API** | REST under `/api/v1`, described at `/api-docs`, reached with personal tokens that never outrank their owner - one of which signs the Android app in, and another an AI assistant through the Model Context Protocol | [API](doc/api.md) |
 | **Operations** | Health, metrics, traces, live log, maintenance mode, backups sealed with a passphrase and restored into any of the three databases, updates, restart, a command on the server that lets the built-in administrator back in, HTTPS with Let's Encrypt, the installation's own name and logo | [Configuration](doc/configuration.md) |
 
 ## Documentation
