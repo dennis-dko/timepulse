@@ -192,6 +192,26 @@ func TestTheChangeLogLeavesAsADocumentOfWhatItWasNarrowedTo(t *testing.T) {
 	if !strings.Contains(roles.Subtitle, "Roles") {
 		t.Errorf("the line under the title is %q, which does not say the log was narrowed to the roles", roles.Subtitle)
 	}
+
+	// Read oldest first, the document is too, and says so: an audit reads a
+	// period from its beginning, and a document in the other order would be a
+	// different reading from the one on screen.
+	p.run("read the oldest first", p.click(`#table-changes thead th[data-sort="at"] .sort-toggle`))
+	p.waitForText(`#table-changes tbody tr:first-child`, "reviewer-01")
+
+	before = p.documentsAsked()
+	p.run("export them oldest first", p.click("#changes-pdf"))
+
+	oldest := p.documentAsked(before, "#changes-pdf")
+
+	if rows := oldest.table(t, 0).Rows; len(rows) != 12 || !strings.Contains(fmt.Sprint(rows[0]), "reviewer-01") ||
+		!strings.Contains(fmt.Sprint(rows[11]), "reviewer-12") {
+		t.Errorf("read oldest first, the document runs %v", rows)
+	}
+
+	if caption := oldest.Sections[0].Caption; !strings.Contains(caption, "oldest first") {
+		t.Errorf("read oldest first, the document's caption says %q", caption)
+	}
 }
 
 // The log is found by the words its sentences say on screen, in the reader's

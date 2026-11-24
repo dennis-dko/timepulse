@@ -9620,10 +9620,6 @@ async function loadChanges() {
   params.set('offset', String(offset));
   params.set('limit', String(limit));
 
-  // The log sorts by when alone, so only the direction travels.
-  const sort = serverSort(table);
-  if (sort) params.set('order', sort.order);
-
   changeLoads += 1;
   const asked = changeLoads;
 
@@ -9651,7 +9647,11 @@ function changedBy(actor) {
     : actor.name || `#${actor.id}`;
 }
 
-/** The search and the area the log's card is narrowed by now, as the server reads them. */
+/**
+ * The search, the area and the order the log's card is read in now, as the
+ * server reads them - for the card and its document alike, so the document is
+ * the reading on screen rather than the log's own order.
+ */
 function changeFilters() {
   const params = new URLSearchParams();
   const search = $('#filter-changes-q')?.value.trim() ?? '';
@@ -9666,6 +9666,10 @@ function changeFilters() {
 
   if (area) params.set('area', area);
 
+  // The log sorts by when alone, so only the direction travels.
+  const sort = serverSort($('#table-changes'));
+  if (sort) params.set('order', sort.order);
+
   return params;
 }
 
@@ -9673,16 +9677,19 @@ function changeFilters() {
 const CHANGES_IN_A_DOCUMENT = 2000;
 
 /**
- * The log as a document: every change its search and area let through, read
- * from the server a page at a time rather than off the screen, which holds one
- * page of it - in the sentences the screen words them in.
+ * The log as a document: every change its search and area let through, in the
+ * order the card is read in, read from the server a page at a time rather than
+ * off the screen, which holds one page of it - in the sentences the screen
+ * words them in.
  *
  * A document has room for two thousand rows, so a log longer than that leaves
- * as its newest two thousand, and says so above the table rather than ending
- * where the room did as though that were where the log began.
+ * as its first two thousand - the newest, or the oldest where the card reads
+ * the oldest first - and says so above the table rather than ending where the
+ * room did as though that were where the log ended.
  */
 async function changesDocument() {
   const entries = [];
+  const oldestFirst = changeFilters().get('order') === 'asc';
   let total = 0;
 
   while (entries.length < CHANGES_IN_A_DOCUMENT) {
@@ -9712,9 +9719,13 @@ async function changesDocument() {
     sections: [{
       heading: t('changes.title', 'Changes to the installation'),
       caption: total > entries.length
-        ? fillIn(t('changes.documentNewest', 'The newest {0} of {1} changes; the search and the area narrow it further.'),
-          [entries.length, total])
-        : t('changes.documentCaption', 'Who changed how the installation is run, newest first.'),
+        ? fillIn(oldestFirst
+          ? t('changes.documentOldest', 'The oldest {0} of {1} changes; the search and the area narrow it further.')
+          : t('changes.documentNewest', 'The newest {0} of {1} changes; the search and the area narrow it further.'),
+        [entries.length, total])
+        : oldestFirst
+          ? t('changes.documentCaptionOldest', 'Who changed how the installation is run, oldest first.')
+          : t('changes.documentCaption', 'Who changed how the installation is run, newest first.'),
       table: {
         columns: [t('changes.when', 'When'), t('changes.who', 'Who'), t('changes.what', 'What')],
         numeric: [false, false, false],
