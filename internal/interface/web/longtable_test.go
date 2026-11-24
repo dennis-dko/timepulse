@@ -138,3 +138,28 @@ func TestEveryServerPagedTableHasItsLoader(t *testing.T) {
 		t.Fatal(`no table says data-pager="server", so this test is no longer reading the markup`)
 	}
 }
+
+// A heading names the server's word for its column only in a table the server
+// pages. Everywhere else the browser sorts by what a column holds, and a word
+// for a server that is never asked would read as a promise that it is.
+func TestASortWordIsOnlyNamedWhereTheServerSorts(t *testing.T) {
+	markup := withoutComments(readAsset(t, "index.html"))
+
+	var named int
+
+	for _, block := range tableBlock.FindAllString(markup, -1) {
+		if !strings.Contains(block, "data-sort=") {
+			continue
+		}
+
+		named++
+
+		if opening := tableTag.FindString(block); !strings.Contains(opening, `data-pager="server"`) {
+			t.Errorf("a heading names a sort word in a table the server does not page: %s", opening)
+		}
+	}
+
+	if named == 0 {
+		t.Fatal("no heading names a sort word, so this test is no longer reading the markup")
+	}
+}

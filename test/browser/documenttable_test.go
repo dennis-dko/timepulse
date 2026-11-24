@@ -383,7 +383,8 @@ func (p *page) recordAMonthPastTheLimits() {
 type askedDocument struct {
 	Subtitle string `json:"subtitle"`
 	Sections []struct {
-		Table *askedTable `json:"table"`
+		Caption string      `json:"caption"`
+		Table   *askedTable `json:"table"`
 	} `json:"sections"`
 	Summary []struct {
 		Label string `json:"label"`

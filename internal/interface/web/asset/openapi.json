@@ -663,10 +663,35 @@
           {
             "name": "offset",
             "in": "query",
-            "description": "How many matching entries to skip. Only meaningful with a stable order, which this listing has: newest day first, ties broken by id.",
+            "description": "How many matching entries to skip. Only meaningful with a stable order, which this listing has: newest day first unless `sort` and `order` say otherwise, ties broken by the day and then by id in the same direction.",
             "schema": {
               "type": "integer",
               "minimum": 0
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "What the entries are ordered by: `date` (the default), `hours` or `description`, the description compared without regard to case. Any other value is refused rather than answered in the default order.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "date",
+                "hours",
+                "description"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "`desc` (the default) or `asc`. Any other value is refused.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "desc",
+                "asc"
+              ]
             }
           }
         ],
@@ -2221,6 +2246,46 @@
         }
       }
     },
+    "/me/workdays/export": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Your working time as a spreadsheet",
+        "description": "The period /me/workdays answers - `from` and `to`, the current month in your timezone when neither is given - as an .xlsx of one sheet: the day, when it began and finished, its breaks in minutes, and the hours worked and booked, as numbers a spreadsheet adds up. A day booked on without its times recorded carries only its booked hours. The Working Hours Act's notices stay with the document the screen exports. `lang` words the headings.",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The language of the headings, `de` or `en`; English when absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook"
+          }
+        }
+      }
+    },
     "/me/workdays/{date}": {
       "put": {
         "tags": [
@@ -3042,6 +3107,26 @@
               "type": "integer"
             },
             "description": "Only the changes older than the one with this id: paging by the last entry shown, which cannot skip or repeat one while new changes arrive."
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "desc",
+                "asc"
+              ]
+            },
+            "description": "`desc`, the newest change first (the default), or `asc`, the oldest first - how an audit reads a period. Any other value is refused."
+          },
+          {
+            "name": "actions",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated actions, such as `user.created,role.created`, whose sentence on screen contains `q`: a change of one of them matches `q` as well. The log is worded by the screen, in its reader's language, and kept here as codes, so only the screen can say which codes its words mean. Not asked without `q`. Anything not shaped like an action, and more than 64 of them, are refused."
           }
         ],
         "responses": {

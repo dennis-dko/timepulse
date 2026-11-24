@@ -3,6 +3,7 @@
 package browser
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -119,4 +120,168 @@ func TestTheChangeLogIsSearchedNarrowedAndPagedOnItsCard(t *testing.T) {
 	// And a search nothing matches says so, rather than that nothing was changed.
 	p.run("search for nobody", chromedp.SendKeys(`#filter-changes-q`, "-nobody", chromedp.ByQuery))
 	p.waitForText(rows, "No change matches")
+}
+
+// The change log leaves as a document: every change its search and area let
+// through, not the page on screen, in the sentences the screen shows - and the
+// line under the title says what it was narrowed to.
+func TestTheChangeLogLeavesAsADocumentOfWhatItWasNarrowedTo(t *testing.T) {
+	t.Parallel()
+
+	p := open(t)
+	p.readyAdmin()
+
+	var total int
+
+	p.awaitJSON(`(async () => {
+		for (let i = 1; i <= 12; i++) {
+			await api('/roles', { method: 'POST', body: JSON.stringify({
+				name: 'reviewer-' + String(i).padStart(2, '0'), description: 'Reads what others booked',
+				permissions: ['timesheets:read:own'],
+			}) });
+		}
+		await api('/users', { method: 'POST', body: JSON.stringify({
+			name: 'Greta Grün', email: 'greta@example.com', role: 'user', password: 'greta-password-1',
+		}) });
+		await loadChanges();
+		return (await api('/admin/changes?limit=1')).totalCount;
+	})()`, &total)
+
+	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
+		chromedp.WaitVisible("#changes-card", chromedp.ByID))
+
+	p.catchDocuments()
+
+	// Ten a page on screen, every change in the document.
+	p.waitShown(`#changes-card .pager`)
+	p.run("show ten a page", p.chooseOption(`#changes-card .pager select.pager-size`, "10"))
+	p.waitForText(`#changes-card .pager .pager-page`, "Page 1 of 2")
+
+	before := p.documentsAsked()
+	p.run("export the log", p.click("#changes-pdf"))
+
+	every := p.documentAsked(before, "#changes-pdf")
+	table := every.table(t, 0)
+
+	if len(table.Rows) != total {
+		t.Errorf("the document holds %d changes, want all %d rather than the page on screen", len(table.Rows), total)
+	}
+
+	if strings.Join(table.Columns, ",") != "When,Who,What" {
+		t.Errorf("the document's columns are %q", table.Columns)
+	}
+
+	if !strings.Contains(fmt.Sprint(table.Rows), "Created the account Greta Grün") {
+		t.Error("the document does not word the account's creation as the screen does")
+	}
+
+	// Narrowed to the roles, the document is the roles.
+	p.run("show the role changes", p.chooseOption(`#filter-changes-area`, "roles"))
+	p.waitForText(`#changes-card .pager .pager-range`, "1–10 of 12")
+
+	before = p.documentsAsked()
+	p.run("export the role changes", p.click("#changes-pdf"))
+
+	roles := p.documentAsked(before, "#changes-pdf")
+
+	if rows := roles.table(t, 0).Rows; len(rows) != 12 || strings.Contains(fmt.Sprint(rows), "Greta") {
+		t.Errorf("narrowed to the roles, the document holds %d changes: %v", len(rows), rows)
+	}
+
+	if !strings.Contains(roles.Subtitle, "Roles") {
+		t.Errorf("the line under the title is %q, which does not say the log was narrowed to the roles", roles.Subtitle)
+	}
+
+	// Read oldest first, the document is too, and says so: an audit reads a
+	// period from its beginning, and a document in the other order would be a
+	// different reading from the one on screen.
+	p.run("read the oldest first", p.click(`#table-changes thead th[data-sort="at"] .sort-toggle`))
+	p.waitForText(`#table-changes tbody tr:first-child`, "reviewer-01")
+
+	before = p.documentsAsked()
+	p.run("export them oldest first", p.click("#changes-pdf"))
+
+	oldest := p.documentAsked(before, "#changes-pdf")
+
+	if rows := oldest.table(t, 0).Rows; len(rows) != 12 || !strings.Contains(fmt.Sprint(rows[0]), "reviewer-01") ||
+		!strings.Contains(fmt.Sprint(rows[11]), "reviewer-12") {
+		t.Errorf("read oldest first, the document runs %v", rows)
+	}
+
+	if caption := oldest.Sections[0].Caption; !strings.Contains(caption, "oldest first") {
+		t.Errorf("read oldest first, the document's caption says %q", caption)
+	}
+}
+
+// The log is found by the words its sentences say on screen, in the reader's
+// language - "Konto" finds the accounts made, "Rolle" the roles - and not only by
+// the names in them and the codes the server keeps.
+//
+// The server keeps user.created and words nothing; the screen says "Konto Greta
+// Grün angelegt". A search answered by the server alone found the names and
+// nothing else, so the words somebody reads in the log were the words that could
+// not be searched for.
+func TestTheChangeLogIsFoundByTheWordsItsSentencesSay(t *testing.T) {
+	t.Parallel()
+
+	p := open(t)
+	p.readyAdmin()
+
+	var made bool
+
+	p.awaitJSON(`(async () => {
+		await api('/roles', { method: 'POST', body: JSON.stringify({
+			name: 'reviewer-01', description: 'Reads what others booked', permissions: ['timesheets:read:own'],
+		}) });
+		await api('/users', { method: 'POST', body: JSON.stringify({
+			name: 'Greta Grün', email: 'greta@example.com', role: 'user', password: 'greta-password-1',
+		}) });
+		await loadChanges();
+		return true;
+	})()`, &made)
+
+	p.chooseLanguage("de")
+
+	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
+		chromedp.WaitVisible("#changes-card", chromedp.ByID))
+
+	const rows = `#table-changes tbody`
+
+	search := func(term string) {
+		p.run("search for "+term, chromedp.Evaluate(`(() => {
+			const field = document.querySelector('#filter-changes-q');
+			field.value = '`+term+`';
+			field.dispatchEvent(new Event('input', { bubbles: true }));
+		})()`, nil))
+	}
+
+	// Each search is waited for by what it leaves out, which only the answer can
+	// do: what it should find is on the first page before the search is asked.
+	answered := func(term, leftOut string) string {
+		search(term)
+		p.waitFor("the search for "+term+" to leave out "+leftOut, func() bool {
+			return !strings.Contains(p.text(rows), leftOut)
+		})
+
+		return p.text(rows)
+	}
+
+	if got := answered("Konto", "reviewer-01"); !strings.Contains(got, "Konto Greta Grün angelegt") {
+		t.Errorf("searching for Konto found %q, want the account made", truncateText(got, 200))
+	}
+
+	if got := answered("Rolle", "Greta"); !strings.Contains(got, "Rolle reviewer-01 angelegt") {
+		t.Errorf("searching for Rolle found %q, want the role made", truncateText(got, 200))
+	}
+
+	// After the search for the role, what this one should add is what tells it
+	// has answered: the account made is not on screen until it does.
+	search("angelegt")
+	p.waitForText(rows, "Konto Greta Grün angelegt")
+
+	if got := p.text(rows); !strings.Contains(got, "Rolle reviewer-01 angelegt") || strings.Contains(got, "Einrichtung") {
+		t.Errorf("searching for angelegt found %q, want the role and the account made and nothing else", truncateText(got, 200))
+	}
 }

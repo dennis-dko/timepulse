@@ -458,6 +458,7 @@ function errorMessage(body) {
  * PERMISSION_TITLES, for the same reason.
  */
 const FIELD_NAMES = {
+  actions: 'Kinds of change',
   actor: 'Caller',
   area: 'Made to',
   banner: 'Banner text',
@@ -503,6 +504,7 @@ const FIELD_NAMES = {
   lowerBound: 'Lower bound of the balance',
   maxDailyHours: 'Max h/day',
   name: 'Name',
+  order: 'Direction',
   port: 'Port',
   projectId: 'Project',
   q: 'Search',
@@ -511,6 +513,7 @@ const FIELD_NAMES = {
   rateLimitWindowSeconds: 'Rate limit window (seconds)',
   role: 'Role',
   schedule: 'Schedule',
+  sort: 'Sorted by',
   sessionIdleMinutes: 'Sign out after inactivity (minutes)',
   sessionLifetimeHours: 'Session lifetime (hours)',
   startDate: 'Start',
@@ -2366,6 +2369,7 @@ function pagerOf(table) {
       total: 0,
       tools: null,
       nav: null,
+      sort: null,
     };
 
     pagers.set(table, pager);
@@ -2453,7 +2457,178 @@ function pagedRows(table) {
   const pager = pagers.get(table);
   if (!pager || pager.server || !pagesAtAll(pager)) return null;
 
-  return matchingRows(table, pager);
+  return sortedRows(pager, matchingRows(table, pager));
+}
+
+/**
+ * The rows in the order the table's sorted heading asks for, or as they came.
+ *
+ * Read from what each cell says, in the reader's own conventions, rather than
+ * from a value every loader would have to attach: a column whose every filled
+ * cell begins with a date sorts by date, one whose every filled cell is a
+ * figure sorts by figure - 1.234,50 € and 8.25 h alike - and anything else as
+ * text, numbers inside it counted as numbers. An empty cell or a dash comes
+ * last either way, and equal cells keep the list's own order.
+ */
+function sortedRows(pager, rows) {
+  if (!pager.sort || pager.server) return rows;
+
+  const { column, descending } = pager.sort;
+  const texts = rows.map((row) => cellsOf(row)[column]?.textContent.trim() ?? '');
+  const { keyOf, compare } = sortKeys(texts);
+
+  return rows
+    .map((row, i) => ({ row, i, key: keyOf(texts[i]) }))
+    .sort((a, b) => {
+      if (a.key === null || b.key === null) {
+        return Number(a.key === null) - Number(b.key === null) || a.i - b.i;
+      }
+
+      return (descending ? -compare(a.key, b.key) : compare(a.key, b.key)) || a.i - b.i;
+    })
+    .map(({ row }) => row);
+}
+
+/** What a column of texts is sorted as, and how two of its keys compare. */
+function sortKeys(texts) {
+  const filled = texts.filter((text) => !blankCell(text));
+  const order = dateOrder();
+  const separators = numberSeparators();
+  const byNumber = (a, b) => a - b;
+
+  if (filled.length && filled.every((text) => dateKey(text, order) !== null)) {
+    return { keyOf: (text) => (blankCell(text) ? null : dateKey(text, order)), compare: byNumber };
+  }
+
+  if (filled.length && filled.every((text) => numberKey(text, separators) !== null)) {
+    return { keyOf: (text) => (blankCell(text) ? null : numberKey(text, separators)), compare: byNumber };
+  }
+
+  const collator = new Intl.Collator(activeLocale(), { numeric: true, sensitivity: 'base' });
+
+  return { keyOf: (text) => (blankCell(text) ? null : text), compare: collator.compare };
+}
+
+function blankCell(text) {
+  return text === '' || text === '–' || text === '-' || text === '—';
+}
+
+/** The order day, month and year are written in, as fmtDate writes them. */
+function dateOrder() {
+  return new Intl.DateTimeFormat(activeLocale(), {
+    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC',
+  }).formatToParts(new Date(Date.UTC(2026, 10, 23)))
+    .map((part) => part.type)
+    .filter((type) => type === 'day' || type === 'month' || type === 'year');
+}
+
+/**
+ * A text that begins with a date - a day, a moment, or the first day of a
+ * period - as a number that sorts by it; null for any other text. A twelve-hour
+ * clock's afternoon counts as the afternoon.
+ */
+function dateKey(text, order) {
+  const match = text.match(/^(\d{1,4})\D{1,3}(\d{1,4})\D{1,3}(\d{1,4})(?:\D{1,3}(\d{1,2})[:.](\d{2}))?/);
+  if (!match) return null;
+
+  const part = Object.fromEntries(order.map((name, i) => [name, Number(match[i + 1])]));
+
+  if (!(part.year >= 1000 && part.month >= 1 && part.month <= 12 && part.day >= 1 && part.day <= 31)) {
+    return null;
+  }
+
+  let hour = Number(match[4] ?? 0);
+
+  if (/\bpm\b/i.test(text) && hour < 12) hour += 12;
+  if (/\bam\b/i.test(text) && hour === 12) hour = 0;
+
+  return ((part.year * 100 + part.month) * 100 + part.day) * 10000 + hour * 100 + Number(match[5] ?? 0);
+}
+
+/** The characters this reader groups thousands and marks decimals with. */
+function numberSeparators() {
+  const parts = new Intl.NumberFormat(activeLocale()).formatToParts(12345.6);
+
+  return {
+    group: parts.find((part) => part.type === 'group')?.value ?? ',',
+    decimal: parts.find((part) => part.type === 'decimal')?.value ?? '.',
+  };
+}
+
+/**
+ * A figure as this reader writes it - signed, with a currency, an hour or a
+ * per cent beside it - as a number; null for anything that is not one.
+ */
+function numberKey(text, { group, decimal }) {
+  const match = text.match(/^([+\-−]?)\s*\p{Sc}?\s*(\d[\d\s  .,']*?)\s*(?:h|%|\p{Sc}|[A-Z]{3})?$/u);
+  if (!match) return null;
+
+  const value = Number(match[2].replace(/[\s  ']/g, '').split(group).join('').replace(decimal, '.'));
+  if (!Number.isFinite(value)) return null;
+
+  return match[1] === '-' || match[1] === '−' ? -value : value;
+}
+
+/**
+ * The headings a table can be sorted by: every heading of a column of data in
+ * a table paged here, and in a table paged on the server the ones that name
+ * the server's word for their column with data-sort - the server can only
+ * sort by what it keeps.
+ */
+function sortableHeadings(table, pager) {
+  return cellsOf(table.tHead?.rows[0] ?? {})
+    .map((heading, column) => ({ heading, column }))
+    .filter(({ heading }) => !heading.classList.contains('actions')
+      && (pager.server ? Boolean(heading.dataset.sort) : heading.textContent.trim() !== ''));
+}
+
+/**
+ * Makes a table's headings sort it, once, and says on each which way it sorts.
+ *
+ * A press sorts ascending, the next descending, the third goes back to the
+ * list's own order. The button covers its heading, so the whole cell is what is
+ * pressed, and carries no text of its own: what a heading says is read for a
+ * document and for the filter's label, and an arrow there would be read too.
+ */
+function drawSortHeadings(table, pager) {
+  for (const { heading, column } of sortableHeadings(table, pager)) {
+    // Asked of the button rather than of a mark beside it: a heading the script
+    // writes itself - a weekday's name over a schedule - is written with
+    // textContent, which takes the button with it and leaves the mark behind.
+    if (!heading.querySelector(':scope > .sort-toggle')) {
+      heading.classList.add('sortable');
+      heading.append(el('button', {
+        type: 'button',
+        class: 'sort-toggle',
+        onclick: () => turnPage(table, pager, () => {
+          const current = pager.sort?.column === column ? pager.sort : null;
+
+          pager.sort = !current ? { column, key: heading.dataset.sort ?? '', descending: false }
+            : current.descending ? null
+              : { ...current, descending: true };
+          pager.page = 0;
+        }),
+      }));
+    }
+
+    const sorted = pager.sort?.column === column;
+
+    if (sorted) heading.setAttribute('aria-sort', pager.sort.descending ? 'descending' : 'ascending');
+    else heading.removeAttribute('aria-sort');
+
+    heading.querySelector('.sort-toggle').setAttribute('aria-label',
+      fillIn(t('pager.sortBy', 'Sort by {0}'), [heading.textContent.trim()]));
+  }
+}
+
+/**
+ * What a server-paged table is sorted by, as the server's parameters: its
+ * column's word and the direction, or nothing for the list's own order.
+ */
+function serverSort(table) {
+  const sort = pagerOf(table).sort;
+
+  return sort ? { sort: sort.key, order: sort.descending ? 'desc' : 'asc' } : null;
 }
 
 /**
@@ -2482,7 +2657,7 @@ function showPage(table, pager) {
   // offered any more.
   if (pager.choice && !filterValuesOf(table, pager).includes(pager.choice)) pager.choice = '';
 
-  const matching = pagesAtAll(pager) ? matchingRows(table, pager) : pager.rows;
+  const matching = sortedRows(pager, pagesAtAll(pager) ? matchingRows(table, pager) : pager.rows);
   const pages = Math.max(1, Math.ceil(matching.length / pager.size));
 
   pager.page = Math.min(pager.page, pages - 1);
@@ -2574,6 +2749,10 @@ function firstPage(table) {
  */
 function drawPager(table, pager, matched) {
   const long = pagesAtAll(pager);
+
+  // Every table sorts, however short: ten rows are still easier to read in the
+  // order somebody is looking for.
+  drawSortHeadings(table, pager);
 
   if (long) ensurePagerControls(table, pager);
 
@@ -2782,6 +2961,7 @@ function forgetPagers() {
   }
 
   for (const wrap of $$('.table-wrap.paged')) wrap.classList.remove('paged', 'more-below');
+  for (const heading of $$('th[aria-sort]')) heading.removeAttribute('aria-sort');
 
   pagers.clear();
 }
@@ -6575,6 +6755,15 @@ async function loadTimesheets() {
   params.set('limit', String(limit));
   params.set('offset', String(offset));
 
+  // Sorted by the server, which holds every page: sorted here, the oldest
+  // entry would have been the oldest of the page on screen.
+  const sort = serverSort(table);
+
+  if (sort) {
+    params.set('sort', sort.sort);
+    params.set('order', sort.order);
+  }
+
   timesheetLoads += 1;
   const asked = timesheetLoads;
 
@@ -7736,7 +7925,7 @@ function drawVacation() {
 
   $('#vacation-title').textContent = fillIn(t('vacation.title', 'Leave {0}'), [account.year]);
 
-  const given = account.entitlements.length > 0 && account.year >= account.entitlements[0].fromYear;
+  const given = leaveGiven(account);
 
   $('#vacation-left').textContent = given
     ? fillIn(t('vacation.left', 'Days left: {0}'), [account.remaining])
@@ -7759,6 +7948,48 @@ function drawVacation() {
   ));
 
   fillTable($('#table-vacation tbody'), rows, 3, t('vacation.noEntitlements', 'No days of leave given yet.'));
+}
+
+/**
+ * The leave of the year the card shows, and the days away in it, for the
+ * document an employer's records ask for.
+ *
+ * The days are read for that year rather than off the table beside the card,
+ * which lists the current one: stepped back a year, the leave would have been
+ * last year's and the days this year's. What is left and what was taken are the
+ * card's own sentences, so the document says them as the screen does.
+ */
+async function vacationDocument() {
+  const account = vacationAccount;
+  const year = account?.year ?? vacationYear ?? Number(todayISO().slice(0, 4));
+  const span = new URLSearchParams({ from: `${year}-01-01`, to: `${year}-12-31` });
+  const absences = (await api(`/me/absences?${span}`))?.items ?? [];
+  const given = Boolean(account) && leaveGiven(account);
+
+  return {
+    title: fillIn(t('vacation.title', 'Leave {0}'), [year]),
+    colours: screenColours(),
+    subtitle: given
+      ? [fillIn(t('vacation.left', 'Days left: {0}'), [account.remaining]),
+        fillIn(t('vacation.detail', 'Given: {0} · carried over: {1} · taken: {2} · planned: {3}'),
+          [account.entitlement, account.carriedOver, account.taken, account.planned])].join(' · ')
+      : t('vacation.none', 'No leave given for this year yet: say below how many days a year give.'),
+    sections: [{
+      heading: t('absence.title', 'Days away'),
+      caption: absences.length ? undefined : t('absence.empty', 'No absence recorded this year.'),
+      table: {
+        columns: [t('field.day', 'Day'), t('field.kind', 'Reason')],
+        numeric: [false, false],
+        rows: absences.map((absence) => [fmtDate(absence.day), absenceName(absence.kind)]),
+        tones: absences.map(() => ['', '']),
+      },
+    }],
+  };
+}
+
+/** Whether any leave is given for the year an account of leave describes. */
+function leaveGiven(account) {
+  return account.entitlements.length > 0 && account.year >= account.entitlements[0].fromYear;
 }
 
 /** Forgets the leave the card showed, for an account that has signed out. */
@@ -8543,6 +8774,17 @@ async function workDayDocument() {
 function wireWorkDays() {
   const form = $('#form-workday');
   if (!form) return;
+
+  // The month on screen as a workbook of figures, for payroll or one's own
+  // books - the one shown, not whatever the arrows land on next.
+  $('#workday-xlsx')?.addEventListener('click', () => mutate(() => {
+    const span = new URLSearchParams();
+
+    if (workDays?.from) span.set('from', workDays.from);
+    if (workDays?.to) span.set('to', workDays.to);
+
+    return downloadSheet(`/me/workdays/export?${span}`, t('work.filename', 'working-time'));
+  }, null, null));
 
   form.elements.date.addEventListener('change', () => proposeTheClocksStart(form));
 
@@ -9335,6 +9577,25 @@ let adminChanges = { entries: [], total: 0, narrowed: false };
 let changeLoads = 0;
 
 /**
+ * The changes whose sentence on screen holds a search, in the reader's language,
+ * as the actions the server keeps them under.
+ *
+ * Only the screen can work this out: the server keeps user.created and words
+ * nothing, and the screen says "Konto Greta Grün angelegt". Searched by the server
+ * alone, the words somebody reads in the log were the ones that found nothing -
+ * a name in it was found, "Konto" and "angelegt" were not. Matched as the tables
+ * search, without case or accents, and with the sentence's blanks for names left
+ * out, since the names are the server's to find.
+ */
+function actionsSaying(search) {
+  const words = folded(search);
+
+  return Object.entries(CHANGE_SENTENCES)
+    .filter(([, sentence]) => folded(sentence().replace(/\{\d+\}/g, ' ')).includes(words))
+    .map(([action]) => action);
+}
+
+/**
  * Reads the page of the administration log its pager is on, narrowed by the
  * card's search and area.
  *
@@ -9350,14 +9611,14 @@ async function loadChanges() {
   const table = $('#table-changes');
   if (!can('settings:manage') || !table) return;
 
+  // Read where the document reads them, so the two cannot come to disagree
+  // about which changes the card is showing.
+  const params = changeFilters();
+  const narrowed = params.has('q') || params.has('area');
   const { offset, limit } = pageWindow(table);
-  const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
 
-  const search = $('#filter-changes-q')?.value.trim() ?? '';
-  const area = $('#filter-changes-area')?.value ?? '';
-
-  if (search) params.set('q', search);
-  if (area) params.set('area', area);
+  params.set('offset', String(offset));
+  params.set('limit', String(limit));
 
   changeLoads += 1;
   const asked = changeLoads;
@@ -9369,19 +9630,113 @@ async function loadChanges() {
   adminChanges = {
     entries: page?.entries ?? [],
     total: page?.totalCount ?? 0,
-    narrowed: Boolean(search || area),
+    narrowed,
   };
 
   redrawable('changes', drawChanges);
 }
 
-function drawChanges() {
-  // Nobody's account made a change numbered zero: that is the recover command,
-  // run on the server where no request and so no account is involved.
-  const changedBy = (actor) => (actor.id === 0
+/**
+ * Who made a change, as the log names them. Nobody's account made a change
+ * numbered zero: that is the recover command, run on the server where no
+ * request and so no account is involved.
+ */
+function changedBy(actor) {
+  return actor.id === 0
     ? t('changes.byCommand', 'The command line on the server')
-    : actor.name || `#${actor.id}`);
+    : actor.name || `#${actor.id}`;
+}
 
+/**
+ * The search, the area and the order the log's card is read in now, as the
+ * server reads them - for the card and its document alike, so the document is
+ * the reading on screen rather than the log's own order.
+ */
+function changeFilters() {
+  const params = new URLSearchParams();
+  const search = $('#filter-changes-q')?.value.trim() ?? '';
+  const area = $('#filter-changes-area')?.value ?? '';
+
+  if (search) {
+    params.set('q', search);
+
+    const actions = actionsSaying(search);
+    if (actions.length) params.set('actions', actions.join(','));
+  }
+
+  if (area) params.set('area', area);
+
+  // The log sorts by when alone, so only the direction travels.
+  const sort = serverSort($('#table-changes'));
+  if (sort) params.set('order', sort.order);
+
+  return params;
+}
+
+/** How many changes a document can hold: the server lays out no table longer. */
+const CHANGES_IN_A_DOCUMENT = 2000;
+
+/**
+ * The log as a document: every change its search and area let through, in the
+ * order the card is read in, read from the server a page at a time rather than
+ * off the screen, which holds one page of it - in the sentences the screen
+ * words them in.
+ *
+ * A document has room for two thousand rows, so a log longer than that leaves
+ * as its first two thousand - the newest, or the oldest where the card reads
+ * the oldest first - and says so above the table rather than ending where the
+ * room did as though that were where the log ended.
+ */
+async function changesDocument() {
+  const entries = [];
+  const oldestFirst = changeFilters().get('order') === 'asc';
+  let total = 0;
+
+  while (entries.length < CHANGES_IN_A_DOCUMENT) {
+    const params = changeFilters();
+
+    params.set('offset', String(entries.length));
+    params.set('limit', String(Math.min(500, CHANGES_IN_A_DOCUMENT - entries.length)));
+
+    const page = await api(`/admin/changes?${params}`);
+
+    total = page?.totalCount ?? 0;
+    entries.push(...(page?.entries ?? []));
+
+    if (!page?.more || !(page.entries ?? []).length) break;
+  }
+
+  const area = $('#filter-changes-area');
+  const search = $('#filter-changes-q')?.value.trim() ?? '';
+  const narrowed = [area?.value ? area.selectedOptions[0].textContent.trim() : '',
+    search ? fillIn(t('changes.searchedFor', 'search: {0}'), [search]) : '']
+    .filter(Boolean);
+
+  return {
+    title: t('changes.title', 'Changes to the installation'),
+    colours: screenColours(),
+    subtitle: narrowed.length ? narrowed.join(' · ') : t('changes.everything', 'Every change'),
+    sections: [{
+      heading: t('changes.title', 'Changes to the installation'),
+      caption: total > entries.length
+        ? fillIn(oldestFirst
+          ? t('changes.documentOldest', 'The oldest {0} of {1} changes; the search and the area narrow it further.')
+          : t('changes.documentNewest', 'The newest {0} of {1} changes; the search and the area narrow it further.'),
+        [entries.length, total])
+        : oldestFirst
+          ? t('changes.documentCaptionOldest', 'Who changed how the installation is run, oldest first.')
+          : t('changes.documentCaption', 'Who changed how the installation is run, newest first.'),
+      table: {
+        columns: [t('changes.when', 'When'), t('changes.who', 'Who'), t('changes.what', 'What')],
+        numeric: [false, false, false],
+        rows: entries.map((entry) => [fmtMoment(entry.at), changedBy(entry.actor), describeChange(entry)]),
+        tones: entries.map(() => ['', '', '']),
+      },
+    }],
+  };
+}
+
+function drawChanges() {
   const rows = adminChanges.entries.map((entry) => el('tr', {},
     el('td', { text: fmtMoment(entry.at) }),
     el('td', { text: changedBy(entry.actor) }),
@@ -10834,6 +11189,10 @@ function forgetTheLastAccount() {
   $('#welcome-week').hidden = true;
   forgetTheWeek();
 
+  // And the tiles: a balance, the leave left and the projects nearest their
+  // budget, and how the installation stood for whoever ran it.
+  forgetTheGlance();
+
   // And the templates: the sweeps above empty the picker and the card's rows, and
   // this hides the two, which would otherwise stand empty for the next account.
   forgetTheTemplates();
@@ -11203,8 +11562,8 @@ const TOUR_STEPS = [
     view: null,
     title: () => t('tour.welcome.title', 'The way back'),
     text: () => t('tour.welcome.text',
-      'The title takes you to the welcome screen from wherever you are. It says what '
-      + 'today already has on it, and it can start this walk again.'),
+      'The title takes you to the welcome screen from wherever you are. It shows your '
+      + 'day, your week and your figures at a glance, and it can start this walk again.'),
   },
   {
     target: '#tabs',
@@ -12225,7 +12584,9 @@ async function renderWelcome() {
   // Not awaited with the rest: the greeting is readable without it, and holding
   // the screen for a list of five lines would be holding it for a courtesy.
   renderWeekAtAGlance();
+  renderGlance();
   renderRecentEntries();
+  renderOperation();
 }
 
 /**
@@ -12406,6 +12767,246 @@ function recentEntryRow(entry) {
   );
 }
 
+/**
+ * A read for a tile on the greeting, or nothing where it fails. The screens the
+ * tiles lead to report anything that is really wrong, and one failed read must
+ * cost its own tile rather than the card.
+ */
+function readOrNothing(path) {
+  return api(path).catch(() => null);
+}
+
+/** Takes whoever pressed a tile to the card that keeps its figure, on its own tab. */
+function openTheCardOn(view, selector) {
+  switchView(view);
+
+  const card = $(selector)?.closest('.card');
+  openTheTabOf(card);
+  card?.scrollIntoView({ block: 'start' });
+}
+
+/** Marks a tile whose figure deserves a look ('near') or is wrong ('over'). */
+function markTile(tile, mark) {
+  tile.classList.toggle('near', mark === 'near');
+  tile.classList.toggle('over', mark === 'over');
+}
+
+/**
+ * A number of days as the leave card writes one, which fillIn decides: a whole
+ * day plainly, half a day to two places.
+ */
+const fmtDays = (days) => (Number.isInteger(days) ? String(days) : fmtNumber(days));
+
+/** How many projects the budget tile names: the ones nearest their budget. */
+const GLANCE_BUDGETS = 3;
+
+/** What the figures card was last drawn from, kept so a language change can redraw it. */
+let glanceFigures = null;
+
+/**
+ * The figures somebody comes back for, a tile each, under the greeting: the
+ * running balance, the days of leave left this year and the projects nearest
+ * their budget.
+ *
+ * A tile is shown only where it has something to say - no balance before a day
+ * counts towards one, no leave before any is given for the year, no budgets
+ * where no project has one - and the card goes with its last tile, for the
+ * reason the entries beside it go for an account that records no time: a panel
+ * explaining that there is nothing is worse than no panel.
+ *
+ * Its own reads rather than what the other screens loaded: those hold the
+ * projects of the account on screen, which for a manager looking after
+ * somebody is not the person being greeted.
+ */
+async function renderGlance() {
+  if (!$('#welcome-glance')) return;
+
+  const year = Number(todayISO().slice(0, 4));
+
+  const [notices, leave, projects] = await Promise.all([
+    can('reports:read:own') ? readOrNothing('/me/notices') : null,
+    can('timesheets:read:own') ? readOrNothing(`/me/vacation?year=${year}`) : null,
+    can('projects:read') ? readOrNothing('/projects') : null,
+  ]);
+
+  // Signed out while the answers were on their way: they are nobody's now.
+  if (!me.user) return;
+
+  glanceFigures = {
+    balance: notices?.balance?.since ? notices.balance : null,
+    leave: leave && leaveGiven(leave) ? leave : null,
+    // Only an active project takes bookings, so only one can still move
+    // towards its budget.
+    budgets: (projects?.items ?? [])
+      .filter((project) => project.status === 'active' && project.budgetHours > 0)
+      .sort((a, b) => b.bookedHours / b.budgetHours - a.bookedHours / a.budgetHours)
+      .slice(0, GLANCE_BUDGETS),
+  };
+
+  redrawable('welcomeGlance', drawGlance);
+}
+
+/** Draws the figures card, in the language now in force. */
+function drawGlance() {
+  const { balance, leave, budgets } = glanceFigures;
+
+  const balanceTile = $('#glance-balance');
+  balanceTile.hidden = !balance;
+
+  if (balance) {
+    const above = balance.outside === 'above';
+
+    $('#glance-balance-value').textContent = fmtSignedHours(balance.hours);
+    $('#glance-balance-note').textContent = balance.outside
+      ? fillIn(above
+        ? t('welcome.glance.above', 'above your upper bound of {0}')
+        : t('welcome.glance.below', 'below your lower bound of {0}'),
+      [fmtSignedHours(above ? balance.upperBound : balance.lowerBound)])
+      : fillIn(t('welcome.glance.since', 'counted from {0}'), [fmtDate(balance.since)]);
+    markTile(balanceTile, balance.outside ? 'over' : '');
+  }
+
+  const leaveTile = $('#glance-leave');
+  leaveTile.hidden = !leave;
+
+  if (leave) {
+    $('#glance-leave-label').textContent = fillIn(t('welcome.glance.leave', 'Days of leave left in {0}'),
+      [leave.year]);
+    $('#glance-leave-value').textContent = fmtDays(leave.remaining);
+    $('#glance-leave-note').textContent = fillIn(t('welcome.glance.leaveNote', 'taken {0} · planned {1}'),
+      [leave.taken, leave.planned]);
+    markTile(leaveTile, leave.remaining < 0 ? 'over' : '');
+  }
+
+  $('#glance-budgets').hidden = budgets.length === 0;
+  $('#glance-budgets-list').replaceChildren(...budgets.map((project) => el('li', {},
+    el('span', { class: 'glance-item', text: project.name }),
+    budgetLine(project))));
+
+  $('#welcome-glance').hidden = !balance && !leave && budgets.length === 0;
+}
+
+/** How many of the latest changes the installation's card names. */
+const GLANCE_CHANGES = 3;
+
+/** What the installation's card was last drawn from. */
+let glanceOperation = null;
+
+/**
+ * How the installation stands, a tile each, under the greeting of whoever may
+ * run it: the version it runs and whether a newer one is out, its newest backup,
+ * and the latest changes in the words of the log - each tile leading to the card
+ * that keeps its figure.
+ *
+ * The version is the one tile that depends on somebody else's service, which is
+ * why every read stands alone: a release feed that cannot be reached leaves that
+ * tile out rather than the card.
+ */
+async function renderOperation() {
+  const card = $('#welcome-operation');
+  if (!card) return;
+
+  if (!can('settings:manage')) {
+    card.hidden = true;
+
+    return;
+  }
+
+  const [update, backups, changes] = await Promise.all([
+    readOrNothing('/settings/update'),
+    readOrNothing('/settings/backups'),
+    readOrNothing(`/admin/changes?limit=${GLANCE_CHANGES}`),
+  ]);
+
+  if (!me.user) return;
+
+  glanceOperation = { update, backups, changes: changes?.entries ?? [] };
+  redrawable('welcomeOperation', drawOperation);
+}
+
+/** Draws the installation's card, in the language now in force. */
+function drawOperation() {
+  const { update, backups, changes } = glanceOperation;
+
+  const version = $('#glance-version');
+  version.hidden = !update;
+
+  if (update) {
+    const [note, mark] = versionAtAGlance(update);
+
+    $('#glance-version-value').textContent = update.running;
+    $('#glance-version-note').textContent = note;
+    markTile(version, mark);
+  }
+
+  const backup = $('#glance-backup');
+  backup.hidden = !backups;
+
+  if (backups) {
+    // The newest first, as the folder lists them.
+    const newest = backups.backups?.[0];
+    const [note, mark] = backupsAtAGlance(backups);
+
+    $('#glance-backup-value').textContent = newest
+      ? fmtMoment(newest.made)
+      : t('welcome.operation.noBackup', 'None yet');
+    $('#glance-backup-note').textContent = note;
+    markTile(backup, mark);
+  }
+
+  $('#glance-changes').hidden = changes.length === 0;
+  $('#glance-changes-list').replaceChildren(...changes.map((entry) => el('li', {},
+    el('span', { class: 'glance-change', text: describeChange(entry) }),
+    el('span', { class: 'glance-when', text: `${fmtMoment(entry.at)} · ${changedBy(entry.actor)}` }))));
+
+  $('#welcome-operation').hidden = !update && !backups && changes.length === 0;
+}
+
+/**
+ * The line under the version, and its mark: the version card's verdict in a
+ * few words, in the order that card asks - a check switched off says nothing
+ * about what is out, and a version already downloaded is not on offer again.
+ */
+function versionAtAGlance(update) {
+  if (!update.enabled) return [t('welcome.operation.unchecked', 'not checked for newer versions'), ''];
+
+  if (update.pending) {
+    return [fillIn(t('welcome.operation.pending', '{0} starts with the next restart'), [update.pending]), 'near'];
+  }
+
+  if (!update.comparable || !update.latest) return ['', ''];
+
+  return update.newer
+    ? [fillIn(t('welcome.operation.newer', '{0} is available'), [update.latest]), 'near']
+    : [t('welcome.operation.current', 'the newest version'), ''];
+}
+
+/**
+ * The line under the newest backup, and its mark: none can be made without the
+ * passphrase, and without a schedule none is made unless somebody remembers to.
+ */
+function backupsAtAGlance(backups) {
+  if (!backups.enabled) {
+    return [t('welcome.operation.backupOff', 'off until BACKUP_PASSPHRASE is set'), 'over'];
+  }
+
+  if (!backups.schedule) {
+    return [t('welcome.operation.unscheduled', 'made only by hand: no schedule is set'), 'near'];
+  }
+
+  return [fillIn(t('welcome.operation.kept', '{0} kept, made on a schedule'), [backups.backups?.length ?? 0]), ''];
+}
+
+/** Forgets the greeting's tiles, for an account that has signed out. */
+function forgetTheGlance() {
+  glanceFigures = null;
+  glanceOperation = null;
+
+  for (const hidden of $$('#welcome-glance, #welcome-operation, .glance-tile')) hidden.hidden = true;
+  for (const list of $$('.glance-list')) list.replaceChildren();
+  for (const said of $$('.glance-value, .glance-note, #glance-leave-label')) said.textContent = '';
+}
+
 /** What today looks like, in one sentence. */
 async function todayInOneSentence() {
   const today = todayISO();
@@ -12465,6 +13066,18 @@ function wireWelcome() {
 
   $('#welcome-continue').addEventListener('click', () => switchView(onwardView()));
   $('#welcome-tour').addEventListener('click', startTour);
+
+  // Each tile to the card its figure comes from.
+  for (const [button, view, card] of [
+    ['#glance-balance-open', 'overtime', '#form-overtime'],
+    ['#glance-leave-open', 'calendar', '#vacation-card'],
+    ['#glance-budgets-open', 'projects', '#table-projects'],
+    ['#glance-version-open', 'admin', '#update-card'],
+    ['#glance-backup-open', 'admin', '#backup-card'],
+    ['#glance-changes-open', 'admin', '#changes-card'],
+  ]) {
+    $(button).addEventListener('click', () => openTheCardOn(view, card));
+  }
 }
 
 // ------------------------------------------------------------ setup wizard
@@ -15598,6 +16211,9 @@ function wireDocumentExports() {
   wireDocumentExport('#workday-pdf', () => t('work.filename', 'working-time'), workDayDocument);
   wireDocumentExport('#statement-pdf', () => t('statement.filename', 'statement-of-work'),
     statementDocument);
+  wireDocumentExport('#changes-pdf', () => t('changes.filename', 'changes-to-the-installation'),
+    changesDocument);
+  wireDocumentExport('#vacation-pdf', () => t('vacation.filename', 'leave'), vacationDocument);
 }
 
 // ------------------------------------------- export and import, table by table

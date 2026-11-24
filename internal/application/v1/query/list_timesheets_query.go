@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/dennis-dko/timepulse/internal/application/v1/common"
+	"github.com/dennis-dko/timepulse/internal/domain/repository"
 )
 
 // ListTimesheetsQuery query to list all timesheets by filter
@@ -28,6 +29,9 @@ type ListTimesheetsQuery struct {
 	// the listing that answers a screen always names one.
 	Limit  uint
 	Offset uint
+
+	// Order is what the page is listed by; the zero value is the newest day first.
+	Order repository.TimesheetOrder
 }
 
 // ListTimesheetsQueryResult query to get list result of all existing timesheets

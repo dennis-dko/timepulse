@@ -768,14 +768,14 @@ button {
    weak as the rule above, so each of those wins with a rule of its own. The
    list is written twice more, for the shadow below and for a touch screen. */
 button:where(:not(.link, .link-button, .tab, .screen-tab, .app-title, .nav-toggle, .logo-use-button,
-  .password-toggle, .date-open, .toast-close)) {
+  .password-toggle, .date-open, .toast-close, .sort-toggle)) {
   min-height: var(--control);
   padding: 0 22px;
 }
 
 /* The form's own answer, lifted off the card on a shadow of its own colour. */
 button:where(:not(.secondary, .link, .link-button, .tab, .screen-tab, .danger, .app-title, .nav-toggle,
-  .logo-use-button, .password-toggle, .date-open, .toast-close, :disabled)) {
+  .logo-use-button, .password-toggle, .date-open, .toast-close, .sort-toggle, :disabled)) {
   box-shadow: 0 4px 12px var(--ring);
 }
 
@@ -1058,8 +1058,67 @@ button.danger:not(.link) {
 }
 
 /* Pinned to the right as well as the top, so above both the headings it passes
-   and the pinned actions of the rows beneath. */
-.table-wrap.paged thead th.actions { z-index: 2; }
+   and the pinned actions of the rows beneath; and the select-all box's cell
+   above the heading beside it, as it is in a table that does not scroll. */
+.table-wrap.paged thead th.actions,
+.table-wrap.paged thead th.pick { z-index: 2; }
+
+/* A heading that sorts its table.
+ *
+ * The button covers the whole cell and draws nothing of its own, so the cell is
+ * what a finger presses - forty-four pixels, as every button here is - and the
+ * heading's text stays the heading's: a document and the filter read it. The
+ * arrow is the cell's own, faint until its column is the one sorted by. */
+th.sortable {
+  height: var(--control);
+  position: relative;
+}
+
+/* The select-all box's cell above the heading beside it, where the two meet:
+ * that heading's button reached half a pixel into this cell, and a finger at
+ * the box's right-hand edge pressed "sort" instead of "select all". */
+th.pick {
+  position: relative;
+  z-index: 2;
+}
+
+/* The arrow takes no room of its own: it sits in the heading's right-hand
+ * padding. Beside every heading it widened each column, and the accounts table,
+ * eight columns in a card that just holds them, came out 30 pixels wider than
+ * its card in the faces CI draws with. Faint under the pointer or the focus,
+ * so a heading says it sorts before it is pressed, and drawn whole once its
+ * column is the one sorted by. */
+th.sortable::after {
+  content: '\2195';
+  font-size: 11px;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+th.sortable:hover::after,
+th.sortable:focus-within::after { opacity: 0.45; }
+
+th.sortable[aria-sort="ascending"]::after { content: '\2191'; opacity: 1; }
+th.sortable[aria-sort="descending"]::after { content: '\2193'; opacity: 1; }
+th.sortable:hover { color: var(--text); }
+
+.sort-toggle {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  inset: 0;
+  min-height: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.sort-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* More rows below than the box shows: its lower edge fades, so the row it cuts
  * in half reads as the start of the rest rather than as the end of the list.
@@ -3388,6 +3447,71 @@ input[readonly]:focus, textarea[readonly]:focus {
 
 .welcome-recent-hours { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* The tiles under the greeting: a label, the figure, a line about it and the way
+   to the card that keeps it. As many to a row as fit, and never narrower than a
+   figure and its line can be read in - one to a row on a telephone. */
+.glance-tiles {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  margin-top: 12px;
+}
+
+.glance-tile {
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.glance-label { color: var(--muted); font-size: 13px; }
+
+.glance-value {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.glance-note { color: var(--muted); font-size: 13px; }
+
+/* Marked as a project's budget line is: worth a look in the text's own colour
+   and weight, wrong in the danger colour - and always with the words saying
+   why, so the mark is never the only thing saying it. */
+.glance-tile.near .glance-note { color: var(--text); font-weight: 600; }
+.glance-tile.over .glance-value,
+.glance-tile.over .glance-note { color: var(--danger); font-weight: 600; }
+
+.glance-list {
+  align-self: stretch;
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.glance-list li { display: grid; gap: 1px; min-width: 0; }
+
+/* A project's name, cut off rather than allowed to widen the tile: it is the one
+   part of it whose length nobody here controls. */
+.glance-item {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glance-when { color: var(--muted); font-size: 12px; }
+
+/* At the foot of its tile, so the links of a row of tiles stand on one line, and
+   with its own padding moved out, so its words line up with the figure above. */
+.glance-tile > button.link { margin: auto 0 0 -6px; }
+
 /* Big enough to hit with a thumb.
 
    Below this width the layout is already the small one, and a small screen is
@@ -3416,7 +3540,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   /* The fields and the buttons that act are as high as a finger needs on every
      screen already; written again here so the line above does not lower them. */
   button:where(:not(.link, .link-button, .tab, .screen-tab, .app-title, .nav-toggle, .logo-use-button,
-  .password-toggle, .date-open, .toast-close)),
+  .password-toggle, .date-open, .toast-close, .sort-toggle)),
   select,
   input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
     min-height: var(--control);

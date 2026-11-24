@@ -132,7 +132,7 @@ func (r *TimesheetRepository) GetByFilter(
 
 	// The order is what makes paging mean anything: without it two pages can show
 	// one entry twice and never show another, and nothing about the result says so.
-	query += " ORDER BY date DESC, id DESC"
+	query += timesheetOrderBy(filter.Order)
 
 	// Offset without limit is ignored rather than translated, because SQL wants the
 	// limit first and inventing one here would answer a question nobody asked.
@@ -162,6 +162,28 @@ func (r *TimesheetRepository) CountByFilter(
 	}
 
 	return total, nil
+}
+
+// timesheetOrderBy renders a listing's order from fixed fragments only, so
+// nothing a caller sends reaches the statement. The day, and then the id, follow
+// whatever column leads, in the same direction, so equal hours or descriptions
+// still come in one order on every page.
+func timesheetOrderBy(order repository.TimesheetOrder) string {
+	direction := " DESC"
+	if order.Ascending {
+		direction = " ASC"
+	}
+
+	tail := "date" + direction + ", id" + direction
+
+	switch order.By {
+	case repository.ByHours:
+		return " ORDER BY duration_hours" + direction + ", " + tail
+	case repository.ByDescription:
+		return " ORDER BY LOWER(COALESCE(description, ''))" + direction + ", " + tail
+	default:
+		return " ORDER BY " + tail
+	}
 }
 
 // where renders the collected conditions, or nothing at all.

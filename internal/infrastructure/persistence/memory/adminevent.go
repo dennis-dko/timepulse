@@ -46,7 +46,13 @@ func (r *AdminEventRepository) Find(
 		skipped uint
 	)
 
-	for i := len(r.events) - 1; i >= 0; i-- {
+	for n := range r.events {
+		// Newest first unless the oldest is asked for, as the statement orders by id.
+		i := len(r.events) - 1 - n
+		if filter.Ascending {
+			i = n
+		}
+
 		event := r.events[i]
 		if !keeps(filter, event) {
 			continue
@@ -84,5 +90,6 @@ func keeps(filter repository.AdminEventFilter, event model.AdminEvent) bool {
 		strings.Contains(strings.ToLower(event.Detail), text) ||
 		slices.Contains(filter.People, event.ActorID) ||
 		(strings.HasPrefix(event.Action, "user.") && slices.Contains(filter.People, event.TargetID)) ||
-		(strings.HasPrefix(event.Action, "role.") && slices.Contains(filter.Roles, event.TargetID))
+		(strings.HasPrefix(event.Action, "role.") && slices.Contains(filter.Roles, event.TargetID)) ||
+		slices.Contains(filter.Actions, event.Action)
 }
