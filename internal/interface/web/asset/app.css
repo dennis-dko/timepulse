@@ -3447,6 +3447,71 @@ input[readonly]:focus, textarea[readonly]:focus {
 
 .welcome-recent-hours { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* The tiles under the greeting: a label, the figure, a line about it and the way
+   to the card that keeps it. As many to a row as fit, and never narrower than a
+   figure and its line can be read in - one to a row on a telephone. */
+.glance-tiles {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  margin-top: 12px;
+}
+
+.glance-tile {
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.glance-label { color: var(--muted); font-size: 13px; }
+
+.glance-value {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.glance-note { color: var(--muted); font-size: 13px; }
+
+/* Marked as a project's budget line is: worth a look in the text's own colour
+   and weight, wrong in the danger colour - and always with the words saying
+   why, so the mark is never the only thing saying it. */
+.glance-tile.near .glance-note { color: var(--text); font-weight: 600; }
+.glance-tile.over .glance-value,
+.glance-tile.over .glance-note { color: var(--danger); font-weight: 600; }
+
+.glance-list {
+  align-self: stretch;
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.glance-list li { display: grid; gap: 1px; min-width: 0; }
+
+/* A project's name, cut off rather than allowed to widen the tile: it is the one
+   part of it whose length nobody here controls. */
+.glance-item {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glance-when { color: var(--muted); font-size: 12px; }
+
+/* At the foot of its tile, so the links of a row of tiles stand on one line, and
+   with its own padding moved out, so its words line up with the figure above. */
+.glance-tile > button.link { margin: auto 0 0 -6px; }
+
 /* Big enough to hit with a thumb.
 
    Below this width the layout is already the small one, and a small screen is

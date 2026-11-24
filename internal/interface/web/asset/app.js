@@ -7925,7 +7925,7 @@ function drawVacation() {
 
   $('#vacation-title').textContent = fillIn(t('vacation.title', 'Leave {0}'), [account.year]);
 
-  const given = account.entitlements.length > 0 && account.year >= account.entitlements[0].fromYear;
+  const given = leaveGiven(account);
 
   $('#vacation-left').textContent = given
     ? fillIn(t('vacation.left', 'Days left: {0}'), [account.remaining])
@@ -7985,6 +7985,11 @@ async function vacationDocument() {
       },
     }],
   };
+}
+
+/** Whether any leave is given for the year an account of leave describes. */
+function leaveGiven(account) {
+  return account.entitlements.length > 0 && account.year >= account.entitlements[0].fromYear;
 }
 
 /** Forgets the leave the card showed, for an account that has signed out. */
@@ -11173,6 +11178,10 @@ function forgetTheLastAccount() {
   $('#welcome-week').hidden = true;
   forgetTheWeek();
 
+  // And the tiles: a balance, the leave left and the projects nearest their
+  // budget, and how the installation stood for whoever ran it.
+  forgetTheGlance();
+
   // And the templates: the sweeps above empty the picker and the card's rows, and
   // this hides the two, which would otherwise stand empty for the next account.
   forgetTheTemplates();
@@ -11542,8 +11551,8 @@ const TOUR_STEPS = [
     view: null,
     title: () => t('tour.welcome.title', 'The way back'),
     text: () => t('tour.welcome.text',
-      'The title takes you to the welcome screen from wherever you are. It says what '
-      + 'today already has on it, and it can start this walk again.'),
+      'The title takes you to the welcome screen from wherever you are. It shows your '
+      + 'day, your week and your figures at a glance, and it can start this walk again.'),
   },
   {
     target: '#tabs',
@@ -12564,7 +12573,9 @@ async function renderWelcome() {
   // Not awaited with the rest: the greeting is readable without it, and holding
   // the screen for a list of five lines would be holding it for a courtesy.
   renderWeekAtAGlance();
+  renderGlance();
   renderRecentEntries();
+  renderOperation();
 }
 
 /**
@@ -12745,6 +12756,246 @@ function recentEntryRow(entry) {
   );
 }
 
+/**
+ * A read for a tile on the greeting, or nothing where it fails. The screens the
+ * tiles lead to report anything that is really wrong, and one failed read must
+ * cost its own tile rather than the card.
+ */
+function readOrNothing(path) {
+  return api(path).catch(() => null);
+}
+
+/** Takes whoever pressed a tile to the card that keeps its figure, on its own tab. */
+function openTheCardOn(view, selector) {
+  switchView(view);
+
+  const card = $(selector)?.closest('.card');
+  openTheTabOf(card);
+  card?.scrollIntoView({ block: 'start' });
+}
+
+/** Marks a tile whose figure deserves a look ('near') or is wrong ('over'). */
+function markTile(tile, mark) {
+  tile.classList.toggle('near', mark === 'near');
+  tile.classList.toggle('over', mark === 'over');
+}
+
+/**
+ * A number of days as the leave card writes one, which fillIn decides: a whole
+ * day plainly, half a day to two places.
+ */
+const fmtDays = (days) => (Number.isInteger(days) ? String(days) : fmtNumber(days));
+
+/** How many projects the budget tile names: the ones nearest their budget. */
+const GLANCE_BUDGETS = 3;
+
+/** What the figures card was last drawn from, kept so a language change can redraw it. */
+let glanceFigures = null;
+
+/**
+ * The figures somebody comes back for, a tile each, under the greeting: the
+ * running balance, the days of leave left this year and the projects nearest
+ * their budget.
+ *
+ * A tile is shown only where it has something to say - no balance before a day
+ * counts towards one, no leave before any is given for the year, no budgets
+ * where no project has one - and the card goes with its last tile, for the
+ * reason the entries beside it go for an account that records no time: a panel
+ * explaining that there is nothing is worse than no panel.
+ *
+ * Its own reads rather than what the other screens loaded: those hold the
+ * projects of the account on screen, which for a manager looking after
+ * somebody is not the person being greeted.
+ */
+async function renderGlance() {
+  if (!$('#welcome-glance')) return;
+
+  const year = Number(todayISO().slice(0, 4));
+
+  const [notices, leave, projects] = await Promise.all([
+    can('reports:read:own') ? readOrNothing('/me/notices') : null,
+    can('timesheets:read:own') ? readOrNothing(`/me/vacation?year=${year}`) : null,
+    can('projects:read') ? readOrNothing('/projects') : null,
+  ]);
+
+  // Signed out while the answers were on their way: they are nobody's now.
+  if (!me.user) return;
+
+  glanceFigures = {
+    balance: notices?.balance?.since ? notices.balance : null,
+    leave: leave && leaveGiven(leave) ? leave : null,
+    // Only an active project takes bookings, so only one can still move
+    // towards its budget.
+    budgets: (projects?.items ?? [])
+      .filter((project) => project.status === 'active' && project.budgetHours > 0)
+      .sort((a, b) => b.bookedHours / b.budgetHours - a.bookedHours / a.budgetHours)
+      .slice(0, GLANCE_BUDGETS),
+  };
+
+  redrawable('welcomeGlance', drawGlance);
+}
+
+/** Draws the figures card, in the language now in force. */
+function drawGlance() {
+  const { balance, leave, budgets } = glanceFigures;
+
+  const balanceTile = $('#glance-balance');
+  balanceTile.hidden = !balance;
+
+  if (balance) {
+    const above = balance.outside === 'above';
+
+    $('#glance-balance-value').textContent = fmtSignedHours(balance.hours);
+    $('#glance-balance-note').textContent = balance.outside
+      ? fillIn(above
+        ? t('welcome.glance.above', 'above your upper bound of {0}')
+        : t('welcome.glance.below', 'below your lower bound of {0}'),
+      [fmtSignedHours(above ? balance.upperBound : balance.lowerBound)])
+      : fillIn(t('welcome.glance.since', 'counted from {0}'), [fmtDate(balance.since)]);
+    markTile(balanceTile, balance.outside ? 'over' : '');
+  }
+
+  const leaveTile = $('#glance-leave');
+  leaveTile.hidden = !leave;
+
+  if (leave) {
+    $('#glance-leave-label').textContent = fillIn(t('welcome.glance.leave', 'Days of leave left in {0}'),
+      [leave.year]);
+    $('#glance-leave-value').textContent = fmtDays(leave.remaining);
+    $('#glance-leave-note').textContent = fillIn(t('welcome.glance.leaveNote', 'taken {0} · planned {1}'),
+      [leave.taken, leave.planned]);
+    markTile(leaveTile, leave.remaining < 0 ? 'over' : '');
+  }
+
+  $('#glance-budgets').hidden = budgets.length === 0;
+  $('#glance-budgets-list').replaceChildren(...budgets.map((project) => el('li', {},
+    el('span', { class: 'glance-item', text: project.name }),
+    budgetLine(project))));
+
+  $('#welcome-glance').hidden = !balance && !leave && budgets.length === 0;
+}
+
+/** How many of the latest changes the installation's card names. */
+const GLANCE_CHANGES = 3;
+
+/** What the installation's card was last drawn from. */
+let glanceOperation = null;
+
+/**
+ * How the installation stands, a tile each, under the greeting of whoever may
+ * run it: the version it runs and whether a newer one is out, its newest backup,
+ * and the latest changes in the words of the log - each tile leading to the card
+ * that keeps its figure.
+ *
+ * The version is the one tile that depends on somebody else's service, which is
+ * why every read stands alone: a release feed that cannot be reached leaves that
+ * tile out rather than the card.
+ */
+async function renderOperation() {
+  const card = $('#welcome-operation');
+  if (!card) return;
+
+  if (!can('settings:manage')) {
+    card.hidden = true;
+
+    return;
+  }
+
+  const [update, backups, changes] = await Promise.all([
+    readOrNothing('/settings/update'),
+    readOrNothing('/settings/backups'),
+    readOrNothing(`/admin/changes?limit=${GLANCE_CHANGES}`),
+  ]);
+
+  if (!me.user) return;
+
+  glanceOperation = { update, backups, changes: changes?.entries ?? [] };
+  redrawable('welcomeOperation', drawOperation);
+}
+
+/** Draws the installation's card, in the language now in force. */
+function drawOperation() {
+  const { update, backups, changes } = glanceOperation;
+
+  const version = $('#glance-version');
+  version.hidden = !update;
+
+  if (update) {
+    const [note, mark] = versionAtAGlance(update);
+
+    $('#glance-version-value').textContent = update.running;
+    $('#glance-version-note').textContent = note;
+    markTile(version, mark);
+  }
+
+  const backup = $('#glance-backup');
+  backup.hidden = !backups;
+
+  if (backups) {
+    // The newest first, as the folder lists them.
+    const newest = backups.backups?.[0];
+    const [note, mark] = backupsAtAGlance(backups);
+
+    $('#glance-backup-value').textContent = newest
+      ? fmtMoment(newest.made)
+      : t('welcome.operation.noBackup', 'None yet');
+    $('#glance-backup-note').textContent = note;
+    markTile(backup, mark);
+  }
+
+  $('#glance-changes').hidden = changes.length === 0;
+  $('#glance-changes-list').replaceChildren(...changes.map((entry) => el('li', {},
+    el('span', { class: 'glance-change', text: describeChange(entry) }),
+    el('span', { class: 'glance-when', text: `${fmtMoment(entry.at)} · ${changedBy(entry.actor)}` }))));
+
+  $('#welcome-operation').hidden = !update && !backups && changes.length === 0;
+}
+
+/**
+ * The line under the version, and its mark: the version card's verdict in a
+ * few words, in the order that card asks - a check switched off says nothing
+ * about what is out, and a version already downloaded is not on offer again.
+ */
+function versionAtAGlance(update) {
+  if (!update.enabled) return [t('welcome.operation.unchecked', 'not checked for newer versions'), ''];
+
+  if (update.pending) {
+    return [fillIn(t('welcome.operation.pending', '{0} starts with the next restart'), [update.pending]), 'near'];
+  }
+
+  if (!update.comparable || !update.latest) return ['', ''];
+
+  return update.newer
+    ? [fillIn(t('welcome.operation.newer', '{0} is available'), [update.latest]), 'near']
+    : [t('welcome.operation.current', 'the newest version'), ''];
+}
+
+/**
+ * The line under the newest backup, and its mark: none can be made without the
+ * passphrase, and without a schedule none is made unless somebody remembers to.
+ */
+function backupsAtAGlance(backups) {
+  if (!backups.enabled) {
+    return [t('welcome.operation.backupOff', 'off until BACKUP_PASSPHRASE is set'), 'over'];
+  }
+
+  if (!backups.schedule) {
+    return [t('welcome.operation.unscheduled', 'made only by hand: no schedule is set'), 'near'];
+  }
+
+  return [fillIn(t('welcome.operation.kept', '{0} kept, made on a schedule'), [backups.backups?.length ?? 0]), ''];
+}
+
+/** Forgets the greeting's tiles, for an account that has signed out. */
+function forgetTheGlance() {
+  glanceFigures = null;
+  glanceOperation = null;
+
+  for (const hidden of $$('#welcome-glance, #welcome-operation, .glance-tile')) hidden.hidden = true;
+  for (const list of $$('.glance-list')) list.replaceChildren();
+  for (const said of $$('.glance-value, .glance-note, #glance-leave-label')) said.textContent = '';
+}
+
 /** What today looks like, in one sentence. */
 async function todayInOneSentence() {
   const today = todayISO();
@@ -12804,6 +13055,18 @@ function wireWelcome() {
 
   $('#welcome-continue').addEventListener('click', () => switchView(onwardView()));
   $('#welcome-tour').addEventListener('click', startTour);
+
+  // Each tile to the card its figure comes from.
+  for (const [button, view, card] of [
+    ['#glance-balance-open', 'overtime', '#form-overtime'],
+    ['#glance-leave-open', 'calendar', '#vacation-card'],
+    ['#glance-budgets-open', 'projects', '#table-projects'],
+    ['#glance-version-open', 'admin', '#update-card'],
+    ['#glance-backup-open', 'admin', '#backup-card'],
+    ['#glance-changes-open', 'admin', '#changes-card'],
+  ]) {
+    $(button).addEventListener('click', () => openTheCardOn(view, card));
+  }
 }
 
 // ------------------------------------------------------------ setup wizard

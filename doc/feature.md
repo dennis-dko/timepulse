@@ -11,6 +11,7 @@ What the application does, and the rules it keeps while doing it.
 | Schema | GoFr migrations, applied automatically at start-up |
 | API | REST under `/api/v1`, documented at `/api-docs` |
 | Web interface | Embedded via `go:embed`, vanilla JS with no build step |
+| Welcome screen | What today has on it, the week against what it asks, and a tile each for the running balance, the days of leave left this year and the projects nearest their budget, beside the last entries; for whoever administers, the version running, the newest backup and the latest changes. A tile is shown only where it has something to say, and leads to the card that keeps its figure |
 | Screens in tabs | *My account* is sorted into working time, sign-in, apps and calendar, and privacy and help; *Settings* into general, sign-in, operation and logs. A tab with nothing on it for an account is not offered, a screen comes back on the tab it was left on, and whatever points at a card - a banner's link, the guided tour - opens its tab |
 | Access control | RBAC with roles administered at run time; bcrypt password hashes |
 | Sign-in | Session cookies, optional passkeys and TOTP two-factor per user, a browser's Kerberos ticket where a keytab and a directory are configured, and an OpenID Connect provider - Keycloak, Authentik, Entra ID, Google - for the accounts their owners linked to it |
