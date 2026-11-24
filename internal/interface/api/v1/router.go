@@ -1,9 +1,12 @@
 package v1
 
 import (
+	"net/http"
+
 	"gofr.dev/pkg/gofr"
 
 	"github.com/dennis-dko/timepulse/internal/interface/api/v1/rest"
+	"github.com/dennis-dko/timepulse/internal/interface/mcp"
 )
 
 // Handlers bundles the handlers a route registration needs.
@@ -326,4 +329,31 @@ func RegisterRoutes(app *gofr.App, h Handlers) {
 	app.DELETE(base+"/timesheets/{id}", h.Timesheets.Delete)
 	app.POST(base+"/timesheets/{id}/transfer", h.Timesheets.Transfer)
 
+}
+
+// ToolRoutes are the routes the MCP endpoint's tools call, with the handlers
+// RegisterRoutes serves them with: a tool calls exactly what the router would
+// have answered, and test/mcproute_test.go holds the two lists together.
+//
+// Only the caller's own time, which keeps every route here off the
+// administration log's table - a log a call made in-process would pass round.
+func ToolRoutes(h Handlers) []mcp.Route {
+	const base = "/api/v1"
+
+	return []mcp.Route{
+		{Method: http.MethodGet, Path: base + "/me", Handler: h.Me.Me},
+		{Method: http.MethodGet, Path: base + "/projects", Handler: h.Projects.List},
+		{Method: http.MethodGet, Path: base + "/timesheets", Handler: h.Timesheets.List},
+		{Method: http.MethodPost, Path: base + "/timesheets", Handler: h.Timesheets.Create},
+		{Method: http.MethodPut, Path: base + "/timesheets/{id}", Handler: h.Timesheets.Update},
+		{Method: http.MethodDelete, Path: base + "/timesheets/{id}", Handler: h.Timesheets.Delete},
+		{Method: http.MethodGet, Path: base + "/me/statistics", Handler: h.Statistics.Own},
+		{Method: http.MethodGet, Path: base + "/me/timer", Handler: h.Timers.Running},
+		{Method: http.MethodPost, Path: base + "/me/timer", Handler: h.Timers.Start},
+		{Method: http.MethodPost, Path: base + "/me/timer/stop", Handler: h.Timers.Stop},
+		{Method: http.MethodGet, Path: base + "/me/notices", Handler: h.Me.Notices},
+		{Method: http.MethodGet, Path: base + "/users/{id}/overtime", Handler: h.Me.Overtime},
+		{Method: http.MethodGet, Path: base + "/me/vacation", Handler: h.Vacation.Year},
+		{Method: http.MethodGet, Path: base + "/me/absences", Handler: h.Absences.List},
+	}
 }
