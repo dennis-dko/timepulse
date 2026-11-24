@@ -458,6 +458,7 @@ function errorMessage(body) {
  * PERMISSION_TITLES, for the same reason.
  */
 const FIELD_NAMES = {
+  actions: 'Kinds of change',
   actor: 'Caller',
   area: 'Made to',
   banner: 'Banner text',
@@ -9571,6 +9572,25 @@ let adminChanges = { entries: [], total: 0, narrowed: false };
 let changeLoads = 0;
 
 /**
+ * The changes whose sentence on screen holds a search, in the reader's language,
+ * as the actions the server keeps them under.
+ *
+ * Only the screen can work this out: the server keeps user.created and words
+ * nothing, and the screen says "Konto Greta Grün angelegt". Searched by the server
+ * alone, the words somebody reads in the log were the ones that found nothing -
+ * a name in it was found, "Konto" and "angelegt" were not. Matched as the tables
+ * search, without case or accents, and with the sentence's blanks for names left
+ * out, since the names are the server's to find.
+ */
+function actionsSaying(search) {
+  const words = folded(search);
+
+  return Object.entries(CHANGE_SENTENCES)
+    .filter(([, sentence]) => folded(sentence().replace(/\{\d+\}/g, ' ')).includes(words))
+    .map(([action]) => action);
+}
+
+/**
  * Reads the page of the administration log its pager is on, narrowed by the
  * card's search and area.
  *
@@ -9632,7 +9652,13 @@ function changeFilters() {
   const search = $('#filter-changes-q')?.value.trim() ?? '';
   const area = $('#filter-changes-area')?.value ?? '';
 
-  if (search) params.set('q', search);
+  if (search) {
+    params.set('q', search);
+
+    const actions = actionsSaying(search);
+    if (actions.length) params.set('actions', actions.join(','));
+  }
+
   if (area) params.set('area', area);
 
   return params;

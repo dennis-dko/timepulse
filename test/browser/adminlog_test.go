@@ -193,3 +193,75 @@ func TestTheChangeLogLeavesAsADocumentOfWhatItWasNarrowedTo(t *testing.T) {
 		t.Errorf("the line under the title is %q, which does not say the log was narrowed to the roles", roles.Subtitle)
 	}
 }
+
+// The log is found by the words its sentences say on screen, in the reader's
+// language - "Konto" finds the accounts made, "Rolle" the roles - and not only by
+// the names in them and the codes the server keeps.
+//
+// The server keeps user.created and words nothing; the screen says "Konto Greta
+// Grün angelegt". A search answered by the server alone found the names and
+// nothing else, so the words somebody reads in the log were the words that could
+// not be searched for.
+func TestTheChangeLogIsFoundByTheWordsItsSentencesSay(t *testing.T) {
+	t.Parallel()
+
+	p := open(t)
+	p.readyAdmin()
+
+	var made bool
+
+	p.awaitJSON(`(async () => {
+		await api('/roles', { method: 'POST', body: JSON.stringify({
+			name: 'reviewer-01', description: 'Reads what others booked', permissions: ['timesheets:read:own'],
+		}) });
+		await api('/users', { method: 'POST', body: JSON.stringify({
+			name: 'Greta Grün', email: 'greta@example.com', role: 'user', password: 'greta-password-1',
+		}) });
+		await loadChanges();
+		return true;
+	})()`, &made)
+
+	p.chooseLanguage("de")
+
+	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
+		chromedp.WaitVisible("#changes-card", chromedp.ByID))
+
+	const rows = `#table-changes tbody`
+
+	search := func(term string) {
+		p.run("search for "+term, chromedp.Evaluate(`(() => {
+			const field = document.querySelector('#filter-changes-q');
+			field.value = '`+term+`';
+			field.dispatchEvent(new Event('input', { bubbles: true }));
+		})()`, nil))
+	}
+
+	// Each search is waited for by what it leaves out, which only the answer can
+	// do: what it should find is on the first page before the search is asked.
+	answered := func(term, leftOut string) string {
+		search(term)
+		p.waitFor("the search for "+term+" to leave out "+leftOut, func() bool {
+			return !strings.Contains(p.text(rows), leftOut)
+		})
+
+		return p.text(rows)
+	}
+
+	if got := answered("Konto", "reviewer-01"); !strings.Contains(got, "Konto Greta Grün angelegt") {
+		t.Errorf("searching for Konto found %q, want the account made", truncateText(got, 200))
+	}
+
+	if got := answered("Rolle", "Greta"); !strings.Contains(got, "Rolle reviewer-01 angelegt") {
+		t.Errorf("searching for Rolle found %q, want the role made", truncateText(got, 200))
+	}
+
+	// After the search for the role, what this one should add is what tells it
+	// has answered: the account made is not on screen until it does.
+	search("angelegt")
+	p.waitForText(rows, "Konto Greta Grün angelegt")
+
+	if got := p.text(rows); !strings.Contains(got, "Rolle reviewer-01 angelegt") || strings.Contains(got, "Einrichtung") {
+		t.Errorf("searching for angelegt found %q, want the role and the account made and nothing else", truncateText(got, 200))
+	}
+}

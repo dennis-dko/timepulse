@@ -124,6 +124,14 @@ func adminEventConditions(filter repository.AdminEventFilter) ([]string, []any) 
 			}
 		}
 
+		if len(filter.Actions) > 0 {
+			matches = append(matches, "action IN ("+placeholders(len(filter.Actions))+")")
+
+			for _, action := range filter.Actions {
+				args = append(args, action)
+			}
+		}
+
 		conditions = append(conditions, "("+strings.Join(matches, " OR ")+")")
 	}
 

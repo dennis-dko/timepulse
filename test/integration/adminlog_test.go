@@ -206,3 +206,52 @@ func TestTheAdministrationLogIsSearchedNarrowedAndPagedOnTheServer(t *testing.T)
 		t.Errorf("a search of 256 characters was answered %d, want 400", refused.Status)
 	}
 }
+
+// The actions the screen names beside a search are found as well as what the
+// search itself finds, on every database: the screen words the log and the
+// server keeps codes, so "Konto" finds the accounts made only through the
+// actions the screen says its words mean. Anything not shaped like an action,
+// and more of them than the log has kinds of change, are refused.
+func TestTheChangeLogFindsTheActionsTheScreenNamesBesideASearch(t *testing.T) {
+	t.Parallel()
+
+	a := start(t)
+	admin := a.signInAsAdmin("a-much-better-password")
+
+	admin.must(admin.api(http.MethodPost, "/roles", map[string]any{
+		"name": "reviewer-01", "description": "Reads what others booked", "permissions": []string{"timesheets:read:own"},
+	}), http.StatusCreated)
+	admin.must(admin.api(http.MethodPost, "/users", map[string]any{
+		"name": "Greta Grün", "email": "greta@example.com", "role": "user", "password": "greta-password-1",
+	}), http.StatusCreated, http.StatusOK)
+
+	read := func(query string) adminChanges {
+		t.Helper()
+
+		var log adminChanges
+
+		admin.must(admin.api(http.MethodGet, "/admin/changes?"+query, nil), http.StatusOK).Data(t, &log)
+
+		return log
+	}
+
+	// The word alone names nothing the server keeps.
+	if alone := read("q=Konto"); alone.TotalCount != 0 {
+		t.Errorf("searching for Konto with no actions found %d changes, want none", alone.TotalCount)
+	}
+
+	worded := read("q=Konto&actions=user.created")
+
+	if len(worded.Entries) != 1 || worded.Entries[0].Action != "user.created" {
+		t.Errorf("searching for Konto with the action it words found %+v, want the account made", worded.Entries)
+	}
+
+	for _, query := range []string{
+		"q=Konto&actions=" + url.QueryEscape("user.created) OR 1=1 --"),
+		"q=Konto&actions=" + strings.Repeat("user.created,", 64) + "user.created",
+	} {
+		if refused := admin.api(http.MethodGet, "/admin/changes?"+query, nil); refused.Status != http.StatusBadRequest {
+			t.Errorf("GET /admin/changes?%.60s... was answered %d, want 400", query, refused.Status)
+		}
+	}
+}

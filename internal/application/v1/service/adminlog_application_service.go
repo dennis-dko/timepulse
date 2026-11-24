@@ -55,6 +55,11 @@ type AdminLogQuery struct {
 	// contains it, or whose action or detail does, whatever its case.
 	Text string
 
+	// Actions keeps, beside what Text keeps, the changes of the actions whose
+	// sentence on screen contains it - which the screen works out, in its
+	// reader's language, since nothing here words the log.
+	Actions []string
+
 	// Area keeps the changes to one part of the installation: one of the keys
 	// of adminLogAreas, or empty for every change.
 	Area string
@@ -95,8 +100,8 @@ var adminLogAreas = map[string][]string{
 // nothing, because an empty page would read as no change having been made.
 func (s *AdminLogService) Page(ctx context.Context, query AdminLogQuery) (AdminLogPage, error) {
 	filter := repository.AdminEventFilter{
-		Text: query.Text, BeforeID: query.BeforeID, Offset: query.Offset, Limit: query.Limit + 1,
-		Ascending: query.Ascending,
+		Text: query.Text, Actions: query.Actions, BeforeID: query.BeforeID, Offset: query.Offset,
+		Limit: query.Limit + 1, Ascending: query.Ascending,
 	}
 
 	if query.Area != "" {

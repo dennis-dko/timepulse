@@ -309,6 +309,46 @@ type AdminLogResponse struct {
 // detail can be, since a longer text cannot be found in one.
 const adminLogSearchMax = 255
 
+// adminLogActionsMax bounds ?actions=: more than the log has kinds of change is
+// not a list the screen sends.
+const adminLogActionsMax = 64
+
+// anAction says whether text has the shape of an action the log records -
+// user.created, settings.branding - the only shape ?actions= takes. Written out
+// rather than as a pattern, which would be one more Must... in production code.
+func anAction(text string) bool {
+	area, name, found := strings.Cut(text, ".")
+
+	return found && area != "" && name != "" &&
+		strings.Trim(area, "abcdefghijklmnopqrstuvwxyz") == "" &&
+		strings.Trim(name, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ") == ""
+}
+
+// actionsOf reads ?actions=, the actions whose sentence on screen contains the
+// search: the screen words the log in its reader's language and the server
+// keeps codes, so only the screen can say which codes its words mean.
+func actionsOf(c *gofr.Context) ([]string, error) {
+	raw := strings.TrimSpace(c.Param("actions"))
+	if raw == "" {
+		return nil, nil
+	}
+
+	actions := strings.Split(raw, ",")
+	if len(actions) > adminLogActionsMax {
+		return nil, apperror.InvalidFields("actions")
+	}
+
+	for i, action := range actions {
+		actions[i] = strings.TrimSpace(action)
+
+		if !anAction(actions[i]) {
+			return nil, apperror.InvalidFields("actions")
+		}
+	}
+
+	return actions, nil
+}
+
 // Changes handles GET /api/v1/admin/changes, a page at a time: ?offset= and
 // ?limit=, or ?before= the id of the oldest change already shown, narrowed by
 // ?q= and ?area=.
@@ -343,8 +383,13 @@ func (h *AdminLogHandler) Changes(c *gofr.Context) (any, error) {
 		return nil, toHTTPError(err)
 	}
 
+	actions, err := actionsOf(c)
+	if err != nil {
+		return nil, toHTTPError(err)
+	}
+
 	page, err := h.log.Page(c, service.AdminLogQuery{
-		Text: search, Area: c.Param("area"), BeforeID: before, Offset: offset, Limit: limit,
+		Text: search, Actions: actions, Area: c.Param("area"), BeforeID: before, Offset: offset, Limit: limit,
 		Ascending: ascending,
 	})
 	if err != nil {
