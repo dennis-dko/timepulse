@@ -76,15 +76,16 @@ func (r *TimesheetRepository) GetByFilter(
 	}
 
 	// The same order the SQL repository gives, because paging is defined in terms
-	// of it: newest day first, and an entry booked later on the same day ahead of
-	// one booked earlier. The in-memory store hands rows back in insertion order,
-	// which agrees with neither.
+	// of it: by the column asked for, then the day and then the id in the same
+	// direction - newest day first when nothing was asked. The in-memory store
+	// hands rows back in insertion order, which agrees with neither.
 	sort.SliceStable(out, func(i, j int) bool {
-		if !out[i].Date.Equal(out[j].Date) {
-			return out[i].Date.After(out[j].Date)
+		before := compareEntries(out[i], out[j], filter.Order.By)
+		if filter.Order.Ascending {
+			return before < 0
 		}
 
-		return out[i].ID > out[j].ID
+		return before > 0
 	})
 
 	return page(out, filter.Limit, filter.Offset), nil
@@ -148,6 +149,46 @@ func page[T any](all []T, limit, offset uint) []T {
 	end := min(offset+limit, uint(len(all)))
 
 	return all[offset:end]
+}
+
+// compareEntries orders two entries by a column and then by day and id, as the
+// SQL repository does: negative when a comes first in ascending order.
+func compareEntries(a, b *model.Timesheet, by repository.TimesheetColumn) int {
+	switch by {
+	case repository.ByHours:
+		if a.DurationHours != b.DurationHours {
+			if a.DurationHours < b.DurationHours {
+				return -1
+			}
+
+			return 1
+		}
+	case repository.ByDescription:
+		if order := strings.Compare(strings.ToLower(described(a)), strings.ToLower(described(b))); order != 0 {
+			return order
+		}
+	}
+
+	if !a.Date.Equal(b.Date) {
+		return a.Date.Compare(b.Date)
+	}
+
+	switch {
+	case a.ID < b.ID:
+		return -1
+	case a.ID > b.ID:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func described(ts *model.Timesheet) string {
+	if ts.Description == nil {
+		return ""
+	}
+
+	return *ts.Description
 }
 
 func matchesFilter(ts *model.Timesheet, filter repository.TimesheetFilter) bool {

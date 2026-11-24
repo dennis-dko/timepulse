@@ -40,4 +40,7 @@ type AdminEventFilter struct {
 	// many; a zero Limit reads them all.
 	Offset uint
 	Limit  uint
+
+	// Ascending reads the oldest change first rather than the newest.
+	Ascending bool
 }

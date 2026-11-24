@@ -132,6 +132,7 @@ func (s *TimesheetApplicationService) ListTimesheets(
 		EndDate:        q.EndDate,
 		Limit:          q.Limit,
 		Offset:         q.Offset,
+		Order:          q.Order,
 	}
 
 	timesheets, err := s.timesheetRepository.GetByFilter(ctx, filter)

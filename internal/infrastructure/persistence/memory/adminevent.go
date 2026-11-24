@@ -46,7 +46,13 @@ func (r *AdminEventRepository) Find(
 		skipped uint
 	)
 
-	for i := len(r.events) - 1; i >= 0; i-- {
+	for n := range r.events {
+		// Newest first unless the oldest is asked for, as the statement orders by id.
+		i := len(r.events) - 1 - n
+		if filter.Ascending {
+			i = n
+		}
+
 		event := r.events[i]
 		if !keeps(filter, event) {
 			continue

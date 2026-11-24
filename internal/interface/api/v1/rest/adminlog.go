@@ -338,8 +338,14 @@ func (h *AdminLogHandler) Changes(c *gofr.Context) (any, error) {
 		return nil, toHTTPError(apperror.InvalidFields("q"))
 	}
 
+	ascending, err := ascendingOf(c)
+	if err != nil {
+		return nil, toHTTPError(err)
+	}
+
 	page, err := h.log.Page(c, service.AdminLogQuery{
 		Text: search, Area: c.Param("area"), BeforeID: before, Offset: offset, Limit: limit,
+		Ascending: ascending,
 	})
 	if err != nil {
 		return nil, toHTTPError(err)

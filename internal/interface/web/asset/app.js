@@ -503,6 +503,7 @@ const FIELD_NAMES = {
   lowerBound: 'Lower bound of the balance',
   maxDailyHours: 'Max h/day',
   name: 'Name',
+  order: 'Direction',
   port: 'Port',
   projectId: 'Project',
   q: 'Search',
@@ -511,6 +512,7 @@ const FIELD_NAMES = {
   rateLimitWindowSeconds: 'Rate limit window (seconds)',
   role: 'Role',
   schedule: 'Schedule',
+  sort: 'Sorted by',
   sessionIdleMinutes: 'Sign out after inactivity (minutes)',
   sessionLifetimeHours: 'Session lifetime (hours)',
   startDate: 'Start',
@@ -2366,6 +2368,7 @@ function pagerOf(table) {
       total: 0,
       tools: null,
       nav: null,
+      sort: null,
     };
 
     pagers.set(table, pager);
@@ -2453,7 +2456,178 @@ function pagedRows(table) {
   const pager = pagers.get(table);
   if (!pager || pager.server || !pagesAtAll(pager)) return null;
 
-  return matchingRows(table, pager);
+  return sortedRows(pager, matchingRows(table, pager));
+}
+
+/**
+ * The rows in the order the table's sorted heading asks for, or as they came.
+ *
+ * Read from what each cell says, in the reader's own conventions, rather than
+ * from a value every loader would have to attach: a column whose every filled
+ * cell begins with a date sorts by date, one whose every filled cell is a
+ * figure sorts by figure - 1.234,50 € and 8.25 h alike - and anything else as
+ * text, numbers inside it counted as numbers. An empty cell or a dash comes
+ * last either way, and equal cells keep the list's own order.
+ */
+function sortedRows(pager, rows) {
+  if (!pager.sort || pager.server) return rows;
+
+  const { column, descending } = pager.sort;
+  const texts = rows.map((row) => cellsOf(row)[column]?.textContent.trim() ?? '');
+  const { keyOf, compare } = sortKeys(texts);
+
+  return rows
+    .map((row, i) => ({ row, i, key: keyOf(texts[i]) }))
+    .sort((a, b) => {
+      if (a.key === null || b.key === null) {
+        return Number(a.key === null) - Number(b.key === null) || a.i - b.i;
+      }
+
+      return (descending ? -compare(a.key, b.key) : compare(a.key, b.key)) || a.i - b.i;
+    })
+    .map(({ row }) => row);
+}
+
+/** What a column of texts is sorted as, and how two of its keys compare. */
+function sortKeys(texts) {
+  const filled = texts.filter((text) => !blankCell(text));
+  const order = dateOrder();
+  const separators = numberSeparators();
+  const byNumber = (a, b) => a - b;
+
+  if (filled.length && filled.every((text) => dateKey(text, order) !== null)) {
+    return { keyOf: (text) => (blankCell(text) ? null : dateKey(text, order)), compare: byNumber };
+  }
+
+  if (filled.length && filled.every((text) => numberKey(text, separators) !== null)) {
+    return { keyOf: (text) => (blankCell(text) ? null : numberKey(text, separators)), compare: byNumber };
+  }
+
+  const collator = new Intl.Collator(activeLocale(), { numeric: true, sensitivity: 'base' });
+
+  return { keyOf: (text) => (blankCell(text) ? null : text), compare: collator.compare };
+}
+
+function blankCell(text) {
+  return text === '' || text === '–' || text === '-' || text === '—';
+}
+
+/** The order day, month and year are written in, as fmtDate writes them. */
+function dateOrder() {
+  return new Intl.DateTimeFormat(activeLocale(), {
+    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC',
+  }).formatToParts(new Date(Date.UTC(2026, 10, 23)))
+    .map((part) => part.type)
+    .filter((type) => type === 'day' || type === 'month' || type === 'year');
+}
+
+/**
+ * A text that begins with a date - a day, a moment, or the first day of a
+ * period - as a number that sorts by it; null for any other text. A twelve-hour
+ * clock's afternoon counts as the afternoon.
+ */
+function dateKey(text, order) {
+  const match = text.match(/^(\d{1,4})\D{1,3}(\d{1,4})\D{1,3}(\d{1,4})(?:\D{1,3}(\d{1,2})[:.](\d{2}))?/);
+  if (!match) return null;
+
+  const part = Object.fromEntries(order.map((name, i) => [name, Number(match[i + 1])]));
+
+  if (!(part.year >= 1000 && part.month >= 1 && part.month <= 12 && part.day >= 1 && part.day <= 31)) {
+    return null;
+  }
+
+  let hour = Number(match[4] ?? 0);
+
+  if (/\bpm\b/i.test(text) && hour < 12) hour += 12;
+  if (/\bam\b/i.test(text) && hour === 12) hour = 0;
+
+  return ((part.year * 100 + part.month) * 100 + part.day) * 10000 + hour * 100 + Number(match[5] ?? 0);
+}
+
+/** The characters this reader groups thousands and marks decimals with. */
+function numberSeparators() {
+  const parts = new Intl.NumberFormat(activeLocale()).formatToParts(12345.6);
+
+  return {
+    group: parts.find((part) => part.type === 'group')?.value ?? ',',
+    decimal: parts.find((part) => part.type === 'decimal')?.value ?? '.',
+  };
+}
+
+/**
+ * A figure as this reader writes it - signed, with a currency, an hour or a
+ * per cent beside it - as a number; null for anything that is not one.
+ */
+function numberKey(text, { group, decimal }) {
+  const match = text.match(/^([+\-−]?)\s*\p{Sc}?\s*(\d[\d\s  .,']*?)\s*(?:h|%|\p{Sc}|[A-Z]{3})?$/u);
+  if (!match) return null;
+
+  const value = Number(match[2].replace(/[\s  ']/g, '').split(group).join('').replace(decimal, '.'));
+  if (!Number.isFinite(value)) return null;
+
+  return match[1] === '-' || match[1] === '−' ? -value : value;
+}
+
+/**
+ * The headings a table can be sorted by: every heading of a column of data in
+ * a table paged here, and in a table paged on the server the ones that name
+ * the server's word for their column with data-sort - the server can only
+ * sort by what it keeps.
+ */
+function sortableHeadings(table, pager) {
+  return cellsOf(table.tHead?.rows[0] ?? {})
+    .map((heading, column) => ({ heading, column }))
+    .filter(({ heading }) => !heading.classList.contains('actions')
+      && (pager.server ? Boolean(heading.dataset.sort) : heading.textContent.trim() !== ''));
+}
+
+/**
+ * Makes a table's headings sort it, once, and says on each which way it sorts.
+ *
+ * A press sorts ascending, the next descending, the third goes back to the
+ * list's own order. The button covers its heading, so the whole cell is what is
+ * pressed, and carries no text of its own: what a heading says is read for a
+ * document and for the filter's label, and an arrow there would be read too.
+ */
+function drawSortHeadings(table, pager) {
+  for (const { heading, column } of sortableHeadings(table, pager)) {
+    // Asked of the button rather than of a mark beside it: a heading the script
+    // writes itself - a weekday's name over a schedule - is written with
+    // textContent, which takes the button with it and leaves the mark behind.
+    if (!heading.querySelector(':scope > .sort-toggle')) {
+      heading.classList.add('sortable');
+      heading.append(el('button', {
+        type: 'button',
+        class: 'sort-toggle',
+        onclick: () => turnPage(table, pager, () => {
+          const current = pager.sort?.column === column ? pager.sort : null;
+
+          pager.sort = !current ? { column, key: heading.dataset.sort ?? '', descending: false }
+            : current.descending ? null
+              : { ...current, descending: true };
+          pager.page = 0;
+        }),
+      }));
+    }
+
+    const sorted = pager.sort?.column === column;
+
+    if (sorted) heading.setAttribute('aria-sort', pager.sort.descending ? 'descending' : 'ascending');
+    else heading.removeAttribute('aria-sort');
+
+    heading.querySelector('.sort-toggle').setAttribute('aria-label',
+      fillIn(t('pager.sortBy', 'Sort by {0}'), [heading.textContent.trim()]));
+  }
+}
+
+/**
+ * What a server-paged table is sorted by, as the server's parameters: its
+ * column's word and the direction, or nothing for the list's own order.
+ */
+function serverSort(table) {
+  const sort = pagerOf(table).sort;
+
+  return sort ? { sort: sort.key, order: sort.descending ? 'desc' : 'asc' } : null;
 }
 
 /**
@@ -2482,7 +2656,7 @@ function showPage(table, pager) {
   // offered any more.
   if (pager.choice && !filterValuesOf(table, pager).includes(pager.choice)) pager.choice = '';
 
-  const matching = pagesAtAll(pager) ? matchingRows(table, pager) : pager.rows;
+  const matching = sortedRows(pager, pagesAtAll(pager) ? matchingRows(table, pager) : pager.rows);
   const pages = Math.max(1, Math.ceil(matching.length / pager.size));
 
   pager.page = Math.min(pager.page, pages - 1);
@@ -2574,6 +2748,10 @@ function firstPage(table) {
  */
 function drawPager(table, pager, matched) {
   const long = pagesAtAll(pager);
+
+  // Every table sorts, however short: ten rows are still easier to read in the
+  // order somebody is looking for.
+  drawSortHeadings(table, pager);
 
   if (long) ensurePagerControls(table, pager);
 
@@ -2782,6 +2960,7 @@ function forgetPagers() {
   }
 
   for (const wrap of $$('.table-wrap.paged')) wrap.classList.remove('paged', 'more-below');
+  for (const heading of $$('th[aria-sort]')) heading.removeAttribute('aria-sort');
 
   pagers.clear();
 }
@@ -6575,6 +6754,15 @@ async function loadTimesheets() {
   params.set('limit', String(limit));
   params.set('offset', String(offset));
 
+  // Sorted by the server, which holds every page: sorted here, the oldest
+  // entry would have been the oldest of the page on screen.
+  const sort = serverSort(table);
+
+  if (sort) {
+    params.set('sort', sort.sort);
+    params.set('order', sort.order);
+  }
+
   timesheetLoads += 1;
   const asked = timesheetLoads;
 
@@ -9358,6 +9546,10 @@ async function loadChanges() {
 
   if (search) params.set('q', search);
   if (area) params.set('area', area);
+
+  // The log sorts by when alone, so only the direction travels.
+  const sort = serverSort(table);
+  if (sort) params.set('order', sort.order);
 
   changeLoads += 1;
   const asked = changeLoads;

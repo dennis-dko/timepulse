@@ -792,10 +792,10 @@
           <table id="table-timesheets" data-assigns data-pager="server">
             <thead>
               <tr>
-                <th data-i18n="field.date">Date</th>
+                <th data-sort="date" data-i18n="field.date">Date</th>
                 <th data-i18n="field.project">Project</th>
-                <th class="num" data-i18n="field.hours">Hours</th>
-                <th data-i18n="field.description">Description</th>
+                <th class="num" data-sort="hours" data-i18n="field.hours">Hours</th>
+                <th data-sort="description" data-i18n="field.description">Description</th>
                 <th class="actions" data-i18n="field.action">Action</th>
               </tr>
             </thead>
@@ -2363,7 +2363,7 @@
           <table id="table-changes" data-pager="server">
             <thead>
               <tr>
-                <th data-i18n="changes.when">When</th>
+                <th data-sort="at" data-i18n="changes.when">When</th>
                 <th data-i18n="changes.who">Who</th>
                 <th data-i18n="changes.what">What</th>
               </tr>

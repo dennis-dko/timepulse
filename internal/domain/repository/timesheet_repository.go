@@ -40,7 +40,29 @@ type TimesheetFilter struct {
 	// outside.
 	Limit  uint
 	Offset uint
+
+	// Order is what the entries are listed by. Its zero value is the order every
+	// reader that totals or exports has always had - the newest day first - and
+	// ties go by id in the same direction, so a page is as well defined in any
+	// order as in that one.
+	Order TimesheetOrder
 }
+
+// TimesheetOrder is a listing's order: a column, and which way.
+type TimesheetOrder struct {
+	By        TimesheetColumn
+	Ascending bool
+}
+
+// TimesheetColumn is what entries can be listed by. The zero value is the day.
+type TimesheetColumn int
+
+// The columns an entry listing can be ordered by.
+const (
+	ByDate TimesheetColumn = iota
+	ByHours
+	ByDescription
+)
 
 // OverWholeDays widens the range to the calendar days its ends fall on, and is
 // what every repository must apply before comparing it to a stored date.

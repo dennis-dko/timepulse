@@ -663,10 +663,35 @@
           {
             "name": "offset",
             "in": "query",
-            "description": "How many matching entries to skip. Only meaningful with a stable order, which this listing has: newest day first, ties broken by id.",
+            "description": "How many matching entries to skip. Only meaningful with a stable order, which this listing has: newest day first unless `sort` and `order` say otherwise, ties broken by the day and then by id in the same direction.",
             "schema": {
               "type": "integer",
               "minimum": 0
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "What the entries are ordered by: `date` (the default), `hours` or `description`, the description compared without regard to case. Any other value is refused rather than answered in the default order.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "date",
+                "hours",
+                "description"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "`desc` (the default) or `asc`. Any other value is refused.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "desc",
+                "asc"
+              ]
             }
           }
         ],
@@ -3042,6 +3067,18 @@
               "type": "integer"
             },
             "description": "Only the changes older than the one with this id: paging by the last entry shown, which cannot skip or repeat one while new changes arrive."
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "desc",
+                "asc"
+              ]
+            },
+            "description": "`desc`, the newest change first (the default), or `asc`, the oldest first - how an audit reads a period. Any other value is refused."
           }
         ],
         "responses": {

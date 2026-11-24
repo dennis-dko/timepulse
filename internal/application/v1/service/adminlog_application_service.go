@@ -65,6 +65,9 @@ type AdminLogQuery struct {
 	// Offset skips that many of the changes kept, and Limit is the page's size.
 	Offset uint
 	Limit  uint
+
+	// Ascending reads the oldest change first, as an audit reads a period.
+	Ascending bool
 }
 
 // AdminLogPage is a page of the log: its changes, how many the query keeps
@@ -93,6 +96,7 @@ var adminLogAreas = map[string][]string{
 func (s *AdminLogService) Page(ctx context.Context, query AdminLogQuery) (AdminLogPage, error) {
 	filter := repository.AdminEventFilter{
 		Text: query.Text, BeforeID: query.BeforeID, Offset: query.Offset, Limit: query.Limit + 1,
+		Ascending: query.Ascending,
 	}
 
 	if query.Area != "" {
