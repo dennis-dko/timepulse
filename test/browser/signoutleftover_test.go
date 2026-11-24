@@ -127,6 +127,20 @@ func TestASignOutTakesTheLastEvaluationWithIt(t *testing.T) {
 		p.click(`#form-overtime button[type="submit"]`))
 	p.waitShown("#overtime-result")
 
+	// The statement of work too, which says what somebody's hours are charged at.
+	var charged bool
+
+	p.awaitJSON(`(async () => {
+		const project = await api('/projects', { method: 'POST', body: JSON.stringify({ name: 'Charged', startDate: todayISO(), billable: true, hourlyRate: 90 }) });
+		await api('/timesheets', { method: 'POST', body: JSON.stringify({ projectId: project.id, date: todayISO(), durationHours: 2 }) });
+		return true;
+	})()`, &charged)
+
+	p.run("open the statement", p.click(`.tab[data-view="report"]`))
+	p.showTabOf("#form-statement")
+	p.run("work out the statement", p.click(`#form-statement button[type="submit"]`))
+	p.waitShown("#statement-result")
+
 	p.run("sign out", p.click("#logout"), chromedp.WaitVisible("#form-login", chromedp.ByID))
 
 	var left []string
@@ -134,7 +148,7 @@ func TestASignOutTakesTheLastEvaluationWithIt(t *testing.T) {
 	p.run("read what the next account would find", chromedp.Evaluate(`(() => {
 		const left = [];
 
-		for (const card of ['#report-result', '#overtime-result']) {
+		for (const card of ['#report-result', '#overtime-result', '#statement-result']) {
 			if (!document.querySelector(card).hidden) left.push(card + ' is up');
 		}
 
@@ -142,7 +156,7 @@ func TestASignOutTakesTheLastEvaluationWithIt(t *testing.T) {
 			if (document.querySelector(text).textContent.trim()) left.push(text + ' says ' + document.querySelector(text).textContent);
 		}
 
-		for (const holder of ['#table-report tbody', '#table-overtime tbody', '#report-chart', '#chart-days', '#chart-projects', '#year-tiles']) {
+		for (const holder of ['#table-report tbody', '#table-overtime tbody', '#table-statement tbody', '#table-statement tfoot', '#report-chart', '#chart-days', '#chart-projects', '#year-tiles']) {
 			if (document.querySelector(holder).childElementCount) left.push(holder + ' holds a drawing');
 		}
 

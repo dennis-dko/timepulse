@@ -16989,12 +16989,19 @@ const reportChart = { kind: 'bars', scope: 'projects', projects: [], days: [] };
  * its name, target and booked hours, and the charts of where its time went. The
  * chart's shape is a preference rather than anybody's hours, and its buttons
  * show it, so only the figures go.
+ *
+ * The statement of work was missing here, and it is the one that says what
+ * somebody's hours are charged at: its card stayed up with the last account's
+ * total per currency in its foot.
  */
 function forgetEveryEvaluation() {
-  for (const card of ['#report-result', '#overtime-result']) {
+  for (const card of ['#report-result', '#overtime-result', '#statement-result']) {
     const node = $(card);
     if (node) node.hidden = true;
   }
+
+  $('#table-statement tfoot')?.replaceChildren();
+  statementShown = null;
 
   for (const said of ['#report-total', '#report-chart-caption', '#overtime-total', '#overtime-meta',
     '#overtime-rule', '#statistics-total', '#report-budget', '#workday-total']) {
