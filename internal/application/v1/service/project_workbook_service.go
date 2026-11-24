@@ -315,9 +315,8 @@ func (s *ProjectWorkbookService) write(
 	if planned.existingID != 0 {
 		name := row.Name
 
-		// The status only where it changes. Sending the one it already has walks
-		// into the archiving rule, which reads the current status and refuses a
-		// change nobody asked for.
+		// The status only where it changes, which is what the row asks for and
+		// all a partial update should say.
 		var status *string
 		if planned.changesStatus() {
 			asked := row.Status

@@ -120,6 +120,41 @@ func TestArchiveRequiresCompleted(t *testing.T) {
 	requireKind(t, err, apperror.KindConflict)
 }
 
+// A status sent as it already is changes nothing, so it is no transition to check.
+//
+// The project form sends the status with everything else it corrects, so an
+// archived project corrected by its name arrives saying "archived" - and the
+// archiving rule, asked about a project that is archived rather than completed,
+// refused the correction as an archiving that wanted a completed project.
+func TestAStatusSentUnchangedIsNoTransition(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	completed, archived := model.ProjectStatusCompleted, model.ProjectStatusArchived
+
+	if _, err := f.projects.UpdateProject(ctx,
+		command.UpdateProjectCommand{ID: f.projectID, Status: &completed}); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	if _, err := f.projectDomain.ArchiveProject(ctx, f.projectID, 0); err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+
+	renamed := "Old roof"
+
+	result, err := f.projects.UpdateProject(ctx,
+		command.UpdateProjectCommand{ID: f.projectID, Name: &renamed, Status: &archived})
+	if err != nil {
+		t.Fatalf("correcting an archived project's name with its status as it is: %v", err)
+	}
+
+	if result.Result.Name != renamed || result.Result.Status != archived {
+		t.Errorf("the project is %q and %q, want %q and still %q",
+			result.Result.Name, result.Result.Status, renamed, archived)
+	}
+}
+
 func TestDeleteProjectBlockedByEntries(t *testing.T) {
 	f := newFixture(t)
 	f.book(t, day(15), 4)

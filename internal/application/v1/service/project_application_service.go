@@ -376,14 +376,17 @@ func (s *ProjectApplicationService) withBookedHours(
 }
 
 // validateStatusTransition mirrors the archiving rule enforced by the domain
-// service: a project may only be archived once it is completed and has no
-// open time entries left.
+// service: a project may only be archived once it is completed.
+//
+// A status sent as it already is is no transition. The project form sends the
+// status with whatever else it corrects, and an archived project corrected by
+// its name was refused as an archiving that wanted a completed project.
 func (s *ProjectApplicationService) validateStatusTransition(
 	ctx context.Context,
 	project *model.Project,
 	newStatus string,
 ) error {
-	if newStatus != model.ProjectStatusArchived {
+	if newStatus == project.Status || newStatus != model.ProjectStatusArchived {
 		return nil
 	}
 
