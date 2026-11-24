@@ -11564,7 +11564,8 @@ const TOUR_STEPS = [
     title: () => t('tour.welcome.title', 'The way back'),
     text: () => t('tour.welcome.text',
       'The title takes you to the welcome screen from wherever you are. It shows your '
-      + 'day, your week and your figures at a glance, and it can start this walk again.'),
+      + 'day, your week and your figures as tiles you arrange by their handles, and it can '
+      + 'start this walk again.'),
   },
   {
     target: '#tabs',
@@ -12582,6 +12583,10 @@ async function renderWelcome() {
   // worse first impression than not offering one.
   $('#welcome-tour').hidden = applicableTourSteps().length === 0;
 
+  // Where this person put the tiles, before any of them is drawn into it - and
+  // not while a tile is in somebody's hand, which this would snap back.
+  if (!$('#dashboard')?.classList.contains('arranging')) arrangeDashboard(arrangedHere ?? me.user.dashboard);
+
   // Not awaited with the rest: the greeting is readable without it, and holding
   // the screen for a list of five lines would be holding it for a courtesy.
   renderWeekAtAGlance();
@@ -12801,39 +12806,42 @@ const fmtDays = (days) => (Number.isInteger(days) ? String(days) : fmtNumber(day
 /** How many projects the budget tile names: the ones nearest their budget. */
 const GLANCE_BUDGETS = 3;
 
-/** What the figures card was last drawn from, kept so a language change can redraw it. */
+/** What the figure tiles were last drawn from, kept so a language change can redraw them. */
 let glanceFigures = null;
 
 /**
- * The figures somebody comes back for, a tile each, under the greeting: the
- * running balance, the days of leave left this year and the projects nearest
- * their budget.
+ * The figures somebody comes back for, a tile each: the running balance, the
+ * days of leave left this year and the projects nearest their budget.
  *
- * A tile is shown only where it has something to say - no balance before a day
- * counts towards one, no leave before any is given for the year, no budgets
- * where no project has one - and the card goes with its last tile, for the
- * reason the entries beside it go for an account that records no time: a panel
- * explaining that there is nothing is worse than no panel.
+ * A tile is shown to whoever may read what it holds, and says so where it holds
+ * nothing yet - no day counting towards a balance, no leave given for the year,
+ * no project with a budget. A tile that came and went could not be put anywhere
+ * by the person arranging them, and an empty one says what will fill it.
  *
  * Its own reads rather than what the other screens loaded: those hold the
  * projects of the account on screen, which for a manager looking after
  * somebody is not the person being greeted.
  */
 async function renderGlance() {
-  if (!$('#welcome-glance')) return;
+  if (!$('#glance-balance')) return;
 
   const year = Number(todayISO().slice(0, 4));
+  const reads = {
+    balance: can('reports:read:own'), leave: can('timesheets:read:own'), budgets: can('projects:read'),
+  };
 
   const [notices, leave, projects] = await Promise.all([
-    can('reports:read:own') ? readOrNothing('/me/notices') : null,
-    can('timesheets:read:own') ? readOrNothing(`/me/vacation?year=${year}`) : null,
-    can('projects:read') ? readOrNothing('/projects') : null,
+    reads.balance ? readOrNothing('/me/notices') : null,
+    reads.leave ? readOrNothing(`/me/vacation?year=${year}`) : null,
+    reads.budgets ? readOrNothing('/projects') : null,
   ]);
 
   // Signed out while the answers were on their way: they are nobody's now.
   if (!me.user) return;
 
   glanceFigures = {
+    reads,
+    year,
     balance: notices?.balance?.since ? notices.balance : null,
     leave: leave && leaveGiven(leave) ? leave : null,
     // Only an active project takes bookings, so only one can still move
@@ -12847,68 +12855,67 @@ async function renderGlance() {
   redrawable('welcomeGlance', drawGlance);
 }
 
-/** Draws the figures card, in the language now in force. */
+/** Draws the figure tiles, in the language now in force. */
 function drawGlance() {
-  const { balance, leave, budgets } = glanceFigures;
+  const { reads, year, balance, leave, budgets } = glanceFigures;
 
   const balanceTile = $('#glance-balance');
-  balanceTile.hidden = !balance;
+  balanceTile.hidden = !reads.balance;
 
-  if (balance) {
-    const above = balance.outside === 'above';
+  const above = balance?.outside === 'above';
 
-    $('#glance-balance-value').textContent = fmtSignedHours(balance.hours);
-    $('#glance-balance-note').textContent = balance.outside
+  $('#glance-balance-value').textContent = balance ? fmtSignedHours(balance.hours) : '–';
+  $('#glance-balance-note').textContent = !balance
+    ? t('bounds.nothingYet', 'Nothing counts towards your balance yet.')
+    : balance.outside
       ? fillIn(above
         ? t('welcome.glance.above', 'above your upper bound of {0}')
         : t('welcome.glance.below', 'below your lower bound of {0}'),
       [fmtSignedHours(above ? balance.upperBound : balance.lowerBound)])
       : fillIn(t('welcome.glance.since', 'counted from {0}'), [fmtDate(balance.since)]);
-    markTile(balanceTile, balance.outside ? 'over' : '');
-  }
+  markTile(balanceTile, balance?.outside ? 'over' : '');
 
   const leaveTile = $('#glance-leave');
-  leaveTile.hidden = !leave;
+  leaveTile.hidden = !reads.leave;
 
-  if (leave) {
-    $('#glance-leave-label').textContent = fillIn(t('welcome.glance.leave', 'Days of leave left in {0}'),
-      [leave.year]);
-    $('#glance-leave-value').textContent = fmtDays(leave.remaining);
-    $('#glance-leave-note').textContent = fillIn(t('welcome.glance.leaveNote', 'taken {0} · planned {1}'),
-      [leave.taken, leave.planned]);
-    markTile(leaveTile, leave.remaining < 0 ? 'over' : '');
-  }
+  $('#glance-leave-label').textContent = fillIn(t('welcome.glance.leave', 'Days of leave left in {0}'),
+    [leave?.year ?? year]);
+  $('#glance-leave-value').textContent = leave ? fmtDays(leave.remaining) : '–';
+  $('#glance-leave-note').textContent = leave
+    ? fillIn(t('welcome.glance.leaveNote', 'taken {0} · planned {1}'), [leave.taken, leave.planned])
+    : t('welcome.glance.noLeave', 'No leave given for this year yet.');
+  markTile(leaveTile, leave && leave.remaining < 0 ? 'over' : '');
 
-  $('#glance-budgets').hidden = budgets.length === 0;
+  $('#glance-budgets').hidden = !reads.budgets;
   $('#glance-budgets-list').replaceChildren(...budgets.map((project) => el('li', {},
     el('span', { class: 'glance-item', text: project.name }),
     budgetLine(project))));
+  $('#glance-budgets-empty').hidden = budgets.length > 0;
 
-  $('#welcome-glance').hidden = !balance && !leave && budgets.length === 0;
+  showTheDashboardFoot();
 }
 
-/** How many of the latest changes the installation's card names. */
+/** How many of the latest changes the changes tile names. */
 const GLANCE_CHANGES = 3;
 
-/** What the installation's card was last drawn from. */
+/** What the installation's tiles were last drawn from. */
 let glanceOperation = null;
 
 /**
- * How the installation stands, a tile each, under the greeting of whoever may
- * run it: the version it runs and whether a newer one is out, its newest backup,
- * and the latest changes in the words of the log - each tile leading to the card
- * that keeps its figure.
+ * How the installation stands, a tile each, for whoever may run it: the version
+ * it runs and whether a newer one is out, its newest backup, and the latest
+ * changes in the words of the log - each tile leading to the card that keeps
+ * its figure.
  *
- * The version is the one tile that depends on somebody else's service, which is
- * why every read stands alone: a release feed that cannot be reached leaves that
- * tile out rather than the card.
+ * Every read stands alone, so one that fails costs its own tile's figure - the
+ * tile says it could not be read - rather than the others'.
  */
 async function renderOperation() {
-  const card = $('#welcome-operation');
-  if (!card) return;
+  const tiles = $$('#glance-version, #glance-backup, #glance-changes');
+  if (tiles.length === 0) return;
 
   if (!can('settings:manage')) {
-    card.hidden = true;
+    for (const tile of tiles) tile.hidden = true;
 
     return;
   }
@@ -12925,42 +12932,37 @@ async function renderOperation() {
   redrawable('welcomeOperation', drawOperation);
 }
 
-/** Draws the installation's card, in the language now in force. */
+/** Draws the installation's tiles, in the language now in force. */
 function drawOperation() {
   const { update, backups, changes } = glanceOperation;
+  const unreadable = [t('welcome.operation.unreadable', 'could not be read'), ''];
 
   const version = $('#glance-version');
-  version.hidden = !update;
+  const [versionNote, versionMark] = update ? versionAtAGlance(update) : unreadable;
 
-  if (update) {
-    const [note, mark] = versionAtAGlance(update);
-
-    $('#glance-version-value').textContent = update.running;
-    $('#glance-version-note').textContent = note;
-    markTile(version, mark);
-  }
+  version.hidden = false;
+  $('#glance-version-value').textContent = update?.running ?? '–';
+  $('#glance-version-note').textContent = versionNote;
+  markTile(version, versionMark);
 
   const backup = $('#glance-backup');
-  backup.hidden = !backups;
+  // The newest first, as the folder lists them.
+  const newest = backups?.backups?.[0];
+  const [backupNote, backupMark] = backups ? backupsAtAGlance(backups) : unreadable;
 
-  if (backups) {
-    // The newest first, as the folder lists them.
-    const newest = backups.backups?.[0];
-    const [note, mark] = backupsAtAGlance(backups);
+  backup.hidden = false;
+  $('#glance-backup-value').textContent = newest ? fmtMoment(newest.made)
+    : backups ? t('welcome.operation.noBackup', 'None yet') : '–';
+  $('#glance-backup-note').textContent = backupNote;
+  markTile(backup, backupMark);
 
-    $('#glance-backup-value').textContent = newest
-      ? fmtMoment(newest.made)
-      : t('welcome.operation.noBackup', 'None yet');
-    $('#glance-backup-note').textContent = note;
-    markTile(backup, mark);
-  }
-
-  $('#glance-changes').hidden = changes.length === 0;
+  $('#glance-changes').hidden = false;
   $('#glance-changes-list').replaceChildren(...changes.map((entry) => el('li', {},
     el('span', { class: 'glance-change', text: describeChange(entry) }),
     el('span', { class: 'glance-when', text: `${fmtMoment(entry.at)} · ${changedBy(entry.actor)}` }))));
+  $('#glance-changes-empty').hidden = changes.length > 0;
 
-  $('#welcome-operation').hidden = !update && !backups && changes.length === 0;
+  showTheDashboardFoot();
 }
 
 /**
@@ -12998,14 +13000,237 @@ function backupsAtAGlance(backups) {
   return [fillIn(t('welcome.operation.kept', '{0} kept, made on a schedule'), [backups.backups?.length ?? 0]), ''];
 }
 
-/** Forgets the greeting's tiles, for an account that has signed out. */
+/**
+ * Forgets the greeting's tiles, for an account that has signed out: what they
+ * said, and where that account had put them.
+ */
 function forgetTheGlance() {
   glanceFigures = null;
   glanceOperation = null;
+  arrangedHere = null;
 
-  for (const hidden of $$('#welcome-glance, #welcome-operation, .glance-tile')) hidden.hidden = true;
+  for (const tile of dashboardTiles()) tile.hidden = true;
   for (const list of $$('.glance-list')) list.replaceChildren();
-  for (const said of $$('.glance-value, .glance-note, #glance-leave-label')) said.textContent = '';
+  // The spans the script writes; the sentences for an empty tile are the markup's.
+  for (const said of $$('span.glance-value, span.glance-note, #glance-leave-label')) said.textContent = '';
+
+  $('#dashboard-foot').hidden = true;
+  $('#dashboard-said').textContent = '';
+  arrangeDashboard([]);
+}
+
+// ------------------------------------------------------------ the dashboard
+
+/** The tiles' names in the order the screen ships with, read from the markup once. */
+let shippedTiles = [];
+
+/**
+ * The order this page last put the tiles in, which wins over the account's as
+ * it was read: every reading of the account draws the greeting again, and one
+ * read before a save had landed put the tiles back where they had just been
+ * moved from. Null until this page arranges them; forgotten at a sign-out.
+ */
+let arrangedHere = null;
+
+/** The tiles under the greeting, in the order they stand. */
+function dashboardTiles() {
+  return $$('#dashboard > .tile');
+}
+
+/** The tiles under the greeting that this account sees, in the order they stand. */
+function shownTiles() {
+  return dashboardTiles().filter((tile) => !tile.hidden);
+}
+
+/**
+ * Puts the tiles in the order an arrangement names: the ones it names first, in
+ * its order, then every other in the order the screen ships with. A name the
+ * screen does not have is passed over, which is what lets an arrangement saved
+ * by an earlier release outlive a tile being added or taken away.
+ */
+function arrangeDashboard(names) {
+  const board = $('#dashboard');
+  if (!board) return;
+
+  const named = (names ?? []).filter((name) => shippedTiles.includes(name));
+
+  for (const name of new Set([...named, ...shippedTiles])) {
+    const tile = board.querySelector(`:scope > [data-tile="${name}"]`);
+    if (tile) board.append(tile);
+  }
+
+  offerTheShippedOrder();
+}
+
+/** Offers the way back to the order the screen ships with, once the tiles stand in another. */
+function offerTheShippedOrder() {
+  $('#dashboard-reset').hidden = dashboardTiles().map((tile) => tile.dataset.tile).join()
+    === shippedTiles.join();
+}
+
+/** Says how the tiles are moved, once any tile is on screen. */
+function showTheDashboardFoot() {
+  $('#dashboard-foot').hidden = shownTiles().length === 0;
+}
+
+/**
+ * Keeps the order the tiles stand in on the account, so the phone shows what was
+ * arranged at the desk. Every tile is kept in its place, the ones this account
+ * does not see included: an administrator's tile keeps its place for the day the
+ * account administers.
+ */
+function keepTheArrangement() {
+  const tiles = dashboardTiles().map((tile) => tile.dataset.tile);
+
+  arrangedHere = tiles;
+  if (me.user) me.user.dashboard = tiles;
+  offerTheShippedOrder();
+
+  return mutate(() => api('/me/dashboard', { method: 'PUT', body: JSON.stringify({ tiles }) }), null, null);
+}
+
+/**
+ * Moves a tile among the ones on screen to the place where answers from its
+ * place and how many there are, and says nothing when it is already there.
+ */
+function moveTile(tile, where) {
+  const shown = shownTiles();
+  const from = shown.indexOf(tile);
+  const to = Math.max(0, Math.min(shown.length - 1, where(from, shown.length)));
+
+  if (from < 0 || to === from) return false;
+
+  if (to > from) shown[to].after(tile);
+  else shown[to].before(tile);
+
+  return true;
+}
+
+/** Says where a tile moved by the keyboard now stands, for whoever cannot see it. */
+function sayWhereTheTileIs(tile) {
+  const shown = shownTiles();
+
+  $('#dashboard-said').textContent = fillIn(t('dashboard.moved', '{0}: place {1} of {2}'),
+    [tile.querySelector('h3')?.textContent.trim() ?? '', shown.indexOf(tile) + 1, shown.length]);
+}
+
+/** What the arrow keys and the ends do to a tile, by key. */
+const TILE_KEYS = {
+  ArrowUp: (at) => at - 1,
+  ArrowLeft: (at) => at - 1,
+  ArrowDown: (at) => at + 1,
+  ArrowRight: (at) => at + 1,
+  Home: () => 0,
+  End: (_, count) => count - 1,
+};
+
+/**
+ * Drags a tile by its handle: it takes the place of the tile under the pointer
+ * as the pointer reaches it, and the order is kept when the button is let go -
+ * or put back, with Escape. Followed on the document rather than captured by
+ * the handle, because moving the tile takes the handle out of the document for
+ * a moment, and a capture ends with that.
+ */
+function dragTile(tile, start) {
+  const board = $('#dashboard');
+  const before = dashboardTiles().map((candidate) => candidate.dataset.tile);
+
+  const follow = (move) => {
+    const over = document.elementsFromPoint(move.clientX, move.clientY)
+      .map((node) => node.closest('#dashboard > .tile'))
+      .find((candidate) => candidate && candidate !== tile && !candidate.hidden);
+
+    if (!over) return;
+
+    const shown = shownTiles();
+    if (shown.indexOf(over) > shown.indexOf(tile)) over.after(tile);
+    else over.before(tile);
+  };
+
+  const finish = (putBack) => {
+    document.removeEventListener('pointermove', follow);
+    document.removeEventListener('pointerup', letGo);
+    document.removeEventListener('pointercancel', letGo);
+    document.removeEventListener('keydown', escape);
+    board.classList.remove('arranging');
+    tile.classList.remove('dragging');
+
+    if (putBack) {
+      arrangeDashboard(before);
+    } else if (dashboardTiles().map((candidate) => candidate.dataset.tile).join() !== before.join()) {
+      keepTheArrangement();
+    }
+  };
+
+  const letGo = () => finish(false);
+
+  const escape = (event) => {
+    if (event.key === 'Escape') finish(true);
+  };
+
+  start.preventDefault();
+  board.classList.add('arranging');
+  tile.classList.add('dragging');
+  document.addEventListener('pointermove', follow);
+  document.addEventListener('pointerup', letGo);
+  document.addEventListener('pointercancel', letGo);
+  document.addEventListener('keydown', escape);
+}
+
+/**
+ * Gives every tile its handle - named after the tile, through its heading, so
+ * the name follows a heading the script rewrites - and the way back to the
+ * order the screen ships with.
+ */
+function wireDashboard() {
+  if (!$('#dashboard')) return;
+
+  shippedTiles = dashboardTiles().map((tile) => tile.dataset.tile);
+
+  for (const tile of dashboardTiles()) {
+    // The English source given with it, which the translation of every label
+    // otherwise takes from the label it finds - German, on a page already
+    // German when the handles are made.
+    const grip = el('button', {
+      type: 'button',
+      class: 'tile-grip',
+      id: `tile-grip-${tile.dataset.tile}`,
+      'aria-label': t('dashboard.move', 'Move'),
+      'data-i18n-aria': 'dashboard.move',
+      'data-i18n-aria-source': 'Move',
+    });
+
+    grip.setAttribute('aria-labelledby', `${grip.id} ${tile.getAttribute('aria-labelledby')}`);
+
+    grip.addEventListener('keydown', (event) => {
+      const where = TILE_KEYS[event.key];
+      if (!where) return;
+
+      event.preventDefault();
+
+      if (moveTile(tile, where)) {
+        grip.focus();
+        sayWhereTheTileIs(tile);
+        keepTheArrangement();
+      }
+    });
+
+    grip.addEventListener('pointerdown', (event) => {
+      if (event.button === 0) dragTile(tile, event);
+    });
+
+    tile.querySelector('.welcome-recent-head').append(grip);
+  }
+
+  $('#dashboard-reset').addEventListener('click', () => {
+    arrangeDashboard([]);
+    $('#dashboard-said').textContent = '';
+
+    arrangedHere = [];
+    if (me.user) me.user.dashboard = [];
+
+    mutate(() => api('/me/dashboard', { method: 'PUT', body: JSON.stringify({ tiles: [] }) }), null, null);
+  });
 }
 
 /** What today looks like, in one sentence. */
@@ -13079,6 +13304,8 @@ function wireWelcome() {
   ]) {
     $(button).addEventListener('click', () => openTheCardOn(view, card));
   }
+
+  wireDashboard();
 }
 
 // ------------------------------------------------------------ setup wizard
