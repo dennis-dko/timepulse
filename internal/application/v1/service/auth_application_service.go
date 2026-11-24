@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/dennis-dko/timepulse/internal/domain/model"
 	"github.com/dennis-dko/timepulse/internal/domain/repository"
@@ -27,6 +28,12 @@ type Principal struct {
 	User        *model.User
 	Role        *model.Role
 	Permissions []string
+
+	// SignedInAt is when the session this principal was resolved from was
+	// opened - the moment its owner signed in - and zero for a caller no sign-in
+	// brought: a personal token, or authentication switched off. Read back from
+	// the database, so on MySQL it is whole seconds.
+	SignedInAt time.Time
 }
 
 // Can reports whether the principal holds the permission.

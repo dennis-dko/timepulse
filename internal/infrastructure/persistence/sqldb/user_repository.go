@@ -21,7 +21,8 @@ const userSelect = `SELECT u.id, u.name, u.email, u.role_id, COALESCE(r.name, ''
 	u.daily_target_hours, u.max_daily_hours,
 	u.totp_secret, u.totp_enabled, u.language, u.is_external, u.external_id, u.timezone,
 	u.tour_seen, u.theme, u.holiday_region, u.every_day_counts_from,
-	u.balance_upper_limit, u.balance_lower_limit, u.skip_unbooked_reminder, u.timer_alert_hours
+	u.balance_upper_limit, u.balance_lower_limit, u.skip_unbooked_reminder, u.timer_alert_hours,
+	u.dashboard
 	FROM users u LEFT JOIN roles r ON r.id = u.role_id`
 
 // UserRepository stores users in a SQL database.
@@ -241,6 +242,7 @@ func (r *UserRepository) scanUser(s scanner) (*model.User, error) {
 		countsFrom   dateTime
 		upper, lower sql.NullFloat64
 		alertHours   sql.NullInt64
+		dashboard    string
 	)
 
 	err := s.Scan(&user.ID, &user.Name, &user.Email, &user.RoleID, &user.RoleName,
@@ -248,10 +250,12 @@ func (r *UserRepository) scanUser(s scanner) (*model.User, error) {
 		&user.DailyTargetHours, &user.MaxDailyHours,
 		&user.TOTPSecret, &user.TOTPEnabled, &user.Language, &user.IsExternal, &user.ExternalID,
 		&user.Timezone, &user.TourSeen, &user.Theme, &user.HolidayPlace, &countsFrom,
-		&upper, &lower, &user.SkipUnbookedReminder, &alertHours)
+		&upper, &lower, &user.SkipUnbookedReminder, &alertHours, &dashboard)
 	if err != nil {
 		return nil, err
 	}
+
+	user.Dashboard = model.DashboardOf(dashboard)
 
 	if alertHours.Valid {
 		hours := int(alertHours.Int64)
@@ -330,6 +334,8 @@ func (r *UserRepository) SetPreference(
 		query = "UPDATE users SET theme = ? WHERE id = ?"
 	case repository.PreferenceHolidayPlace:
 		query = "UPDATE users SET holiday_region = ? WHERE id = ?"
+	case repository.PreferenceDashboard:
+		query = "UPDATE users SET dashboard = ? WHERE id = ?"
 	default:
 		return fmt.Errorf("unknown user preference %d", field)
 	}

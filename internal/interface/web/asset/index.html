@@ -590,108 +590,128 @@
         </div>
       </div>
 
-      <!-- This week against what it asks, for somebody who books time here:
-           today with the running clock counted in, the week's total, and a bar
-           per day drawn against that day's own target. The question somebody
-           opening the application has most often, which the sentence about
-           today above only half answered. Hidden for an account that records
-           no time, like the entries below. -->
-      <section class="card welcome-week" id="welcome-week" hidden
-               aria-labelledby="welcome-week-title">
-        <div class="welcome-recent-head">
-          <h3 id="welcome-week-title" data-i18n="welcome.week">This week</h3>
-          <span class="muted" id="welcome-week-total"></span>
-        </div>
-        <p class="welcome-week-today" id="welcome-week-today"></p>
-        <div class="meter" id="welcome-today-meter"><span class="seg taken"></span></div>
-        <ol class="week-bars" id="welcome-week-bars"></ol>
-      </section>
+      <!-- The tiles under the greeting, each a card of its own and each where its
+           owner put it: dragged by its handle, or moved with the arrow keys on the
+           handle, and kept on the account, so the phone shows the order chosen at
+           the desk. The handles are the script's, one per tile. A tile is shown
+           to whoever may read what it holds, with a sentence where it holds
+           nothing yet; the greeting above stays where it is.
 
-      <!-- The figures somebody comes back for, a tile each: the running balance,
-           the days of leave left this year and the projects nearest their budget.
-           A tile is shown only where it has something to say and the card goes
-           with its last one; each leads to the card that keeps its figure. -->
-      <section class="card welcome-glance" id="welcome-glance" hidden
-               aria-labelledby="welcome-glance-title">
-        <div class="welcome-recent-head">
-          <h3 id="welcome-glance-title" data-i18n="welcome.glance.title">At a glance</h3>
-        </div>
-        <div class="glance-tiles">
-          <div class="glance-tile" id="glance-balance" hidden>
-            <span class="glance-label" data-i18n="ot.balance">Balance</span>
-            <span class="glance-value" id="glance-balance-value"></span>
-            <span class="glance-note" id="glance-balance-note"></span>
-            <button type="button" class="link" id="glance-balance-open"
-                    data-i18n="nav.overtime">Overtime</button>
+           The order here is the order the screen ships with. A tile added in a
+           later release joins an arrangement after the tiles it names, and a
+           name the screen no longer has is passed over. -->
+      <div class="dashboard" id="dashboard">
+        <!-- This week against what it asks: today with the running clock counted
+             in, the week's total, and a bar per day drawn against that day's own
+             target. -->
+        <section class="card tile welcome-week" id="welcome-week" data-tile="week" hidden
+                 aria-labelledby="welcome-week-title">
+          <div class="welcome-recent-head">
+            <h3 id="welcome-week-title" data-i18n="welcome.week">This week</h3>
+            <span class="muted" id="welcome-week-total"></span>
           </div>
-          <div class="glance-tile" id="glance-leave" hidden>
-            <span class="glance-label" id="glance-leave-label"></span>
-            <span class="glance-value" id="glance-leave-value"></span>
-            <span class="glance-note" id="glance-leave-note"></span>
-            <button type="button" class="link" id="glance-leave-open"
-                    data-i18n="cal.tab.leave">Leave</button>
-          </div>
-          <div class="glance-tile" id="glance-budgets" hidden>
-            <span class="glance-label" data-i18n="welcome.glance.budgets">Hour budgets</span>
-            <ul class="glance-list" id="glance-budgets-list"></ul>
-            <button type="button" class="link" id="glance-budgets-open"
-                    data-i18n="nav.projects">Projects</button>
-          </div>
-        </div>
-      </section>
+          <p class="welcome-week-today" id="welcome-week-today"></p>
+          <div class="meter" id="welcome-today-meter"><span class="seg taken"></span></div>
+          <ol class="week-bars" id="welcome-week-bars"></ol>
+        </section>
 
-      <!-- The last few entries, for somebody who books time here. A greeting
-           that says nothing about the work is a greeting nobody reads twice;
-           this is the one thing the person in front of it already knows the
-           shape of, so it is the one thing worth showing back to them.
+        <!-- The figures somebody comes back for, each leading to the card that
+             keeps it: the running balance, the days of leave left this year and
+             the projects nearest their budget. -->
+        <section class="card tile glance-tile" id="glance-balance" data-tile="balance" hidden
+                 aria-labelledby="glance-balance-title">
+          <div class="welcome-recent-head">
+            <h3 id="glance-balance-title" data-i18n="ot.balance">Balance</h3>
+          </div>
+          <span class="glance-value" id="glance-balance-value"></span>
+          <span class="glance-note" id="glance-balance-note"></span>
+          <button type="button" class="link" id="glance-balance-open"
+                  data-i18n="nav.overtime">Overtime</button>
+        </section>
 
-           Hidden outright for an account that records no time - the built-in
-           administrator has no entries, and an empty panel explaining that is
-           worse than no panel. -->
-      <section class="card welcome-recent" id="welcome-recent" hidden
-               aria-labelledby="welcome-recent-title">
-        <div class="welcome-recent-head">
-          <h3 id="welcome-recent-title" data-i18n="welcome.recent">Your last entries</h3>
-          <button type="button" class="link" id="welcome-recent-all"
-                  data-i18n="welcome.recentAll">All time entries</button>
-        </div>
-        <ul class="welcome-recent-list" id="welcome-recent-list"></ul>
-        <p class="muted" id="welcome-recent-empty" hidden data-i18n="welcome.recentNone">Nothing recorded in the last 90 days.</p>
-      </section>
+        <section class="card tile glance-tile" id="glance-leave" data-tile="leave" hidden
+                 aria-labelledby="glance-leave-label">
+          <div class="welcome-recent-head">
+            <h3 id="glance-leave-label"></h3>
+          </div>
+          <span class="glance-value" id="glance-leave-value"></span>
+          <span class="glance-note" id="glance-leave-note"></span>
+          <button type="button" class="link" id="glance-leave-open"
+                  data-i18n="cal.tab.leave">Leave</button>
+        </section>
 
-      <!-- How the installation stands, for whoever may run it: the version it
-           runs, its newest backup and the latest changes in the words of the log,
-           each tile leading to the card that keeps it. Last on the screen, because
-           for an account that also works here it is the other job; for the
-           built-in administrator, who records no time, it follows the greeting. -->
-      <section class="card welcome-glance" id="welcome-operation" hidden
-               aria-labelledby="welcome-operation-title">
-        <div class="welcome-recent-head">
-          <h3 id="welcome-operation-title" data-i18n="welcome.operation.title">Operation at a glance</h3>
-        </div>
-        <div class="glance-tiles">
-          <div class="glance-tile" id="glance-version" hidden>
-            <span class="glance-label" data-i18n="update.title">Version</span>
-            <span class="glance-value" id="glance-version-value"></span>
-            <span class="glance-note" id="glance-version-note"></span>
-            <button type="button" class="link" id="glance-version-open"
-                    data-i18n="admin.tab.operation">Operation</button>
+        <section class="card tile glance-tile" id="glance-budgets" data-tile="budgets" hidden
+                 aria-labelledby="glance-budgets-title">
+          <div class="welcome-recent-head">
+            <h3 id="glance-budgets-title" data-i18n="welcome.glance.budgets">Hour budgets</h3>
           </div>
-          <div class="glance-tile" id="glance-backup" hidden>
-            <span class="glance-label" data-i18n="welcome.operation.backup">Newest backup</span>
-            <span class="glance-value" id="glance-backup-value"></span>
-            <span class="glance-note" id="glance-backup-note"></span>
-            <button type="button" class="link" id="glance-backup-open"
-                    data-i18n="backup.title">Backups</button>
+          <ul class="glance-list" id="glance-budgets-list"></ul>
+          <p class="glance-note" id="glance-budgets-empty" hidden
+             data-i18n="welcome.glance.noBudgets">No active project has an hour budget.</p>
+          <button type="button" class="link" id="glance-budgets-open"
+                  data-i18n="nav.projects">Projects</button>
+        </section>
+
+        <!-- The last few entries: the one thing the person in front of the screen
+             already knows the shape of, so the one worth showing back to them. -->
+        <section class="card tile welcome-recent" id="welcome-recent" data-tile="recent" hidden
+                 aria-labelledby="welcome-recent-title">
+          <div class="welcome-recent-head">
+            <h3 id="welcome-recent-title" data-i18n="welcome.recent">Your last entries</h3>
+            <button type="button" class="link" id="welcome-recent-all"
+                    data-i18n="welcome.recentAll">All time entries</button>
           </div>
-          <div class="glance-tile" id="glance-changes" hidden>
-            <span class="glance-label" data-i18n="welcome.operation.changes">Latest changes</span>
-            <ul class="glance-list" id="glance-changes-list"></ul>
-            <button type="button" class="link" id="glance-changes-open"
-                    data-i18n="admin.tab.logs">Logs</button>
+          <ul class="welcome-recent-list" id="welcome-recent-list"></ul>
+          <p class="muted" id="welcome-recent-empty" hidden data-i18n="welcome.recentNone">Nothing recorded in the last 90 days.</p>
+        </section>
+
+        <!-- How the installation stands, for whoever may run it: the version it
+             runs, its newest backup and the latest changes in the words of the
+             log, each leading to the card that keeps it. -->
+        <section class="card tile glance-tile" id="glance-version" data-tile="version" hidden
+                 aria-labelledby="glance-version-title">
+          <div class="welcome-recent-head">
+            <h3 id="glance-version-title" data-i18n="update.title">Version</h3>
           </div>
-        </div>
-      </section>
+          <span class="glance-value" id="glance-version-value"></span>
+          <span class="glance-note" id="glance-version-note"></span>
+          <button type="button" class="link" id="glance-version-open"
+                  data-i18n="admin.tab.operation">Operation</button>
+        </section>
+
+        <section class="card tile glance-tile" id="glance-backup" data-tile="backup" hidden
+                 aria-labelledby="glance-backup-title">
+          <div class="welcome-recent-head">
+            <h3 id="glance-backup-title" data-i18n="welcome.operation.backup">Newest backup</h3>
+          </div>
+          <span class="glance-value" id="glance-backup-value"></span>
+          <span class="glance-note" id="glance-backup-note"></span>
+          <button type="button" class="link" id="glance-backup-open"
+                  data-i18n="backup.title">Backups</button>
+        </section>
+
+        <section class="card tile glance-tile" id="glance-changes" data-tile="changes" hidden
+                 aria-labelledby="glance-changes-title">
+          <div class="welcome-recent-head">
+            <h3 id="glance-changes-title" data-i18n="welcome.operation.changes">Latest changes</h3>
+          </div>
+          <ul class="glance-list" id="glance-changes-list"></ul>
+          <p class="glance-note" id="glance-changes-empty" hidden
+             data-i18n="changes.empty">Nothing has been changed yet.</p>
+          <button type="button" class="link" id="glance-changes-open"
+                  data-i18n="admin.tab.logs">Logs</button>
+        </section>
+      </div>
+
+      <!-- How the tiles are moved, said once under them; what a move by the
+           keyboard did, said where a screen reader reads it; and the way back to
+           the order the screen ships with, offered only once there is another. -->
+      <div class="dashboard-foot" id="dashboard-foot" hidden>
+        <p class="muted" data-i18n="dashboard.hint">Move a tile by dragging its handle, or with the arrow keys on the handle.</p>
+        <p class="muted" id="dashboard-said" role="status"></p>
+        <button type="button" class="link" id="dashboard-reset" hidden
+                data-i18n="dashboard.reset">Back to the original order</button>
+      </div>
     </section>
 
     <!-- Time entries -->

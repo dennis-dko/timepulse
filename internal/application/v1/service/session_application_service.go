@@ -500,7 +500,14 @@ func (s *SessionService) resolve(ctx context.Context, token string, inUse bool) 
 		return nil, missingOr(err, noSession)
 	}
 
-	return s.auth.principalFor(ctx, user)
+	principal, err := s.auth.principalFor(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	principal.SignedInAt = session.CreatedAt
+
+	return principal, nil
 }
 
 // idleTimeout is how long a session may go unused, or zero for no limit.

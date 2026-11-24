@@ -244,8 +244,12 @@ func (r *UserRepository) SetPreference(
 		current.Language = value
 	case repository.PreferenceTimezone:
 		current.Timezone = value
+	case repository.PreferenceTheme:
+		current.Theme = value
 	case repository.PreferenceHolidayPlace:
 		current.HolidayPlace = value
+	case repository.PreferenceDashboard:
+		current.Dashboard = model.DashboardOf(value)
 	default:
 		return fmt.Errorf("unknown user preference %d", field)
 	}

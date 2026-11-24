@@ -32,6 +32,17 @@ func (s *SessionService) SetTheme(ctx context.Context, userID uint, theme string
 	return s.users.SetPreference(ctx, userID, repository.PreferenceTheme, theme)
 }
 
+// SetDashboard stores the order this person's tiles stand in on the welcome
+// screen, by the tiles' names, or clears it with an empty one, which is the
+// order the screen ships with.
+func (s *SessionService) SetDashboard(ctx context.Context, userID uint, order []string) error {
+	if !model.IsValidDashboard(order) {
+		return apperror.InvalidFields("tiles")
+	}
+
+	return s.users.SetPreference(ctx, userID, repository.PreferenceDashboard, strings.Join(order, ","))
+}
+
 // SetTourSeen records whether this person has been shown the guided tour.
 //
 // Settable both ways: someone who wants to see it again should be able to ask,
