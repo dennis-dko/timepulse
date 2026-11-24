@@ -16881,7 +16881,7 @@ function buildSheetCard(spec) {
   });
 
   const picker = el('label', { class: 'file-pick', 'data-perm': spec.write },
-    el('span', { 'data-i18n': 'wb.choose', text: 'Choose a file…' }), file);
+    el('span', { 'data-i18n': 'wb.importFrom', text: 'Import from .xlsx…' }), file);
 
   file.addEventListener('change', () => {
     const chosen = Boolean(file.files?.length);
