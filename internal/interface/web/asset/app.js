@@ -7949,6 +7949,43 @@ function drawVacation() {
   fillTable($('#table-vacation tbody'), rows, 3, t('vacation.noEntitlements', 'No days of leave given yet.'));
 }
 
+/**
+ * The leave of the year the card shows, and the days away in it, for the
+ * document an employer's records ask for.
+ *
+ * The days are read for that year rather than off the table beside the card,
+ * which lists the current one: stepped back a year, the leave would have been
+ * last year's and the days this year's. What is left and what was taken are the
+ * card's own sentences, so the document says them as the screen does.
+ */
+async function vacationDocument() {
+  const account = vacationAccount;
+  const year = account?.year ?? vacationYear ?? Number(todayISO().slice(0, 4));
+  const span = new URLSearchParams({ from: `${year}-01-01`, to: `${year}-12-31` });
+  const absences = (await api(`/me/absences?${span}`))?.items ?? [];
+  const given = Boolean(account?.entitlements.length) && account.year >= account.entitlements[0].fromYear;
+
+  return {
+    title: fillIn(t('vacation.title', 'Leave {0}'), [year]),
+    colours: screenColours(),
+    subtitle: given
+      ? [fillIn(t('vacation.left', 'Days left: {0}'), [account.remaining]),
+        fillIn(t('vacation.detail', 'Given: {0} · carried over: {1} · taken: {2} · planned: {3}'),
+          [account.entitlement, account.carriedOver, account.taken, account.planned])].join(' · ')
+      : t('vacation.none', 'No leave given for this year yet: say below how many days a year give.'),
+    sections: [{
+      heading: t('absence.title', 'Days away'),
+      caption: absences.length ? undefined : t('absence.empty', 'No absence recorded this year.'),
+      table: {
+        columns: [t('field.day', 'Day'), t('field.kind', 'Reason')],
+        numeric: [false, false],
+        rows: absences.map((absence) => [fmtDate(absence.day), absenceName(absence.kind)]),
+        tones: absences.map(() => ['', '']),
+      },
+    }],
+  };
+}
+
 /** Forgets the leave the card showed, for an account that has signed out. */
 function forgetTheVacation() {
   vacationYear = null;
@@ -8731,6 +8768,17 @@ async function workDayDocument() {
 function wireWorkDays() {
   const form = $('#form-workday');
   if (!form) return;
+
+  // The month on screen as a workbook of figures, for payroll or one's own
+  // books - the one shown, not whatever the arrows land on next.
+  $('#workday-xlsx')?.addEventListener('click', () => mutate(() => {
+    const span = new URLSearchParams();
+
+    if (workDays?.from) span.set('from', workDays.from);
+    if (workDays?.to) span.set('to', workDays.to);
+
+    return downloadSheet(`/me/workdays/export?${span}`, t('work.filename', 'working-time'));
+  }, null, null));
 
   form.elements.date.addEventListener('change', () => proposeTheClocksStart(form));
 
@@ -15865,6 +15913,7 @@ function wireDocumentExports() {
     statementDocument);
   wireDocumentExport('#changes-pdf', () => t('changes.filename', 'changes-to-the-installation'),
     changesDocument);
+  wireDocumentExport('#vacation-pdf', () => t('vacation.filename', 'leave'), vacationDocument);
 }
 
 // ------------------------------------------- export and import, table by table

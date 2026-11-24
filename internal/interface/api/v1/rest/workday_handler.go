@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"gofr.dev/pkg/gofr"
+	"gofr.dev/pkg/gofr/http/response"
 
 	"github.com/dennis-dko/timepulse/internal/application/v1/service"
 	"github.com/dennis-dko/timepulse/internal/domain/model"
 	"github.com/dennis-dko/timepulse/internal/support/apperror"
+	"github.com/dennis-dko/timepulse/internal/support/spreadsheet"
 )
 
 // WorkDayHandler serves somebody's own record of when they worked: read with the
@@ -125,6 +127,47 @@ func (h *WorkDayHandler) List(c *gofr.Context) (any, error) {
 	answer.TotalBooked = math.Round(answer.TotalBooked*100) / 100
 
 	return answer, nil
+}
+
+// Export handles GET /api/v1/me/workdays/export: the period List answers, as a
+// spreadsheet of figures in the language the request names.
+func (h *WorkDayHandler) Export(c *gofr.Context) (any, error) {
+	principal, err := h.authz.Require(c, model.PermTimesheetReadOwn)
+	if err != nil {
+		return nil, err
+	}
+
+	from, to, err := monthRange(c, principal.User.TimezoneOf(h.timezone.resolve(c)))
+	if err != nil {
+		return nil, toHTTPError(err)
+	}
+
+	days, err := h.work.Between(c, principal.User.ID, from, to)
+	if err != nil {
+		return nil, toHTTPError(err)
+	}
+
+	rows := make([]spreadsheet.WorkDayRow, 0, len(days))
+
+	for _, day := range days {
+		row := spreadsheet.WorkDayRow{Day: day.Day, Recorded: day.Recorded, BookedHours: day.BookedHours}
+
+		if day.Recorded {
+			row.Start = clockOf(day.StartMinute)
+			row.End = clockOf(day.EndMinute)
+			row.BreakMinutes = day.BreakMinutes
+			row.WorkedHours = float64(day.WorkedMinutes()) / 60
+		}
+
+		rows = append(rows, row)
+	}
+
+	book, err := spreadsheet.WriteWorkDays(language(c), rows)
+	if err != nil {
+		return nil, toHTTPError(err)
+	}
+
+	return response.File{Content: book, ContentType: xlsxContentType}, nil
 }
 
 // Record handles PUT /api/v1/me/workdays/{date}, in place of what the day had.

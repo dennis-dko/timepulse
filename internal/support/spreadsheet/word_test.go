@@ -19,7 +19,7 @@ import (
 func TestEveryWordAWorkbookWritesIsInEveryDictionary(t *testing.T) {
 	written := map[string]bool{}
 
-	for _, table := range []Table{timesheets, projects, users, roles, statement} {
+	for _, table := range []Table{timesheets, projects, users, roles, statement, workDays} {
 		written[table.Key] = true
 
 		for _, heading := range table.Headings {
