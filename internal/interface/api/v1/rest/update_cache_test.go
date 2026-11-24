@@ -1,9 +1,15 @@
 package rest
 
 import (
+	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"gofr.dev/pkg/gofr"
 
 	"github.com/dennis-dko/timepulse/internal/infrastructure/announce"
 	"github.com/dennis-dko/timepulse/internal/infrastructure/selfupdate"
@@ -128,4 +134,72 @@ func TestASecondPressLeavesTheWarningStanding(t *testing.T) {
 				"promises something that is not coming", last.Kind)
 		}
 	})
+}
+
+// An administrator who signed in after the feed last answered is owed an answer
+// of their own; a sign-in within signInSlack of the answer has as good as seen
+// it; and a caller no sign-in brought is owed nothing, before an answer or after.
+func TestASignInIsOwedOneAnswerOfItsOwn(t *testing.T) {
+	answered := time.Now().Add(-time.Hour)
+	h := &UpdateHandler{cached: selfupdate.Release{Version: "v1.2.3"}, cachedAt: answered}
+
+	for name, want := range map[time.Time]bool{
+		answered.Add(time.Minute):     true,
+		answered.Add(-time.Minute):    false,
+		answered.Add(signInSlack / 2): false,
+		answered.Add(2 * signInSlack): true,
+		{}:                            false,
+	} {
+		if got := h.owedACheck(name); got != want {
+			t.Errorf("signed in %v after the answer: owed a check %v, want %v", name.Sub(answered), got, want)
+		}
+	}
+
+	nothingYet := &UpdateHandler{}
+
+	if !nothingYet.owedACheck(time.Now()) {
+		t.Error("before the feed ever answered, a sign-in is not owed an answer")
+	}
+
+	if nothingYet.owedACheck(time.Time{}) {
+		t.Error("before the feed ever answered, a token is owed an answer")
+	}
+}
+
+// A sign-in after a refusal waits it out like the automatic path, so a feed
+// turning every request away - a spent rate limit - is not asked again at each
+// arrival; with nothing to wait out, the sign-in's answer is recorded.
+func TestASignInWaitsOutARefusal(t *testing.T) {
+	var asked atomic.Int32
+
+	feed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		asked.Add(1)
+
+		_, _ = w.Write([]byte(`{"tag_name":"v1.2.4","assets":[]}`))
+	}))
+	defer feed.Close()
+
+	c := &gofr.Context{Context: context.Background()}
+	source := &selfupdate.Source{API: feed.URL, Client: feed.Client()}
+	answered := time.Now().Add(-time.Hour)
+
+	refused := &UpdateHandler{
+		source: source, cached: selfupdate.Release{Version: "v1.2.3"}, cachedAt: answered,
+		cacheErr: errors.New("403"), failedAt: time.Now(),
+	}
+
+	refused.checkForASignIn(c, time.Now())
+
+	if got := asked.Load(); got != 0 {
+		t.Errorf("a sign-in asked the feed %d times straight into the refusal it is waiting out", got)
+	}
+
+	clear := &UpdateHandler{source: source, cached: selfupdate.Release{Version: "v1.2.3"}, cachedAt: answered}
+
+	clear.checkForASignIn(c, time.Now())
+
+	if got := asked.Load(); got != 1 || clear.cached.Version != "v1.2.4" {
+		t.Errorf("with nothing to wait out a sign-in asked %d times and keeps %q, want once and v1.2.4",
+			got, clear.cached.Version)
+	}
 }

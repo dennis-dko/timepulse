@@ -132,8 +132,10 @@ func NewUpdateHandler(authz *Authorizer, source *selfupdate.Source, hub *announc
 //
 // Six hours instead. Releases happen a few times a day at most, the screen polls
 // hourly anyway, and one instance now costs four requests a day however many
-// people are looking at it. An installation that sets a token gets five thousand
-// an hour and never comes near either number.
+// people are looking at it - and one more for each administrator's sign-in,
+// which asks afresh (see checkForASignIn): a person arriving, a handful of
+// times a day, rather than a screen refreshing. An installation that sets a
+// token gets five thousand an hour and never comes near either number.
 //
 // The wait after a failure is shorter, because a failure is often a network that
 // was down for a minute - but long enough that a rate limit is not answered by
@@ -155,6 +157,13 @@ const (
 	// answer it gets is current. A second press a minute later has nothing to
 	// find that the first did not.
 	manualCheckEvery = 5 * time.Minute
+
+	// signInSlack is how soon after an answer a sign-in still counts as having
+	// seen it. A session's opening is read back from the database, and MySQL's
+	// DATETIME keeps whole seconds - rounded, so up to half a second late - which
+	// would otherwise owe the session that triggered a check a second one. An
+	// answer a second old is as current as a new one.
+	signInSlack = time.Second
 )
 
 // UpdateResponse is what the screen needs to say something true on every
@@ -241,11 +250,48 @@ type UpdateResponse struct {
 
 // State handles GET /api/v1/settings/update.
 func (h *UpdateHandler) State(c *gofr.Context) (any, error) {
-	if _, err := h.authz.RequireInstallationAdmin(c); err != nil {
+	principal, err := h.authz.RequireInstallationAdmin(c)
+	if err != nil {
 		return nil, err
 	}
 
+	if h.enabled {
+		h.checkForASignIn(c, principal.SignedInAt)
+	}
+
 	return h.describe(c), nil
+}
+
+// checkForASignIn asks the feed for an administrator who signed in after it
+// last answered, whatever the cache holds: somebody arriving to run the
+// installation is shown what is out now, not what was out up to six hours ago.
+// Once per sign-in, because the answer it records is then newer than the
+// sign-in - a second look in the same session, or a reload, is answered from
+// it. A failure is waited out as on the automatic path, so a feed refusing
+// every request is not asked again at each arrival; and the manual button's
+// clock is left alone, because a sign-in is not somebody pressing it.
+func (h *UpdateHandler) checkForASignIn(c *gofr.Context, signedInAt time.Time) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if !h.owedACheck(signedInAt) || h.waitingAfterFailure() {
+		return
+	}
+
+	// Its failure is recorded, and describe reports it.
+	_, _ = h.ask(c)
+}
+
+// owedACheck reports whether somebody who signed in at signedInAt is owed an
+// answer of their own: they signed in more than signInSlack after the feed last
+// answered. A caller no sign-in brought - a personal token, or authentication
+// switched off - has a zero signedInAt, which lies before every answer and
+// before none at all, so it is never owed one.
+//
+// Its own function, like hasFreshAnswer, so the rule can be tested without a
+// clock to wind.
+func (h *UpdateHandler) owedACheck(signedInAt time.Time) bool {
+	return signedInAt.Sub(h.cachedAt) > signInSlack
 }
 
 // Check handles POST /api/v1/settings/update/check.

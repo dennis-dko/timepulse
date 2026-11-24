@@ -194,7 +194,11 @@ role that should grant something different is a new role, which is a minute's
 work and says what it is.
 
 **The release feed is asked at most four times a day**, however many
-administrators are looking at the screen. It used to be asked once a minute at
+administrators are looking at the screen - and once more at each
+administrator's sign-in, so that somebody arriving to run the installation
+sees what is out now rather than what was out up to six hours ago. A second
+look in the same session, or a reload, is answered from what that sign-in was
+told; a personal token never asks. It used to be asked once a minute at
 most, which sounds careful and is not: GitHub allows an unauthenticated caller
 sixty requests an hour *per address*, every administrator's sign-in starts a
 check, and every open tab repeats it hourly — so an installation with a few
