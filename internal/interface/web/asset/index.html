@@ -820,6 +820,33 @@
         </form>
       </div>
 
+      <!-- A booking written as one line, read in this browser by a fixed way of
+           writing rather than guessed at, so nothing of it leaves the
+           installation. Enter fills the form below with what was read and books
+           it the way the form books - for the account on screen, kept on the
+           device without a connection - so the two cannot book differently.
+           Kept out of the drafts: a line already booked, put back by a reload,
+           would book a second time at the next Enter. -->
+      <form method="post" id="form-quick" class="card form" data-perm="timesheets:write:own" data-tab="record" data-no-draft>
+        <h2 data-i18n="quick.title">Booking in one line</h2>
+        <div class="quick-row">
+          <label class="wide" data-i18n="quick.line">What you did<input type="text" name="line" maxlength="2000"
+                 autocomplete="off" data-i18n-placeholder="quick.example"
+                 placeholder="2.5h yesterday Website relaunch #meeting Client call"></label>
+          <button type="submit" data-i18n="action.book">Book</button>
+        </div>
+        <p class="quick-preview muted" id="quick-preview" role="status"></p>
+        <details class="quick-how">
+          <summary data-i18n="quick.how">How to write it</summary>
+          <ul class="muted">
+            <li data-i18n="quick.how.hours">Hours with their unit - 2.5h, 2h30, 90min - or the time worked: 9-11:30.</li>
+            <li data-i18n="quick.how.day">A day: today, yesterday, a weekday such as monday, or a date such as 23.11. - today if none is named.</li>
+            <li data-i18n="quick.how.project">A project by its name, or by @ and the beginning of it: @web - none if none is named.</li>
+            <li data-i18n="quick.how.rest">Everything else is the description, #activities included.</li>
+          </ul>
+        </details>
+      </form>
+
       <form method="post" id="form-timesheet" class="card form" data-perm="timesheets:write:own" data-tab="record">
         <h2 id="timesheet-form-title" data-i18n="ts.book">Book time</h2>
         <input type="hidden" name="id">

@@ -6558,6 +6558,250 @@ function fillFromTemplate(template) {
   form.elements.durationHours.focus();
 }
 
+// ---------------------------------------------------------------- quick entry
+
+/** The words a quick entry names a day by, as days back from today. */
+const QUICK_DAYS = new Map([['heute', 0], ['today', 0], ['gestern', 1], ['yesterday', 1], ['vorgestern', 2]]);
+
+/** The weekdays a quick entry names in full, Monday first, in both languages the screen speaks. */
+const QUICK_WEEKDAYS = [
+  ['montag', 'monday'], ['dienstag', 'tuesday'], ['mittwoch', 'wednesday'], ['donnerstag', 'thursday'],
+  ['freitag', 'friday'], ['samstag', 'saturday'], ['sonntag', 'sunday'],
+];
+
+/** A name as a quick entry compares it: lower case, its words one space apart. */
+const foldName = (name) => name.toLowerCase().replace(/[\s_-]+/gu, ' ').trim();
+
+/** Text as a regular expression matches it literally. */
+const literally = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+
+/** A calendar day as YYYY-MM-DD, or null for one that does not exist. */
+function realDay(year, month, day) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    ? date.toISOString().slice(0, 10)
+    : null;
+}
+
+/** The day so many days before another, both as YYYY-MM-DD. */
+const daysBefore = (day, count) => new Date(Date.parse(`${day}T00:00:00Z`) - count * 86400000)
+  .toISOString().slice(0, 10);
+
+/**
+ * Reads a booking written as one line - "2,5h gestern Website-Relaunch #meeting
+ * Kundentermin" - into its day, hours, project and description. A fixed way of
+ * writing rather than a guess, so the same line always means the same booking,
+ * and read here, so nothing of it leaves the installation to be read.
+ *
+ * Hours carry their unit or are the time worked - 2,5h, 1.5 hours, 2h30, 90min,
+ * 9-11:30 - and several are added up. A day is a word - today, yesterday, the
+ * day before, a weekday named in full and counted back from today - or a date:
+ * 23.11., 23.11.2026, 2026-11-23; today where none is named, and the first one
+ * named where several are. A project is named by its whole name, with spaces or
+ * hyphens between its words, or by @ and the beginning of it, among the projects
+ * that take bookings; the longest name wins where one holds another. What is
+ * left is the description, its #activities included.
+ *
+ * Answers what it read, and the problems that keep it from being booked: no
+ * hours, or an @ that begins no project or several.
+ */
+function readQuickEntry(line, today, projects) {
+  let rest = ` ${line} `;
+  const end = '(?=\\s|$|[,;:!?])';
+
+  // Takes what a pattern matches out of the line, wherever use says it is meant.
+  const take = (pattern, use) => {
+    rest = rest.replace(pattern, (whole, ...groups) => (use(...groups) ? ' ' : whole));
+  };
+
+  let minutes = 0;
+
+  take(new RegExp(`(?<=^|\\s)(\\d{1,2})(?:[:.](\\d{2}))?\\s*[-–]\\s*(\\d{1,2})(?:[:.](\\d{2}))?(?:\\s*uhr)?${end}`, 'giu'),
+    (fromHour, fromMinute = '0', toHour, toMinute = '0') => {
+      const from = Number(fromHour) * 60 + Number(fromMinute);
+      const to = Number(toHour) * 60 + Number(toMinute);
+      const sane = Number(fromHour) <= 24 && Number(toHour) <= 24 && Number(fromMinute) < 60 && Number(toMinute) < 60;
+
+      if (!sane || to <= from) return false;
+
+      minutes += to - from;
+
+      return true;
+    });
+
+  take(new RegExp(`(?<=^|\\s)(\\d{1,2})\\s*h\\s*(\\d{1,2})(?:\\s*(?:min|m))?${end}`, 'giu'), (hours, extra) => {
+    if (Number(extra) > 59) return false;
+
+    minutes += Number(hours) * 60 + Number(extra);
+
+    return true;
+  });
+
+  take(new RegExp(`(?<=^|\\s)(\\d+(?:[.,]\\d+)?)\\s*(?:h|std\\.?|stunden?|hours?|hrs?)${end}`, 'giu'), (hours) => {
+    minutes += Number(hours.replace(',', '.')) * 60;
+
+    return true;
+  });
+
+  take(new RegExp(`(?<=^|\\s)(\\d+)\\s*(?:min|minuten?|minutes?|m)${end}`, 'giu'), (count) => {
+    minutes += Number(count);
+
+    return true;
+  });
+
+  let day = null;
+
+  // The first day named; any other stays in the description.
+  const name = (found) => {
+    if (day || !found) return false;
+
+    day = found;
+
+    return true;
+  };
+
+  take(new RegExp(`(?<=^|\\s)(\\d{4})-(\\d{2})-(\\d{2})${end}`, 'gu'),
+    (year, month, date) => name(realDay(Number(year), Number(month), Number(date))));
+
+  take(new RegExp(`(?<=^|\\s)(\\d{1,2})\\.(\\d{1,2})\\.(\\d{4}|\\d{2})?${end}`, 'gu'), (date, month, year) => {
+    const full = year === undefined ? Number(today.slice(0, 4)) : Number(year.length === 2 ? `20${year}` : year);
+
+    return name(realDay(full, Number(month), Number(date)));
+  });
+
+  take(new RegExp(`(?<=^|\\s)(${[...QUICK_DAYS.keys()].join('|')})${end}`, 'giu'),
+    (word) => name(daysBefore(today, QUICK_DAYS.get(word.toLowerCase()))));
+
+  take(new RegExp(`(?<=^|\\s)(${QUICK_WEEKDAYS.flat().join('|')})${end}`, 'giu'), (word) => {
+    const wanted = QUICK_WEEKDAYS.findIndex((names) => names.includes(word.toLowerCase()));
+    const now = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+
+    return name(daysBefore(today, (now - wanted + 7) % 7));
+  });
+
+  const bookable = projects.filter((project) => project.status === 'active');
+  const problems = [];
+  let project = null;
+
+  take(/(?<=^|\s)@([^\s@#]+)/gu, (begun) => {
+    if (project || problems.length) return false;
+
+    const found = bookable.filter((candidate) => foldName(candidate.name).startsWith(foldName(begun)));
+
+    if (found.length === 1) [project] = found;
+    else if (found.length === 0) problems.push({ code: 'unknownProject', values: [begun] });
+    else problems.push({ code: 'ambiguousProject', values: [found.map((candidate) => candidate.name).join(', ')] });
+
+    return true;
+  });
+
+  if (!project && !problems.length) {
+    for (const candidate of [...bookable].sort((a, b) => b.name.length - a.name.length)) {
+      const words = candidate.name.trim().split(/[\s_-]+/u).filter(Boolean).map(literally);
+      const whole = new RegExp(`(?<=^|\\s)${words.join('[\\s_-]+')}${end}`, 'iu');
+
+      if (words.length && whole.test(rest)) {
+        project = candidate;
+        rest = rest.replace(whole, ' ');
+
+        break;
+      }
+    }
+  }
+
+  const hours = minutes > 0 ? Math.round((minutes / 60) * 100) / 100 : null;
+
+  if (hours === null) problems.unshift({ code: 'noHours', values: [] });
+
+  return {
+    day: day ?? today,
+    hours,
+    project,
+    description: rest.replace(/\s+/gu, ' ').trim().replace(/^[,;:·–-]+\s*|\s*[,;:·–-]+$/gu, ''),
+    problems,
+  };
+}
+
+/** A problem with a quick entry, as the line under it says it. */
+function quickProblem({ code, values }) {
+  return fillIn({
+    noHours: () => t('quick.noHours', 'no hours yet: write them as 2.5h, 90min or 9-11:30'),
+    unknownProject: () => t('quick.unknownProject', 'no project that takes bookings begins with {0}'),
+    ambiguousProject: () => t('quick.ambiguousProject', 'which project: {0}?'),
+  }[code](), values);
+}
+
+/** Says under the line what it will book, or what keeps it from being booked. */
+function drawQuickPreview() {
+  const form = $('#form-quick');
+  const said = $('#quick-preview');
+  if (!form || !said) return;
+
+  const line = form.elements.line.value;
+
+  if (!line.trim()) {
+    said.textContent = '';
+    said.classList.remove('problem');
+
+    return;
+  }
+
+  const read = readQuickEntry(line, todayISO(), cache.projects);
+  const weekday = weekdayNames()[(new Date(`${read.day}T00:00:00Z`).getUTCDay() + 6) % 7];
+
+  const parts = [
+    `${weekday} ${fmtDate(read.day)}`,
+    read.hours ? fmtHours(read.hours) : null,
+    read.project ? read.project.name : t('ts.noProject', 'No project'),
+    read.description || null,
+  ].filter(Boolean);
+
+  said.textContent = parts.join(' · ') + (read.problems.length ? ` - ${quickProblem(read.problems[0])}` : '');
+  said.classList.toggle('problem', read.problems.length > 0);
+}
+
+/**
+ * Books a quick entry by filling the booking form with what it read and sending
+ * that, so it books exactly as the form does. A line that cannot be booked stays
+ * where it is, with its problem said under it.
+ */
+function wireQuickEntry() {
+  const form = $('#form-quick');
+  if (!form) return;
+
+  // Drawn again with the rest of the screen when the language changes, which a
+  // line drawn only as it is typed would go on saying in the last one.
+  form.elements.line.addEventListener('input', () => redrawable('quickPreview', drawQuickPreview));
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const booking = $('#form-timesheet');
+    const read = readQuickEntry(form.elements.line.value, todayISO(), cache.projects);
+
+    drawQuickPreview();
+
+    if (!booking || read.problems.length) {
+      form.elements.line.focus();
+
+      return;
+    }
+
+    // A new booking, whatever the form was correcting a moment ago.
+    if (booking.elements.id.value) resetTimesheetForm();
+
+    setDateField(booking.elements.date, read.day);
+    booking.elements.durationHours.value = String(read.hours);
+    booking.elements.projectId.value = read.project ? String(read.project.id) : '';
+    booking.elements.description.value = read.description;
+
+    form.reset();
+    drawQuickPreview();
+    booking.requestSubmit();
+  });
+}
+
 /** Keeps what the booking form holds - all but the date - as a template. */
 function saveAsTemplate() {
   const form = $('#form-timesheet');
@@ -11198,6 +11442,9 @@ function forgetTheLastAccount() {
   // this hides the two, which would otherwise stand empty for the next account.
   forgetTheTemplates();
 
+  // And what a quick entry said it would book: the last account's line, read back.
+  $('#quick-preview').textContent = '';
+
   // And how many of the last account's entries were waiting for a project.
   unassignedEntries = 0;
   drawUnassigned();
@@ -11593,6 +11840,17 @@ const TOUR_STEPS = [
       'Start it when you start, stop it when you are done, and it books the time it '
       + 'measured. It keeps running if you close the browser, because it runs on the '
       + 'server rather than in this tab.'),
+  },
+  {
+    target: '#form-quick',
+    view: 'timesheets',
+    permission: 'timesheets:write:own',
+    title: () => t('tour.quick.title', 'Booking in one line'),
+    text: () => t('tour.quick.text',
+      'Write what you did as one line - 2.5h yesterday, a project, a few words - and press '
+      + 'Enter. The line under it says what will be booked. It is read in your browser by a '
+      + 'fixed way of writing, so the same line always books the same, and nothing of it '
+      + 'leaves the installation.'),
   },
   {
     target: '#form-timesheet',
@@ -20091,6 +20349,7 @@ async function init() {
 
   try {
     wireForms();
+    wireQuickEntry();
     wireTOTP();
     wireCalendar();
     wireAbsences();
