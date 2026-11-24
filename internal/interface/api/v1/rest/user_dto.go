@@ -64,6 +64,11 @@ type UserResponse struct {
 	// to the application is not introduced again on their next device.
 	TourSeen bool `json:"tourSeen"`
 
+	// Dashboard is the order of this account's tiles on the welcome screen, by
+	// the tiles' names; empty is the order the screen ships with. Always a list,
+	// never null, so the screen reads one shape.
+	Dashboard []string `json:"dashboard"`
+
 	// EffectiveTimezone is what actually applies once the fallback has been
 	// worked out. Every date the client computes - which day "today" is, where
 	// a calendar month starts - has to use this, not the browser's own zone.
@@ -192,6 +197,7 @@ func newUserResponse(r *common.UserResult, instanceTimezone string) UserResponse
 		Timezone:           r.Timezone,
 		Theme:              r.Theme,
 		TourSeen:           r.TourSeen,
+		Dashboard:          append([]string{}, r.Dashboard...),
 		EffectiveTimezone:  model.EffectiveTimezoneName(r.Timezone, instanceTimezone),
 		InstanceTimezone:   model.EffectiveTimezoneName("", instanceTimezone),
 		DailyTargetHours:   r.DailyTargetHours,
@@ -247,6 +253,7 @@ func newUserResponseFromModel(u *model.User, instanceTimezone string) UserRespon
 		Timezone:           u.Timezone,
 		Theme:              u.Theme,
 		TourSeen:           u.TourSeen,
+		Dashboard:          append([]string{}, u.Dashboard...),
 		EffectiveTimezone:  model.EffectiveTimezoneName(u.Timezone, instanceTimezone),
 		InstanceTimezone:   model.EffectiveTimezoneName("", instanceTimezone),
 		EveryDayCountsFrom: optionalDate(u.EveryDayCountsFrom),

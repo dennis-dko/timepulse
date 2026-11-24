@@ -163,6 +163,7 @@ func RegisterRoutes(app *gofr.App, h Handlers) {
 	app.PUT(base+"/me/password", h.Me.ChangePassword)
 	app.PUT(base+"/me/language", h.Auth.SetLanguage)
 	app.PUT(base+"/me/theme", h.Auth.SetTheme)
+	app.PUT(base+"/me/dashboard", h.Auth.SetDashboard)
 	app.PUT(base+"/me/timezone", h.Auth.SetTimezone)
 	app.GET(base+"/me/holidays", h.Holidays.Mine)
 	app.PUT(base+"/me/holidays", h.Holidays.SetMine)

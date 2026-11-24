@@ -47,6 +47,10 @@ type UserResult struct {
 	Theme    string
 	TourSeen bool
 
+	// Dashboard is the order of this account's tiles on the welcome screen;
+	// empty is the order the screen ships with.
+	Dashboard []string
+
 	// Working times as this account has them, which is zero for one that has not
 	// chosen: zero means "follow the instance default", and the interface shows it as
 	// "default" rather than as no hours at all.
@@ -88,6 +92,7 @@ func NewUserResultFromModel(userModels ...*model.User) []*UserResult {
 			Timezone:           userModel.Timezone,
 			Theme:              userModel.Theme,
 			TourSeen:           userModel.TourSeen,
+			Dashboard:          userModel.Dashboard,
 			DailyTargetHours:   userModel.DailyTargetHours,
 			MaxDailyHours:      userModel.MaxDailyHours,
 			EveryDayCountsFrom: userModel.EveryDayCountsFrom,

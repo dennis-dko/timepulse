@@ -2,6 +2,7 @@ package model
 
 import (
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -63,6 +64,12 @@ type User struct {
 	// user rather than per device: it answers "has this person been introduced
 	// to the application", which does not become false again on a new laptop.
 	TourSeen bool
+
+	// Dashboard is the order this person's tiles stand in on the welcome screen,
+	// by the tiles' names; empty is the order the screen ships with. On the
+	// account for the reason Theme is: the phone should show the order chosen at
+	// the desk.
+	Dashboard []string
 
 	// Timezone is an IANA name such as "Europe/Berlin". Empty means "use the
 	// instance setting", which is the common case: only someone working from
@@ -137,6 +144,47 @@ const (
 // "follow the instance".
 func IsSupportedTheme(theme string) bool {
 	return theme == "" || theme == ThemeLight || theme == ThemeDark
+}
+
+// DashboardOf reads an arrangement as it is kept - the tiles' names separated by
+// commas - and nothing for an empty column, which is the order the screen ships
+// with.
+func DashboardOf(kept string) []string {
+	if kept == "" {
+		return nil
+	}
+
+	return strings.Split(kept, ",")
+}
+
+// MaxDashboardTiles is how many tiles an arrangement may name: every tile the
+// screen has and room for the ones a later release adds, and a bound on what a
+// request can make the column hold.
+const MaxDashboardTiles = 24
+
+// IsValidDashboard reports whether order can be kept as an arrangement of tiles:
+// names of lower-case letters, none twice, no more than MaxDashboardTiles, and
+// fitting the column of 255 characters they are kept in, separated by commas.
+//
+// Which names exist is the screen's to know, because it keeps the tiles: a name
+// it no longer has is passed over there rather than refused here, which is what
+// lets an arrangement outlive a release that takes a tile away or adds one.
+func IsValidDashboard(order []string) bool {
+	if len(order) > MaxDashboardTiles || len(strings.Join(order, ",")) > 255 {
+		return false
+	}
+
+	seen := map[string]bool{}
+
+	for _, name := range order {
+		if name == "" || seen[name] || strings.IndexFunc(name, func(r rune) bool { return r < 'a' || r > 'z' }) >= 0 {
+			return false
+		}
+
+		seen[name] = true
+	}
+
+	return true
 }
 
 // SupportedLanguages lists the languages the interface ships translations for,

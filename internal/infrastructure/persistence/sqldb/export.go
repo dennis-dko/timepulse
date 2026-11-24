@@ -26,7 +26,7 @@ var accountExport = []struct {
 	{"account", "SELECT u.id, u.name, u.email, COALESCE(r.name, '') AS role, u.language, u.theme, " +
 		"u.timezone, u.holiday_region, u.daily_target_hours, u.max_daily_hours, u.every_day_counts_from, " +
 		"u.balance_upper_limit, u.balance_lower_limit, u.skip_unbooked_reminder, u.timer_alert_hours, " +
-		"u.is_external, u.external_id, u.totp_enabled, u.must_change_password, u.tour_seen " +
+		"u.is_external, u.external_id, u.totp_enabled, u.must_change_password, u.tour_seen, u.dashboard " +
 		"FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = ?"},
 	{"stopwatch", "SELECT project_id, description, started_at FROM running_timers WHERE user_id = ?"},
 	{"entry-history", "SELECT id, timesheet_id, date, duration_hours, project_id, description, replaced_at, " +

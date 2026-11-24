@@ -276,6 +276,26 @@ func (h *AuthHandler) SetTheme(c *gofr.Context) (any, error) {
 	return map[string]string{"status": "appearance saved"}, nil
 }
 
+// SetDashboard handles PUT /api/v1/me/dashboard: the order of the caller's tiles
+// on the welcome screen, by the tiles' names, or none for the order the screen
+// ships with.
+func (h *AuthHandler) SetDashboard(c *gofr.Context) (any, error) {
+	var req struct {
+		Tiles []string `json:"tiles"`
+	}
+
+	id, err := h.askingWith(c, &req)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.sessions.SetDashboard(c, id, req.Tiles); err != nil {
+		return nil, toHTTPError(err)
+	}
+
+	return map[string]any{"tiles": append([]string{}, req.Tiles...)}, nil
+}
+
 // SetTimezone handles PUT /api/v1/me/timezone.
 //
 // An empty value is meaningful and not an omission: it clears the personal

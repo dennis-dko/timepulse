@@ -522,6 +522,7 @@ const FIELD_NAMES = {
   syncSchedule: 'Schedule',
   tabTitle: 'Browser tab',
   theme: 'Appearance',
+  tiles: 'Tiles',
   timerAlertHours: 'Mention the stopwatch after (hours)',
   timezone: 'Timezone',
   title: 'Title',
