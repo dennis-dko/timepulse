@@ -68,8 +68,10 @@ func TestEveryTourStepTargetsSomethingThatExists(t *testing.T) {
 var notInTheTour = map[string]string{
 	"the card holding #welcome-title": "the welcome screen, which the first step - " +
 		"the title that leads there - describes",
-	"welcome-week":   "part of the welcome screen the first step describes",
-	"welcome-recent": "part of the welcome screen the first step describes",
+	"welcome-week":      "part of the welcome screen the first step describes",
+	"welcome-glance":    "part of the welcome screen the first step describes",
+	"welcome-recent":    "part of the welcome screen the first step describes",
+	"welcome-operation": "part of the welcome screen the first step describes",
 	"calendar-day-card": "the entries of the day picked in the month, which the month's " +
 		"step says a click opens",
 	"overtime-result":  "the answer to the balance form above it, hidden until it is asked",

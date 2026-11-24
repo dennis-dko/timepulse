@@ -607,6 +607,39 @@
         <ol class="week-bars" id="welcome-week-bars"></ol>
       </section>
 
+      <!-- The figures somebody comes back for, a tile each: the running balance,
+           the days of leave left this year and the projects nearest their budget.
+           A tile is shown only where it has something to say and the card goes
+           with its last one; each leads to the card that keeps its figure. -->
+      <section class="card welcome-glance" id="welcome-glance" hidden
+               aria-labelledby="welcome-glance-title">
+        <div class="welcome-recent-head">
+          <h3 id="welcome-glance-title" data-i18n="welcome.glance.title">At a glance</h3>
+        </div>
+        <div class="glance-tiles">
+          <div class="glance-tile" id="glance-balance" hidden>
+            <span class="glance-label" data-i18n="ot.balance">Balance</span>
+            <span class="glance-value" id="glance-balance-value"></span>
+            <span class="glance-note" id="glance-balance-note"></span>
+            <button type="button" class="link" id="glance-balance-open"
+                    data-i18n="nav.overtime">Overtime</button>
+          </div>
+          <div class="glance-tile" id="glance-leave" hidden>
+            <span class="glance-label" id="glance-leave-label"></span>
+            <span class="glance-value" id="glance-leave-value"></span>
+            <span class="glance-note" id="glance-leave-note"></span>
+            <button type="button" class="link" id="glance-leave-open"
+                    data-i18n="cal.tab.leave">Leave</button>
+          </div>
+          <div class="glance-tile" id="glance-budgets" hidden>
+            <span class="glance-label" data-i18n="welcome.glance.budgets">Hour budgets</span>
+            <ul class="glance-list" id="glance-budgets-list"></ul>
+            <button type="button" class="link" id="glance-budgets-open"
+                    data-i18n="nav.projects">Projects</button>
+          </div>
+        </div>
+      </section>
+
       <!-- The last few entries, for somebody who books time here. A greeting
            that says nothing about the work is a greeting nobody reads twice;
            this is the one thing the person in front of it already knows the
@@ -624,6 +657,40 @@
         </div>
         <ul class="welcome-recent-list" id="welcome-recent-list"></ul>
         <p class="muted" id="welcome-recent-empty" hidden data-i18n="welcome.recentNone">Nothing recorded in the last 90 days.</p>
+      </section>
+
+      <!-- How the installation stands, for whoever may run it: the version it
+           runs, its newest backup and the latest changes in the words of the log,
+           each tile leading to the card that keeps it. Last on the screen, because
+           for an account that also works here it is the other job; for the
+           built-in administrator, who records no time, it follows the greeting. -->
+      <section class="card welcome-glance" id="welcome-operation" hidden
+               aria-labelledby="welcome-operation-title">
+        <div class="welcome-recent-head">
+          <h3 id="welcome-operation-title" data-i18n="welcome.operation.title">Operation at a glance</h3>
+        </div>
+        <div class="glance-tiles">
+          <div class="glance-tile" id="glance-version" hidden>
+            <span class="glance-label" data-i18n="update.title">Version</span>
+            <span class="glance-value" id="glance-version-value"></span>
+            <span class="glance-note" id="glance-version-note"></span>
+            <button type="button" class="link" id="glance-version-open"
+                    data-i18n="admin.tab.operation">Operation</button>
+          </div>
+          <div class="glance-tile" id="glance-backup" hidden>
+            <span class="glance-label" data-i18n="welcome.operation.backup">Newest backup</span>
+            <span class="glance-value" id="glance-backup-value"></span>
+            <span class="glance-note" id="glance-backup-note"></span>
+            <button type="button" class="link" id="glance-backup-open"
+                    data-i18n="backup.title">Backups</button>
+          </div>
+          <div class="glance-tile" id="glance-changes" hidden>
+            <span class="glance-label" data-i18n="welcome.operation.changes">Latest changes</span>
+            <ul class="glance-list" id="glance-changes-list"></ul>
+            <button type="button" class="link" id="glance-changes-open"
+                    data-i18n="admin.tab.logs">Logs</button>
+          </div>
+        </div>
       </section>
     </section>
 
