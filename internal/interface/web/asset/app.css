@@ -1082,11 +1082,24 @@ th.pick {
   z-index: 2;
 }
 
+/* The arrow takes no room of its own: it sits in the heading's right-hand
+ * padding. Beside every heading it widened each column, and the accounts table,
+ * eight columns in a card that just holds them, came out 30 pixels wider than
+ * its card in the faces CI draws with. Faint under the pointer or the focus,
+ * so a heading says it sorts before it is pressed, and drawn whole once its
+ * column is the one sorted by. */
 th.sortable::after {
   content: '\2195';
-  margin-left: 6px;
-  opacity: 0.4;
+  font-size: 11px;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
+
+th.sortable:hover::after,
+th.sortable:focus-within::after { opacity: 0.45; }
 
 th.sortable[aria-sort="ascending"]::after { content: '\2191'; opacity: 1; }
 th.sortable[aria-sort="descending"]::after { content: '\2193'; opacity: 1; }
