@@ -145,6 +145,23 @@ func TestAProfileIsRemovedOnlyOnceItsLastProcessHasGone(t *testing.T) {
 		// Reaped when it ends, and waited for by nothing here: whatever waits
 		// for it has to be what removes the profile.
 		go func() { _ = helper.Wait() }()
+
+		// Seen running before the case may end, as a browser's helpers long
+		// have been by the time one does. Start returns once the child's exec
+		// has closed the pipe it reports through, which the kernel does before
+		// it lays out the new program's arguments, so for a moment the helper's
+		// /proc/<pid>/cmdline reads empty - measured in a container, in 1,372 of
+		// 2,000 starts read at once. A removal scanning in that moment found
+		// nobody naming the profile, and this case failed on main once.
+		named := []byte("--user-data-dir=" + profile + "\x00")
+
+		for appeared := time.Now().Add(5 * time.Second); !processNames(named); {
+			if time.Now().After(appeared) {
+				t.Fatal("the stand-in helper never appeared under /proc")
+			}
+
+			time.Sleep(5 * time.Millisecond)
+		}
 	})
 
 	time.Sleep(time.Second)
