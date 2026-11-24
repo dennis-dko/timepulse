@@ -88,6 +88,11 @@ const (
 	// PreferenceHolidayPlace is where this person keeps public holidays, empty
 	// meaning they follow the installation.
 	PreferenceHolidayPlace
+
+	// PreferenceDashboard is the order of the tiles on this person's welcome
+	// screen, the tiles' names separated by commas, empty meaning the order the
+	// screen ships with.
+	PreferenceDashboard
 )
 
 // ExportedPart is one part of an account's export: what it is called and its rows,

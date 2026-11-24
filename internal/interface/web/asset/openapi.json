@@ -353,6 +353,23 @@
         }
       }
     },
+    "/me/dashboard": {
+      "put": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Arrange the tiles of your welcome screen, or go back to the order it ships with",
+        "description": "Body: {\"tiles\": [\"leave\", \"week\", \"balance\"]} - the tiles' names in the order they are to stand; GET /me answers the order as dashboard. A tile not named keeps its place after the named ones, in the order the screen ships with, and a name the screen no longer has is passed over, so an arrangement outlives a release that adds or removes a tile. An empty list goes back to the shipped order. Names are lower-case letters, none twice and at most 24 of them; anything else is refused naming tiles. Kept on the account rather than in the browser, so the phone shows the order chosen at the desk.",
+        "responses": {
+          "200": {
+            "description": "Saved; answers {\"tiles\": [...]}"
+          },
+          "400": {
+            "description": "Not an arrangement of tiles"
+          }
+        }
+      }
+    },
     "/me/holidays": {
       "get": {
         "tags": [

@@ -192,7 +192,21 @@ func All(dialect string) map[int64]migration.Migrate {
 		20261110010000: {UP: func(d migration.Datasource) error {
 			return keepPushSubscriptions(d, dialect)
 		}},
+		20261124010000: {UP: func(d migration.Datasource) error {
+			return keepEachPersonsArrangementOfTheirTiles(d)
+		}},
 	}
+}
+
+// keepEachPersonsArrangementOfTheirTiles gives each account the order its tiles
+// on the welcome screen stand in: the tiles' names, separated by commas.
+//
+// On the account rather than in the browser, for the reason the appearance moved
+// there: the arrangement is somebody's, and the phone they book on should show
+// the order they chose at their desk. Empty is the order the screen ships with,
+// which is what every existing account gets.
+func keepEachPersonsArrangementOfTheirTiles(d migration.Datasource) error {
+	return execAll(d, "ALTER TABLE users ADD COLUMN dashboard VARCHAR(255) NOT NULL DEFAULT ''")
 }
 
 // recordWhatEachDirectoryRunChanged keeps a row for every directory run that
