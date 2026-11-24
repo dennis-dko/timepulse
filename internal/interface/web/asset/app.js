@@ -7964,7 +7964,7 @@ async function vacationDocument() {
   const year = account?.year ?? vacationYear ?? Number(todayISO().slice(0, 4));
   const span = new URLSearchParams({ from: `${year}-01-01`, to: `${year}-12-31` });
   const absences = (await api(`/me/absences?${span}`))?.items ?? [];
-  const given = Boolean(account?.entitlements.length) && account.year >= account.entitlements[0].fromYear;
+  const given = Boolean(account) && leaveGiven(account);
 
   return {
     title: fillIn(t('vacation.title', 'Leave {0}'), [year]),
