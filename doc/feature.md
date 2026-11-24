@@ -81,14 +81,15 @@ it from four fifths and again past the whole; the booking that takes a project p
 either says so once, and the evaluation of one project names its budget beside its
 total. A budget of nothing takes it off.
 
-A project may also be **billable**, at an hourly rate in a currency of its own -
-euros unless its owner says otherwise. Under *Reports*, the **statement of work**
-takes a period and lists each billable project with hours in it: the hours, the
-rate and what they come to, and under them a total for each currency, never one
-across two. A project with no rate yet is listed with its hours and no amount,
-rather than with a guess. The amount is the rate times the hours, rounded once to
-the hundredth, and money is kept in hundredths throughout, so nothing on a statement
-is a sum of roundings. It leaves as a PDF and as an .xlsx with the same figures.
+A project may also be **billable**, at an hourly rate in a currency of its own,
+picked from the ones in use - euros unless its owner picks another. Under
+*Reports*, the **statement of work** takes a period and lists each billable
+project with hours in it: the hours, the rate and what they come to, and under
+them a total for each currency, never one across two. A project with no rate
+yet is listed with its hours and no amount, rather than with a guess. The amount
+is the rate times the hours, rounded once to the hundredth, and money is kept in
+hundredths throughout, so nothing on a statement is a sum of roundings. It leaves
+as a PDF and as an .xlsx with the same figures.
 
 It is a statement and deliberately not an invoice. It has no number, no tax and no
 customer: each of those is a rule about somebody's books that this application

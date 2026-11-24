@@ -2243,6 +2243,76 @@ function fmtMoney(amount, currency) {
 }
 
 /**
+ * CURRENCIES are what a project can be charged in: ISO 4217's List One as SIX
+ * published it on 2026-09-17, less its funds, precious metals and units of
+ * account, which are codes nobody charges an hour in.
+ *
+ * Picked rather than typed, because a typed code was held to its shape alone, so
+ * a slip such as EUO saved cleanly and wrote every amount of that project in a
+ * currency that does not exist. The server still takes any three capital letters,
+ * so a project saved with another code before keeps it - see fillCurrencies.
+ */
+const CURRENCIES = [
+  'AED', 'AFN', 'ALL', 'AMD', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BHD', 'BIF',
+  'BMD', 'BND', 'BOB', 'BRL', 'BSD', 'BTN', 'BWP', 'BYN', 'BZD', 'CAD', 'CDF', 'CHF', 'CLP', 'CNY',
+  'COP', 'CRC', 'CUP', 'CVE', 'CZK', 'DJF', 'DKK', 'DOP', 'DZD', 'EGP', 'ERN', 'ETB', 'EUR', 'FJD',
+  'FKP', 'GBP', 'GEL', 'GHS', 'GIP', 'GMD', 'GNF', 'GTQ', 'GYD', 'HKD', 'HNL', 'HTG', 'HUF', 'IDR',
+  'ILS', 'INR', 'IQD', 'IRR', 'ISK', 'JMD', 'JOD', 'JPY', 'KES', 'KGS', 'KHR', 'KMF', 'KPW', 'KRW',
+  'KWD', 'KYD', 'KZT', 'LAK', 'LBP', 'LKR', 'LRD', 'LSL', 'LYD', 'MAD', 'MDL', 'MGA', 'MKD', 'MMK',
+  'MNT', 'MOP', 'MRU', 'MUR', 'MVR', 'MWK', 'MXN', 'MYR', 'MZN', 'NAD', 'NGN', 'NIO', 'NOK', 'NPR',
+  'NZD', 'OMR', 'PAB', 'PEN', 'PGK', 'PHP', 'PKR', 'PLN', 'PYG', 'QAR', 'RON', 'RSD', 'RUB', 'RWF',
+  'SAR', 'SBD', 'SCR', 'SDG', 'SEK', 'SGD', 'SHP', 'SLE', 'SOS', 'SRD', 'SSP', 'STN', 'SVC', 'SYP',
+  'SZL', 'THB', 'TJS', 'TMT', 'TND', 'TOP', 'TRY', 'TTD', 'TWD', 'TZS', 'UAH', 'UGX', 'USD', 'UYU',
+  'UZS', 'VED', 'VES', 'VND', 'VUV', 'WST', 'XAF', 'XCD', 'XCG', 'XOF', 'XPF', 'YER', 'ZAR', 'ZMW',
+  'ZWG',
+];
+
+/** DEFAULT_CURRENCY is the server's, model.DefaultCurrency: what a project is charged in until somebody picks another. */
+const DEFAULT_CURRENCY = 'EUR';
+
+/**
+ * fillCurrencies fills the project form's currency picker and chooses keep, by
+ * default what it holds now, so a change of language keeps the choice.
+ *
+ * The names are the browser's, from the data that writes the amounts, so every
+ * language the screen speaks has them without a dictionary entry for each of a
+ * hundred and fifty currencies. Each is written after its code, and the list is
+ * in the order of the codes: the form's cell is narrower than the longer names,
+ * and a name cut short there would lose a code written after it - the one part
+ * that says which currency it is. Typing a code on the closed picker lands on it.
+ *
+ * A code the list does not carry is offered as well, so a project saved with
+ * one while the field was typed into opens showing it rather than an empty picker.
+ */
+function fillCurrencies(keep = $('#form-project select[name="currency"]')?.value) {
+  const select = $('#form-project select[name="currency"]');
+  if (!select) return;
+
+  let names = null;
+
+  try {
+    names = new Intl.DisplayNames([activeLocale()], { type: 'currency' });
+  } catch {
+    // A runtime without the names: the codes alone still tell the currencies apart.
+  }
+
+  const chosen = keep || DEFAULT_CURRENCY;
+  const codes = [...CURRENCIES, ...(CURRENCIES.includes(chosen) ? [] : [chosen])].sort();
+
+  select.replaceChildren(...codes.map((code) => {
+    const name = names?.of(code);
+    const option = el('option', { value: code, text: name && name !== code ? `${code} – ${name}` : code });
+
+    // What the form's reset goes back to.
+    option.defaultSelected = code === DEFAULT_CURRENCY;
+
+    return option;
+  }));
+
+  select.value = chosen;
+}
+
+/**
  * A share between none and all, written the way the reader writes a number and
  * in full.
  *
@@ -4046,7 +4116,6 @@ function wireValidityMessages() {
  */
 const PATTERN_MESSAGES = {
   '[0-9]{6}': () => t('valid.code', 'Please enter the six digits your authenticator app shows.'),
-  '[A-Za-z]{3}': () => t('valid.currency', 'Please enter the three letters of a currency, such as EUR.'),
 };
 
 /** What a field's rule says about its value, or nothing where it has no objection. */
@@ -6287,7 +6356,7 @@ function editProject(project) {
   form.elements.budgetHours.value = project.budgetHours ?? '';
   form.elements.billable.checked = Boolean(project.billable);
   form.elements.hourlyRate.value = project.hourlyRate ?? '';
-  form.elements.currency.value = project.currency ?? '';
+  fillCurrencies(project.currency || DEFAULT_CURRENCY);
 
   swapTheLabel($('#project-form-title'), 'project.edit', 'Edit project');
   swapTheLabel($('#project-submit'), 'action.save', 'Save');
@@ -6368,6 +6437,10 @@ function resetProjectForm() {
   setDateField(form.elements.startDate, '');
   setDateField(form.elements.endDate, '');
   fillToday(form.elements.startDate);
+
+  // Without the code a corrected project brought along, which is its own and
+  // not one to offer the next project.
+  fillCurrencies(DEFAULT_CURRENCY);
 
   swapTheLabel($('#project-form-title'), 'project.create', 'Create project');
   swapTheLabel($('#project-submit'), 'action.create', 'Create');
@@ -19846,11 +19919,10 @@ function wireForms() {
       changes.budgetHours = budget === '' ? 0 : Number(budget);
 
       // The same for the rate: an emptied box takes it off. The switch says what
-      // it says either way, and an emptied currency is euros again.
+      // it says either way.
       const rate = form.elements.hourlyRate.value;
       changes.hourlyRate = rate === '' ? 0 : Number(rate);
       changes.billable = form.elements.billable.checked;
-      changes.currency = form.elements.currency.value.trim();
 
       mutate(() => api(`/projects/${id}`,
         { method: 'PUT', body: JSON.stringify(changes) }),
@@ -19875,6 +19947,9 @@ function wireForms() {
   });
 
   $('#project-cancel').addEventListener('click', resetProjectForm);
+
+  // Named in the language the screen speaks, and again whenever that changes.
+  redrawable('currencies', () => fillCurrencies(), { installation: true });
 
   $('#form-timesheet').addEventListener('submit', (e) => {
     e.preventDefault();
