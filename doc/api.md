@@ -77,6 +77,9 @@ claude mcp add --transport http timepulse https://time.example.com/api/v1/mcp \
   --header "Authorization: Bearer timepulse_..."
 ```
 
+The tokens card under *My account* says the same with the installation's own
+address in it, to whoever has time of their own for an assistant to reach.
+
 A client that can only start a local command reaches it through a bridge such
 as `mcp-remote`. A token made for an assistant alone can be revoked without
 disconnecting anything else, and it carries its owner's role like every token:
