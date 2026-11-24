@@ -86,6 +86,11 @@ type DocumentTableRequest struct {
 	// Tones is what each cell says with its colour, row by row beside Rows - the
 	// word, which the document prints in shades of its own (document.Tone).
 	Tones [][]string `json:"tones"`
+
+	// Figures is each cell as a number, row by row beside Rows, null where the
+	// cell is not one. Read by the workbook alone: a page prints what the screen
+	// wrote, and a sheet wants the figure it can add up.
+	Figures [][]*float64 `json:"figures"`
 }
 
 // DocumentSectionRequest is one heading, with a chart and a table under it.
@@ -105,6 +110,10 @@ type DocumentRequest struct {
 	Subtitle string                   `json:"subtitle"`
 	Sections []DocumentSectionRequest `json:"sections"`
 	Summary  []document.Line          `json:"summary"`
+
+	// SummaryFigures is each summary line's value as a number, beside Summary,
+	// for the workbook as Figures is.
+	SummaryFigures []*float64 `json:"summaryFigures"`
 
 	// Colours is what the screen is drawn in, so the document is drawn in it
 	// too. Absent falls back to a plain document.

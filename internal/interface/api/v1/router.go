@@ -315,6 +315,10 @@ func RegisterRoutes(app *gofr.App, h Handlers) {
 	// same thing: headings, pictures, figures.
 	app.POST(base+"/exports/document", h.Documents.Export)
 
+	// The same evaluations as a workbook, from the same request: the figures the
+	// screen read as numbers are written as numbers, and the charts are left out.
+	app.POST(base+"/exports/workbook", h.Documents.ExportWorkbook)
+
 	// Ahead of the {id} routes, which this router would otherwise match first:
 	// "export" is not an id, and the answer was 400 for a parameter nobody sent.
 	app.GET(base+"/timesheets/export", h.Workbook.Export)

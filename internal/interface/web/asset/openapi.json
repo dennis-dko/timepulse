@@ -2561,6 +2561,45 @@
         }
       }
     },
+    "/exports/workbook": {
+      "post": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Export an evaluation as .xlsx",
+        "description": "The request POST /exports/document takes, read the same way and bounded by the same limits, written as a workbook of one sheet rather than as a page: the title, the period, each section's heading over its table, and the summary. A cell whose `figures` entry is a number is written as that number, so a column of hours can be added up; any other cell is written as the text the screen showed. A chart has no cells and is left out. Who exported it and when are the workbook's properties rather than part of the sheet.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An .xlsx workbook",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The evaluation is missing a title, or is larger than one document may be"
+          },
+          "401": {
+            "description": "No session"
+          }
+        }
+      }
+    },
+
     "/timesheets/export": {
       "get": {
         "tags": [
@@ -3959,6 +3998,17 @@
               }
             },
             "description": "What each cell says with its colour on the screen, row by row beside `rows`: `plus` and `minus` for a balance in credit or in debt, `muted` for a cell quieter than the rest, `notice` for one the screen tints. The document prints each in shades of its own - the light theme's - whatever theme the screen was in. A cell with no tone, or one this server does not know, is printed in the page's ink."
+          },
+          "figures": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "nullable": true
+              }
+            },
+            "description": "Each cell as a number, row by row beside `rows`, null where the cell is not one. Read by POST /exports/workbook alone, which writes such a cell as the number; the PDF prints the text."
           }
         }
       },
@@ -4018,6 +4068,14 @@
               }
             },
             "description": "The figures that stand on their own: a total, or the three numbers an overtime calculation comes to."
+          },
+          "summaryFigures": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "nullable": true
+            },
+            "description": "Each summary line's value as a number, beside `summary`, null where it is not one - for POST /exports/workbook, as `figures` is."
           },
           "colours": {
             "type": "object",
