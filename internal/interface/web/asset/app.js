@@ -6289,6 +6289,11 @@ function editProject(project) {
   form.elements.hourlyRate.value = project.hourlyRate ?? '';
   form.elements.currency.value = project.currency ?? '';
 
+  // Emptied first, so a project opened straight after another does not start on
+  // the status chosen for that one; kept when a change of language names them.
+  form.elements.status.replaceChildren();
+  redrawable('projectStatuses', () => offerStatuses(project.status, form.elements.status.value));
+
   swapTheLabel($('#project-form-title'), 'project.edit', 'Edit project');
   swapTheLabel($('#project-submit'), 'action.save', 'Save');
   $('#project-cancel').hidden = false;
@@ -6296,6 +6301,32 @@ function editProject(project) {
   switchView('projects');
   form.scrollIntoView({ block: 'nearest' });
   form.elements.name.focus();
+}
+
+/**
+ * offerStatuses shows the project form's status with what the server takes from
+ * the one a project has, and chooses chosen where it is among them.
+ *
+ * Active and completed always; archived only from completed or where it already
+ * is, because that is the only way in. Into the archive and out of it take
+ * projects:archive, so for somebody without it an archived project's status is
+ * shown as it is and not offered.
+ */
+function offerStatuses(status, chosen) {
+  const label = $('#project-status');
+  const select = label?.querySelector('select');
+  if (!select) return;
+
+  const mayArchive = can('projects:archive');
+  const offered = ['active', 'completed'];
+
+  if (mayArchive && (status === 'completed' || status === 'archived')) offered.push('archived');
+  if (!offered.includes(status)) offered.push(status);
+
+  select.replaceChildren(...offered.map((value) => el('option', { value, text: statusName(value) })));
+  select.value = offered.includes(chosen) ? chosen : status;
+  select.disabled = status === 'archived' && !mayArchive;
+  label.hidden = false;
 }
 
 /** What a billable project's hours are charged at, as a line under its name. */
@@ -6368,6 +6399,13 @@ function resetProjectForm() {
   setDateField(form.elements.startDate, '');
   setDateField(form.elements.endDate, '');
   fillToday(form.elements.startDate);
+
+  // A project being made starts out active, so its status is no question yet -
+  // put away, and disabled so the form does not send one.
+  stopRedrawing('projectStatuses');
+  form.elements.status.replaceChildren();
+  form.elements.status.disabled = true;
+  $('#project-status').hidden = true;
 
   swapTheLabel($('#project-form-title'), 'project.create', 'Create project');
   swapTheLabel($('#project-submit'), 'action.create', 'Create');
