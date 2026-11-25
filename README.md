@@ -298,7 +298,7 @@ does.
 
 | Area | What you get | Read more |
 | --- | --- | --- |
-| **Recording** | Stopwatch, entry form and week grid; templates for what is booked often; changes to many entries at once; spreadsheet import and export | [Features](doc/feature.md) |
+| **Recording** | Stopwatch, entry form and week grid; templates for what is booked often; changes to many entries at once; import from a spreadsheet, and the entries out as a PDF or a spreadsheet | [Features](doc/feature.md) |
 | **History** | Every correction keeps the version it replaced, for the entry's owner | [Features](doc/feature.md#business-rules) |
 | **Evaluating** | Charts per day, project and activity, reports as bars, columns or a pie, the year as tiles, statements of work, PDF and .xlsx exports | [Features](doc/feature.md) |
 | **Projects** | Private to their owner, with a period, a status, an hour budget and an hourly rate | [Projects](doc/feature.md#projects) |
