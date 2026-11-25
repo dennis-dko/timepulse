@@ -13295,50 +13295,108 @@ function dashboardTiles() {
   return $$('#dashboard > .tile');
 }
 
-/** The tiles under the greeting that this account sees, in the order they stand. */
+/**
+ * The tiles under the greeting that are on screen, in the order they stand: the
+ * ones this account may see and has not put away. The two are kept apart - the
+ * rights decide hidden, the owner decides put-away - because every reading of
+ * the account sets hidden again, and a tile put away came back with it.
+ */
 function shownTiles() {
-  return dashboardTiles().filter((tile) => !tile.hidden);
+  return dashboardTiles().filter((tile) => !tile.hidden && !tile.classList.contains('put-away'));
+}
+
+/** The tiles this account may see and has put away, in the order they stand. */
+function putAwayTiles() {
+  return dashboardTiles().filter((tile) => !tile.hidden && tile.classList.contains('put-away'));
 }
 
 /**
  * Puts the tiles in the order an arrangement names: the ones it names first, in
- * its order, then every other in the order the screen ships with. A name the
- * screen does not have is passed over, which is what lets an arrangement saved
- * by an earlier release outlive a tile being added or taken away.
+ * its order, then every other in the order the screen ships with - and puts away
+ * the ones it names with a "-" before them. A name the screen does not have is
+ * passed over, which is what lets an arrangement saved by an earlier release
+ * outlive a tile being added or taken away.
  */
 function arrangeDashboard(names) {
   const board = $('#dashboard');
   if (!board) return;
 
-  const named = (names ?? []).filter((name) => shippedTiles.includes(name));
+  const entries = names ?? [];
+  const away = new Set(entries.filter((entry) => entry.startsWith('-')).map((entry) => entry.slice(1)));
+  const named = entries.map((entry) => entry.replace(/^-/, '')).filter((name) => shippedTiles.includes(name));
 
   for (const name of new Set([...named, ...shippedTiles])) {
     const tile = board.querySelector(`:scope > [data-tile="${name}"]`);
-    if (tile) board.append(tile);
+    if (!tile) continue;
+
+    tile.classList.toggle('put-away', away.has(name));
+    board.append(tile);
   }
 
   offerTheShippedOrder();
+  showTheDashboardFoot();
 }
 
-/** Offers the way back to the order the screen ships with, once the tiles stand in another. */
+/** The arrangement as it is kept: each tile by name, a "-" before one put away. */
+function arrangementOnScreen() {
+  return dashboardTiles().map((tile) => (tile.classList.contains('put-away') ? '-' : '') + tile.dataset.tile);
+}
+
+/** Offers the way back to the arrangement the screen ships with, once the tiles stand in another. */
 function offerTheShippedOrder() {
-  $('#dashboard-reset').hidden = dashboardTiles().map((tile) => tile.dataset.tile).join()
-    === shippedTiles.join();
-}
-
-/** Says how the tiles are moved, once any tile is on screen. */
-function showTheDashboardFoot() {
-  $('#dashboard-foot').hidden = shownTiles().length === 0;
+  $('#dashboard-reset').hidden = arrangementOnScreen().join() === shippedTiles.join();
 }
 
 /**
- * Keeps the order the tiles stand in on the account, so the phone shows what was
- * arranged at the desk. Every tile is kept in its place, the ones this account
- * does not see included: an administrator's tile keeps its place for the day the
- * account administers.
+ * Says how the tiles are moved, once any tile is on screen or put away, and
+ * offers each one put away back: named after its heading, so it follows a
+ * heading the script rewrites and the language it is read in.
+ */
+function showTheDashboardFoot() {
+  const away = putAwayTiles();
+
+  $('#dashboard-foot').hidden = shownTiles().length === 0 && away.length === 0;
+
+  const list = $('#dashboard-put-away');
+  if (!list) return;
+
+  list.hidden = away.length === 0;
+  list.replaceChildren(list.firstElementChild, ...away.map((tile) => el('button', {
+    type: 'button',
+    class: 'link',
+    id: `tile-back-${tile.dataset.tile}`,
+    text: tile.querySelector('h3')?.textContent.trim() ?? tile.dataset.tile,
+    onclick: () => putTheTileAway(tile, false),
+  })));
+}
+
+/**
+ * Puts a tile away or brings it back, keeps that on the account, and says it for
+ * whoever cannot see it. The focus goes where the tile went - to the way to bring
+ * it back, or to its own handle - rather than to the page with the button gone.
+ */
+function putTheTileAway(tile, away) {
+  const name = tile.querySelector('h3')?.textContent.trim() ?? '';
+
+  tile.classList.toggle('put-away', away);
+  showTheDashboardFoot();
+  keepTheArrangement();
+
+  $('#dashboard-said').textContent = away
+    ? fillIn(t('dashboard.putAwaySaid', '{0}: put away'), [name])
+    : fillIn(t('dashboard.backSaid', '{0}: back on the screen'), [name]);
+
+  (away ? $(`#tile-back-${tile.dataset.tile}`) : $(`#tile-grip-${tile.dataset.tile}`))?.focus();
+}
+
+/**
+ * Keeps the arrangement on the account, so the phone shows what was arranged at
+ * the desk. Every tile is kept in its place, the ones this account does not see
+ * included - an administrator's tile keeps its place for the day the account
+ * administers - and a tile put away keeps its place too, so it comes back there.
  */
 function keepTheArrangement() {
-  const tiles = dashboardTiles().map((tile) => tile.dataset.tile);
+  const tiles = arrangementOnScreen();
 
   arrangedHere = tiles;
   if (me.user) me.user.dashboard = tiles;
@@ -13477,7 +13535,24 @@ function wireDashboard() {
       if (event.button === 0) dragTile(tile, event);
     });
 
-    tile.querySelector('.welcome-recent-head').append(grip);
+    // Beside the handle, for a tile its owner does not need: it waits under the
+    // tiles to be brought back. Named after the tile as the handle is.
+    const hide = el('button', {
+      type: 'button',
+      class: 'tile-hide',
+      id: `tile-hide-${tile.dataset.tile}`,
+      'aria-label': t('dashboard.hide', 'Put away'),
+      'data-i18n-aria': 'dashboard.hide',
+      'data-i18n-aria-source': 'Put away',
+      title: t('dashboard.hide', 'Put away'),
+      'data-i18n-title': 'dashboard.hide',
+      'data-i18n-title-source': 'Put away',
+    });
+
+    hide.setAttribute('aria-labelledby', `${hide.id} ${tile.getAttribute('aria-labelledby')}`);
+    hide.addEventListener('click', () => putTheTileAway(tile, true));
+
+    tile.querySelector('.welcome-recent-head').append(grip, hide);
   }
 
   $('#dashboard-reset').addEventListener('click', () => {

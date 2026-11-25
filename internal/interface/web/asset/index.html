@@ -703,14 +703,18 @@
         </section>
       </div>
 
-      <!-- How the tiles are moved, said once under them; what a move by the
-           keyboard did, said where a screen reader reads it; and the way back to
-           the order the screen ships with, offered only once there is another. -->
+      <!-- How the tiles are moved and put away, said once under them; what a
+           move by the keyboard did, said where a screen reader reads it; the
+           tiles put away, each to be brought back; and the way back to the
+           arrangement the screen ships with, offered only once there is another. -->
       <div class="dashboard-foot" id="dashboard-foot" hidden>
-        <p class="muted" data-i18n="dashboard.hint">Move a tile by dragging its handle, or with the arrow keys on the handle.</p>
+        <p class="muted" data-i18n="dashboard.hint">Move a tile by dragging its handle, or with the arrow keys on the handle. Put away one you do not need with its cross; it waits here to be brought back.</p>
         <p class="muted" id="dashboard-said" role="status"></p>
+        <p class="dashboard-put-away" id="dashboard-put-away" hidden>
+          <span class="muted" data-i18n="dashboard.putAway">Put away:</span>
+        </p>
         <button type="button" class="link" id="dashboard-reset" hidden
-                data-i18n="dashboard.reset">Back to the original order</button>
+                data-i18n="dashboard.reset">Back to the original arrangement</button>
       </div>
     </section>
 
