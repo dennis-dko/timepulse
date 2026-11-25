@@ -42,6 +42,12 @@
   --control: 48px;
   --pill: 999px;
 
+  /* The space between a button and whatever stands beside, above or below it,
+     the same in every direction - asked for by the maintainer on 2026-11-25.
+     Before it a row of buttons stood 8, 10 or 12 pixels apart and 13 to 22
+     below what it followed, depending on which rule happened to apply. */
+  --button-space: 12px;
+
   /* Log levels. Own variables rather than reusing --danger and --accent:
      a log line is read as a category, and four levels that all render as
      the same two colours cannot be scanned. */
@@ -490,26 +496,29 @@ main { flex: 1 0 auto; margin: 0 auto; max-width: 1080px; padding: 20px; width: 
   padding: 18px;
 }
 
-.card h2 { font-size: 15px; margin: 0 0 14px; }
+.card h2 { font-size: 15px; margin: 0 0 var(--button-space); }
+
+/* A paragraph in a card stands as far from a button as anything does. */
+.card p { margin-block: var(--button-space); }
 
 .card-head {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--button-space);
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: var(--button-space);
 }
 
 .card-head h2 { margin: 0; }
 
-.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.filters { display: flex; gap: var(--button-space); flex-wrap: wrap; }
 
 .grid {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  margin-bottom: 14px;
+  margin-bottom: var(--button-space);
 }
 
 .grid .wide { grid-column: 1 / -1; }
@@ -997,7 +1006,7 @@ button.danger:not(.link) {
  * so "Get started" read as the last thing you could do here rather than as the
  * way out of the screen. A button that ends a screen wants to be separated from
  * what it is the end of. */
-.welcome-actions { margin-top: 20px; }
+.welcome-actions { margin-top: var(--button-space); }
 
 /* A dash rather than a bullet: these are things you can do, not items in a set. */
 .welcome-points li { padding-left: 18px; position: relative; }
@@ -1020,7 +1029,7 @@ button.danger:not(.link) {
 /* The buttons under a result table - the report's, the overtime's, the
    statement's exports - stand clear of its last line. Directly on it they read
    as part of the table rather than of the card. */
-.table-wrap + .row { margin-top: 16px; }
+.table-wrap + .row { margin-top: var(--button-space); }
 
 /* A long table's search and filter, above it. Folds rather than squeezing, like
    the selection bar under it. */
@@ -1046,7 +1055,7 @@ button.danger:not(.link) {
   margin-top: 12px;
 }
 
-.pager + .row { margin-top: 16px; }
+.pager + .row { margin-top: var(--button-space); }
 
 .pager label { align-items: center; flex-direction: row; gap: 8px; }
 .pager select { width: auto; }
@@ -1367,7 +1376,7 @@ tbody tr.clickable:focus-visible {
 }
 
 /* Submit and cancel on one line, cancel reading as secondary. */
-.form-actions { align-items: center; display: flex; gap: 12px; }
+.form-actions { align-items: center; display: flex; gap: var(--button-space); }
 
 /* The file picker, dressed as a button.
    The browser's own control is a button and a filename with no styling worth
@@ -1719,7 +1728,7 @@ body:has(#login-screen:not([hidden])) .toast-stack { bottom: calc(var(--footer-h
   font-weight: 500;
 }
 
-.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row { display: flex; gap: var(--button-space); flex-wrap: wrap; }
 
 /* A button in a row keeps its own height and stands at the row's foot, level
    with the field beside it rather than with the words above that field. Left
@@ -1737,7 +1746,7 @@ body:has(#login-screen:not([hidden])) .toast-stack { bottom: calc(var(--footer-h
    picker it does not belong to, and the reload under the notice that this
    account's rights have moved - the one banner with a control of its own,
    where without the air the button reads as the end of the sentence. */
-.row-apart { margin-top: 18px; }
+.row-apart { margin-top: var(--button-space); }
 
 /* Every answer that is not the form's own: a tint of the text rather than a box
    inside a border, which beside a field read as one more field. Darker under the
@@ -1788,7 +1797,7 @@ button.secondary:active { background: var(--quiet-press); }
 
 .screen-tabs[hidden], .screen-tab[hidden] { display: none; }
 
-.perms { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; padding: 12px 14px; }
+.perms { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--button-space); padding: 12px 14px; }
 .perms legend { color: var(--muted); font-size: 12px; padding: 0 6px; text-transform: uppercase; }
 
 .perm-grid { display: grid; gap: 6px 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
@@ -1970,8 +1979,7 @@ tr.self td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
   display: flex;
   flex-direction: row-reverse;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 8px;
+  gap: var(--button-space);
 }
 
 /* Never narrower than its words on one line: a way to sign in that does not fit
@@ -3048,7 +3056,7 @@ a.tab:hover {
 
 .log-search { flex: 1 1 200px; min-width: 160px; }
 .log-delay { flex: 0 0 auto; width: 130px; }
-.log-buttons { align-items: center; gap: 10px; }
+.log-buttons { align-items: center; gap: var(--button-space); }
 
 /* The switch beside the log's controls, which is a row of small things: the
    layout and the gap come from .switch now, and what is left here is the size it
@@ -3318,13 +3326,10 @@ a.tab:hover {
 }
 
 /* A line of air over the buttons, so Save and New are not the next thing after
-   the last sentence of the legend. The legend is prose to read; these are two
-   controls to press, and they were reading as its final row. */
-/* A line of air over the buttons, so Save and New are not the next thing after
    the switches. They sit above the legend rather than below it: pressing view
    jumps to the rights, and the way out of a role that is only being shown has
    to be where the eye lands rather than a screen further down. */
-#form-role .row { margin-top: 22px; }
+#form-role .row { margin-top: var(--button-space); }
 
 /* A field that cannot be typed into should not look like one that can.
    The rights of a shipped role are visibly fixed - the boxes are greyed and
@@ -3493,12 +3498,14 @@ input[readonly]:focus, textarea[readonly]:focus {
 .dashboard > .card { margin: 0; min-width: 0; }
 
 /* A figure tile: the figure, a line about it and, at its foot, the way to the
-   card that keeps it. */
+   card that keeps it - pushed to the foot so the tiles of a row line their links
+   up, and never nearer what is above it than the button space. At 6 pixels a
+   tile whose list filled it had its link all but on the list's last line. */
 .glance-tile {
   align-items: flex-start;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--button-space);
 }
 
 .glance-tile .welcome-recent-head { align-self: stretch; }
