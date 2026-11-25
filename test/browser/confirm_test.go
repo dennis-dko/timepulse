@@ -30,6 +30,7 @@ func TestDeletingAsksFirstAndCancellingChangesNothing(t *testing.T) {
 		p.click(`#form-timesheet button[type="submit"]`))
 
 	p.waitForText("#table-timesheets tbody", "1.37")
+	p.showTabOf("#entries-card")
 
 	// The delete button is a link button in the row's action cell.
 	p.run("press delete", p.click(`#table-timesheets tbody button.danger`),
@@ -81,6 +82,7 @@ func TestEscapeCancelsTheConfirmation(t *testing.T) {
 		p.click(`#form-timesheet button[type="submit"]`))
 
 	p.waitForText("#table-timesheets tbody", "2.5")
+	p.showTabOf("#entries-card")
 
 	p.run("press delete", p.click(`#table-timesheets tbody button.danger`),
 		chromedp.WaitVisible(".confirm-overlay", chromedp.ByQuery))

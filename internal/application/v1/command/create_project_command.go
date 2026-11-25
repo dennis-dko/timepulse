@@ -33,6 +33,10 @@ type CreateProjectCommand struct {
 	Billable   bool
 	HourlyRate *float64
 	Currency   string
+
+	// MayArchive says the creator holds projects:archive, without which a project
+	// is not created in the archive.
+	MayArchive bool
 }
 
 // CreateProjectCommandResult command to get create result of new project

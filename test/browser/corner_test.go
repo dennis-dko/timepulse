@@ -92,12 +92,18 @@ func TestTheRestartCardIsOnlyThereWhenSomethingNeedsIt(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
 		chromedp.WaitVisible("#form-telemetry", chromedp.ByID))
 
 	p.waitForFilled("#tel-tracing-hint")
 
-	if p.visible("#restart-card") {
+	// Asked of the card itself, which stands on the Operation tab while the
+	// setting it waits for is on Logs: from here it is out of sight either way.
+	var offered bool
+
+	p.evalJSON(`JSON.stringify(!document.querySelector('#restart-card').hidden)`, &offered)
+
+	if offered {
 		t.Error("the restart card is offered on an installation with nothing " +
 			"waiting for one, beside the version card that restarts by itself")
 	}
@@ -111,6 +117,7 @@ func TestTheRestartCardIsOnlyThereWhenSomethingNeedsIt(t *testing.T) {
 		chromedp.SetValue(`#form-telemetry [name="tracerUrl"]`, "jaeger:4317", chromedp.ByQuery),
 		p.click(`#form-telemetry button[type="submit"]`))
 
+	p.run("open Operation", p.click(`#admin-tabs [data-card-tab="operation"]`))
 	p.waitShown("#restart-card")
 
 	if !p.visible("#restart-card") {
@@ -130,7 +137,7 @@ func TestTheRestartNoticeCarriesItsLinkInsideTheSentence(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
 		chromedp.WaitVisible("#form-telemetry", chromedp.ByID))
 
 	p.waitForFilled("#tel-tracing-hint")
@@ -237,7 +244,7 @@ func TestTheConnectionTypeFollowsWhatIsRunningUntilSomebodyPicks(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="data"]`),
 		chromedp.WaitVisible("#form-datasource", chromedp.ByID))
 
 	p.waitForFilled("#datasource-active")
@@ -321,7 +328,7 @@ func TestADraftBelongsToTheAccountThatWroteIt(t *testing.T) {
 	p.createOrdinaryAccount(t, workerEmail, workerPassword)
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="data"]`),
 		chromedp.WaitVisible("#form-datasource", chromedp.ByID))
 
 	p.waitForFilled("#datasource-active")
@@ -339,7 +346,7 @@ func TestADraftBelongsToTheAccountThatWroteIt(t *testing.T) {
 	p.settleWelcome()
 
 	p.run("open Settings again", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="data"]`),
 		chromedp.WaitVisible("#form-datasource", chromedp.ByID))
 
 	if got := p.value(`#form-datasource [name="name"]`); !strings.Contains(got, halfWritten) {

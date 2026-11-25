@@ -166,6 +166,11 @@ const MaxDashboardTiles = 24
 // names of lower-case letters, none twice, no more than MaxDashboardTiles, and
 // fitting the column of 255 characters they are kept in, separated by commas.
 //
+// A name with a "-" before it is a tile its owner put away. It stays in the
+// arrangement in its place, so it comes back where it stood, and it is still the
+// one tile: named twice, once put away and once not, is refused like any name
+// twice.
+//
 // Which names exist is the screen's to know, because it keeps the tiles: a name
 // it no longer has is passed over there rather than refused here, which is what
 // lets an arrangement outlive a release that takes a tile away or adds one.
@@ -176,7 +181,9 @@ func IsValidDashboard(order []string) bool {
 
 	seen := map[string]bool{}
 
-	for _, name := range order {
+	for _, entry := range order {
+		name := strings.TrimPrefix(entry, "-")
+
 		if name == "" || seen[name] || strings.IndexFunc(name, func(r rune) bool { return r < 'a' || r > 'z' }) >= 0 {
 			return false
 		}

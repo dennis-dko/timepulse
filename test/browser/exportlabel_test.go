@@ -54,6 +54,7 @@ func TestTheExportButtonDoesNotKeepSayingPreparing(t *testing.T) {
 
 	// The card the button lives on is hidden until something has been evaluated.
 	p.run("evaluate the balance", p.click(`.tab[data-view="overtime"]`),
+		p.click(`#overtime-tabs [data-card-tab="overtime"]`),
 		chromedp.WaitVisible("#form-overtime", chromedp.ByID),
 		p.click(`#form-overtime button[type="submit"]`),
 		chromedp.WaitVisible("#overtime-result", chromedp.ByID))

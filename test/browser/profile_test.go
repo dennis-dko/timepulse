@@ -171,8 +171,57 @@ func TestAProfileIsRemovedOnlyOnceItsLastProcessHasGone(t *testing.T) {
 	}
 }
 
+// TestAProfileIsRemovedOnlyOnceNothingHoldsAFileInIt stands in for a helper that
+// writes into the profile without naming it on its command line: it holds a file
+// there open, as a helper keeps its database open, and writes again a moment
+// after the case has ended.
+//
+// Waiting for the processes that name the profile was not enough on the CI
+// runner. Cases kept failing with testing.T's own removal meeting "directory not
+// empty" in the profile's Default directory, after every process carrying
+// --user-data-dir had gone - so a writer was left that names it some other way,
+// or not at all.
+func TestAProfileIsRemovedOnlyOnceNothingHoldsAFileInIt(t *testing.T) {
+	if _, err := os.Stat("/proc/self/fd"); err != nil {
+		t.Skip("only Linux says which processes hold a file in a profile")
+	}
+
+	t.Parallel()
+
+	var profile string
+
+	t.Run("a writer naming nothing", func(t *testing.T) {
+		profile = profileFor(t)
+
+		writer := exec.Command("sh", "-c",
+			`exec 3>"$1/held"; sleep 0.3; mkdir -p "$1/Default"; echo late > "$1/Default/late"`,
+			"utility", profile)
+		if err := writer.Start(); err != nil {
+			t.Fatal(err)
+		}
+
+		go func() { _ = writer.Wait() }()
+
+		// Seen holding its file before the case ends, for the reason the helper
+		// above is seen naming the profile first.
+		for appeared := time.Now().Add(5 * time.Second); !processHoldsAFileIn(profile); {
+			if time.Now().After(appeared) {
+				t.Fatal("the stand-in writer never held its file")
+			}
+
+			time.Sleep(5 * time.Millisecond)
+		}
+	})
+
+	time.Sleep(time.Second)
+
+	if _, err := os.Stat(profile); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("the profile came back after it was removed: %s holds %q", profile, leftIn(profile))
+	}
+}
+
 // profileFor is a profile for one browser, for as long as the case runs, and
-// removed only once no process names it any more.
+// removed only once no process names it, or holds a file in it, any more.
 //
 // The case closes its browser before the profile goes, but closing it ends the
 // browser's own process and no other: Chrome's helpers are processes of their
@@ -187,7 +236,7 @@ func profileFor(t *testing.T) string {
 
 	// Registered after tempdir's removal, so it runs first; and before anything
 	// the case registers to close its browser, so it runs after that.
-	t.Cleanup(func() { awaitProcessesNaming(dir) })
+	t.Cleanup(func() { awaitTheLastProcessOf(dir) })
 
 	return dir
 }
@@ -195,16 +244,20 @@ func profileFor(t *testing.T) string {
 // browserGone is how long the processes of a closed browser may take to end.
 const browserGone = 10 * time.Second
 
-// awaitProcessesNaming waits until no process names dir as its profile, for as
-// long as browserGone. Every helper of Chrome's carries --user-data-dir on its
-// command line, and Linux lists those under /proc. Elsewhere there is nothing to
-// ask, and tempdir's retries are all there is - which on Windows is the question
-// that matters, a file still held rather than one still being written.
-func awaitProcessesNaming(dir string) {
+// awaitTheLastProcessOf waits until no process names dir as its profile or
+// holds a file in it, for as long as browserGone. Linux answers both under
+// /proc. Elsewhere there is nothing to ask, and tempdir's retries are all there
+// is - which on Windows is the question that matters, a file still held rather
+// than one still being written.
+//
+// The command line alone was not enough: a writer the runner left behind named
+// the profile some other way, and the profile's Default directory was still
+// being written to when testing.T removed it.
+func awaitTheLastProcessOf(dir string) {
 	named := []byte("--user-data-dir=" + dir + "\x00")
 	deadline := time.Now().Add(browserGone)
 
-	for processNames(named) && time.Now().Before(deadline) {
+	for (processNames(named) || processHoldsAFileIn(dir)) && time.Now().Before(deadline) {
 		time.Sleep(20 * time.Millisecond)
 	}
 }
@@ -252,4 +305,40 @@ func leftIn(dir string) []string {
 	}
 
 	return left
+}
+
+// processHoldsAFileIn says whether any process has a file under dir open, or
+// stands in it.
+func processHoldsAFileIn(dir string) bool {
+	processes, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
+	}
+
+	inside := func(target string) bool { return target == dir || strings.HasPrefix(target, dir+"/") }
+
+	for _, process := range processes {
+		if name := process.Name(); name[0] < '0' || name[0] > '9' {
+			continue
+		}
+
+		base := filepath.Join("/proc", process.Name())
+
+		if cwd, err := os.Readlink(filepath.Join(base, "cwd")); err == nil && inside(cwd) {
+			return true
+		}
+
+		descriptors, err := os.ReadDir(filepath.Join(base, "fd"))
+		if err != nil {
+			continue
+		}
+
+		for _, descriptor := range descriptors {
+			if target, err := os.Readlink(filepath.Join(base, "fd", descriptor.Name())); err == nil && inside(target) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

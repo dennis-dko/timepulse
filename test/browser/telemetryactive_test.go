@@ -38,7 +38,7 @@ func TestWhatIsRunningIsStillSaidWhileTheFormIsEdited(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open the card", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
 		chromedp.WaitVisible("#form-telemetry", chromedp.ByID))
 
 	var before string
@@ -127,7 +127,7 @@ func TestWhatIsRunningWritesItsShareTheWayTheReaderWritesNumbers(t *testing.T) {
 	p.chooseLanguage("de")
 
 	p.run("open the card", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
 		chromedp.WaitVisible("#form-telemetry", chromedp.ByID))
 
 	p.run("a process that samples an eighth", chromedp.Evaluate(`(() => {

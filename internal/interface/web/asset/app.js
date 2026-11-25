@@ -2243,6 +2243,76 @@ function fmtMoney(amount, currency) {
 }
 
 /**
+ * CURRENCIES are what a project can be charged in: ISO 4217's List One as SIX
+ * published it on 2026-09-17, less its funds, precious metals and units of
+ * account, which are codes nobody charges an hour in.
+ *
+ * Picked rather than typed, because a typed code was held to its shape alone, so
+ * a slip such as EUO saved cleanly and wrote every amount of that project in a
+ * currency that does not exist. The server still takes any three capital letters,
+ * so a project saved with another code before keeps it - see fillCurrencies.
+ */
+const CURRENCIES = [
+  'AED', 'AFN', 'ALL', 'AMD', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BHD', 'BIF',
+  'BMD', 'BND', 'BOB', 'BRL', 'BSD', 'BTN', 'BWP', 'BYN', 'BZD', 'CAD', 'CDF', 'CHF', 'CLP', 'CNY',
+  'COP', 'CRC', 'CUP', 'CVE', 'CZK', 'DJF', 'DKK', 'DOP', 'DZD', 'EGP', 'ERN', 'ETB', 'EUR', 'FJD',
+  'FKP', 'GBP', 'GEL', 'GHS', 'GIP', 'GMD', 'GNF', 'GTQ', 'GYD', 'HKD', 'HNL', 'HTG', 'HUF', 'IDR',
+  'ILS', 'INR', 'IQD', 'IRR', 'ISK', 'JMD', 'JOD', 'JPY', 'KES', 'KGS', 'KHR', 'KMF', 'KPW', 'KRW',
+  'KWD', 'KYD', 'KZT', 'LAK', 'LBP', 'LKR', 'LRD', 'LSL', 'LYD', 'MAD', 'MDL', 'MGA', 'MKD', 'MMK',
+  'MNT', 'MOP', 'MRU', 'MUR', 'MVR', 'MWK', 'MXN', 'MYR', 'MZN', 'NAD', 'NGN', 'NIO', 'NOK', 'NPR',
+  'NZD', 'OMR', 'PAB', 'PEN', 'PGK', 'PHP', 'PKR', 'PLN', 'PYG', 'QAR', 'RON', 'RSD', 'RUB', 'RWF',
+  'SAR', 'SBD', 'SCR', 'SDG', 'SEK', 'SGD', 'SHP', 'SLE', 'SOS', 'SRD', 'SSP', 'STN', 'SVC', 'SYP',
+  'SZL', 'THB', 'TJS', 'TMT', 'TND', 'TOP', 'TRY', 'TTD', 'TWD', 'TZS', 'UAH', 'UGX', 'USD', 'UYU',
+  'UZS', 'VED', 'VES', 'VND', 'VUV', 'WST', 'XAF', 'XCD', 'XCG', 'XOF', 'XPF', 'YER', 'ZAR', 'ZMW',
+  'ZWG',
+];
+
+/** DEFAULT_CURRENCY is the server's, model.DefaultCurrency: what a project is charged in until somebody picks another. */
+const DEFAULT_CURRENCY = 'EUR';
+
+/**
+ * fillCurrencies fills the project form's currency picker and chooses keep, by
+ * default what it holds now, so a change of language keeps the choice.
+ *
+ * The names are the browser's, from the data that writes the amounts, so every
+ * language the screen speaks has them without a dictionary entry for each of a
+ * hundred and fifty currencies. Each is written after its code, and the list is
+ * in the order of the codes: the form's cell is narrower than the longer names,
+ * and a name cut short there would lose a code written after it - the one part
+ * that says which currency it is. Typing a code on the closed picker lands on it.
+ *
+ * A code the list does not carry is offered as well, so a project saved with
+ * one while the field was typed into opens showing it rather than an empty picker.
+ */
+function fillCurrencies(keep = $('#form-project select[name="currency"]')?.value) {
+  const select = $('#form-project select[name="currency"]');
+  if (!select) return;
+
+  let names = null;
+
+  try {
+    names = new Intl.DisplayNames([activeLocale()], { type: 'currency' });
+  } catch {
+    // A runtime without the names: the codes alone still tell the currencies apart.
+  }
+
+  const chosen = keep || DEFAULT_CURRENCY;
+  const codes = [...CURRENCIES, ...(CURRENCIES.includes(chosen) ? [] : [chosen])].sort();
+
+  select.replaceChildren(...codes.map((code) => {
+    const name = names?.of(code);
+    const option = el('option', { value: code, text: name && name !== code ? `${code} – ${name}` : code });
+
+    // What the form's reset goes back to.
+    option.defaultSelected = code === DEFAULT_CURRENCY;
+
+    return option;
+  }));
+
+  select.value = chosen;
+}
+
+/**
  * A share between none and all, written the way the reader writes a number and
  * in full.
  *
@@ -4046,7 +4116,6 @@ function wireValidityMessages() {
  */
 const PATTERN_MESSAGES = {
   '[0-9]{6}': () => t('valid.code', 'Please enter the six digits your authenticator app shows.'),
-  '[A-Za-z]{3}': () => t('valid.currency', 'Please enter the three letters of a currency, such as EUR.'),
 };
 
 /** What a field's rule says about its value, or nothing where it has no objection. */
@@ -6053,10 +6122,13 @@ function renderPermissionLegend() {
     const detail = permissionDetail(permission);
     if (!detail || !offeredRight(permission)) continue;
 
-    list.append(el('dt', {},
-      el('span', { text: permissionTitle(permission) }),
-      el('code', { class: 'perm-id', text: permission })));
-    list.append(el('dd', { text: detail }));
+    // A right and its sentence as one item, which the legend's columns keep
+    // together rather than breaking a name from what it allows.
+    list.append(el('div', {},
+      el('dt', {},
+        el('span', { text: permissionTitle(permission) }),
+        el('code', { class: 'perm-id', text: permission })),
+      el('dd', { text: detail })));
   }
 }
 
@@ -6287,7 +6359,12 @@ function editProject(project) {
   form.elements.budgetHours.value = project.budgetHours ?? '';
   form.elements.billable.checked = Boolean(project.billable);
   form.elements.hourlyRate.value = project.hourlyRate ?? '';
-  form.elements.currency.value = project.currency ?? '';
+  fillCurrencies(project.currency || DEFAULT_CURRENCY);
+
+  // Emptied first, so a project opened straight after another does not start on
+  // the status chosen for that one; kept when a change of language names them.
+  form.elements.status.replaceChildren();
+  redrawable('projectStatuses', () => offerStatuses(project.status, form.elements.status.value));
 
   swapTheLabel($('#project-form-title'), 'project.edit', 'Edit project');
   swapTheLabel($('#project-submit'), 'action.save', 'Save');
@@ -6296,6 +6373,32 @@ function editProject(project) {
   switchView('projects');
   form.scrollIntoView({ block: 'nearest' });
   form.elements.name.focus();
+}
+
+/**
+ * offerStatuses shows the project form's status with what the server takes from
+ * the one a project has, and chooses chosen where it is among them.
+ *
+ * Active and completed always; archived only from completed or where it already
+ * is, because that is the only way in. Into the archive and out of it take
+ * projects:archive, so for somebody without it an archived project's status is
+ * shown as it is and not offered.
+ */
+function offerStatuses(status, chosen) {
+  const label = $('#project-status');
+  const select = label?.querySelector('select');
+  if (!select) return;
+
+  const mayArchive = can('projects:archive');
+  const offered = ['active', 'completed'];
+
+  if (mayArchive && (status === 'completed' || status === 'archived')) offered.push('archived');
+  if (!offered.includes(status)) offered.push(status);
+
+  select.replaceChildren(...offered.map((value) => el('option', { value, text: statusName(value) })));
+  select.value = offered.includes(chosen) ? chosen : status;
+  select.disabled = status === 'archived' && !mayArchive;
+  label.hidden = false;
 }
 
 /** What a billable project's hours are charged at, as a line under its name. */
@@ -6369,6 +6472,17 @@ function resetProjectForm() {
   setDateField(form.elements.endDate, '');
   fillToday(form.elements.startDate);
 
+  // Without the code a corrected project brought along, which is its own and
+  // not one to offer the next project.
+  fillCurrencies(DEFAULT_CURRENCY);
+
+  // A project being made starts out active, so its status is no question yet -
+  // put away, and disabled so the form does not send one.
+  stopRedrawing('projectStatuses');
+  form.elements.status.replaceChildren();
+  form.elements.status.disabled = true;
+  $('#project-status').hidden = true;
+
   swapTheLabel($('#project-form-title'), 'project.create', 'Create project');
   swapTheLabel($('#project-submit'), 'action.create', 'Create');
   $('#project-cancel').hidden = true;
@@ -6400,9 +6514,14 @@ function mayEditTimesheet(entry) {
  * duplicated, so the field rules - step="any", the 24 hour ceiling, the
  * description bound - hold for a correction exactly as they do for a new booking.
  */
-function editTimesheet(entry) {
+function editTimesheet(entry, { backTo } = {}) {
   const form = $('#form-timesheet');
   if (!form) return;
+
+  // Where the correction goes back to once it is saved or given up: the list of
+  // entries it was opened from, which stands on a tab of its own.
+  if (backTo) form.dataset.backTo = backTo;
+  else delete form.dataset.backTo;
 
   form.elements.id.value = String(entry.id);
   form.elements.projectId.value = entry.projectId ? String(entry.projectId) : '';
@@ -6449,6 +6568,20 @@ function swapTheLabel(node, key, english) {
   node.dataset.i18nSource = english;
 
   setLeadingText(node, t(key, english));
+}
+
+/**
+ * Opens the tab of the card a correction was opened from, once it is saved or
+ * given up. Not part of resetTimesheetForm: the quick entry resets the form too,
+ * and somebody typing a line there is not to be sent anywhere.
+ */
+function returnFromCorrection() {
+  const form = $('#form-timesheet');
+  const back = form?.dataset.backTo ? $(form.dataset.backTo) : null;
+  if (!back) return;
+
+  delete form.dataset.backTo;
+  openTheTabOf(back);
 }
 
 /** Puts the form back to booking a new entry. */
@@ -6847,7 +6980,7 @@ function timesheetActions(entry) {
     actions.append(el('button', {
       class: 'link',
       text: t('action.edit', 'edit'),
-      onclick: () => editTimesheet(entry),
+      onclick: () => editTimesheet(entry, { backTo: '#entries-card' }),
     }));
   }
 
@@ -8621,6 +8754,18 @@ function forgetTheTokenValue() {
 }
 
 function wireTokens() {
+  // How an assistant connects, from this page's own address: the server answers
+  // the protocol under the API, and the token travels the way every API call
+  // carries one. A placeholder rather than a token, because the card says it for
+  // any of them, and a value is shown once, where it was made.
+  const assistant = `${location.origin}${API}/mcp`;
+  const header = 'Authorization: Bearer <token>';
+
+  $('#token-assistant-address').textContent = assistant;
+  $('#token-assistant-header').textContent = header;
+  $('#token-assistant-command').textContent =
+    `claude mcp add --transport http timepulse ${assistant} --header "${header}"`;
+
   $('#form-token').addEventListener('submit', (e) => {
     e.preventDefault();
 
@@ -9794,15 +9939,25 @@ async function loadAdmin() {
     // next time somebody saved the connection.
     //
     // Not over one being typed, for the same reason as every other card here.
+    // The configuration file's schedule where none is saved, as a value: it is
+    // the one that runs, and an empty field said there was none. Saved unchanged
+    // it stays the file's - see ldapPayload.
     if (!beingEdited(schedule)) {
-      schedule.elements.syncSchedule.value = ldap.syncSchedule ?? '';
+      schedule.elements.syncSchedule.value = ldap.syncSchedule || ldap.fileSyncSchedule || '';
     }
+
+    schedule.elements.syncSchedule.dataset.file = ldap.fileSyncSchedule ?? '';
 
     // What this process is actually scheduled to do, which is not the stored
     // value until the next start - and the restart card is what says so.
-    $('#sync-schedule-active').textContent = ldap.syncSchedule
-      ? `${t('sync.scheduleStored', 'Saved')}: ${ldap.syncSchedule}`
-      : t('sync.scheduleManual', 'Runs only when the button below is pressed.');
+    if (ldap.syncSchedule) {
+      $('#sync-schedule-active').textContent = `${t('sync.scheduleStored', 'Saved')}: ${ldap.syncSchedule}`;
+    } else if (ldap.fileSyncSchedule) {
+      $('#sync-schedule-active').textContent =
+        `${t('sync.scheduleFromFile', 'From the configuration file')}: ${ldap.fileSyncSchedule}`;
+    } else {
+      $('#sync-schedule-active').textContent = t('sync.scheduleManual', 'Runs only when the button below is pressed.');
+    }
   }
 
   // Last, so a log that cannot be read leaves every card above it filled.
@@ -10539,8 +10694,13 @@ function ldapPayload() {
   // it schedules, but it is stored with the rest of the directory settings and
   // travels on the same request - so it has to be in every payload or saving the
   // connection would clear it.
+  //
+  // The configuration file's schedule, which the field holds where none is
+  // saved, goes as no schedule: saved, it would go on running after the file
+  // changed or dropped it.
   const schedule = $('#form-sync-schedule');
-  body.syncSchedule = schedule ? schedule.elements.syncSchedule.value.trim() : '';
+  const typed = schedule ? schedule.elements.syncSchedule.value.trim() : '';
+  body.syncSchedule = theFilesOwn(typed, schedule?.elements.syncSchedule.dataset.file) ? '' : typed;
 
   return body;
 }
@@ -11828,8 +11988,8 @@ const TOUR_STEPS = [
     permission: 'timesheets:read:own',
     title: () => t('tour.timesheetsTabs.title', 'Time entries, by task'),
     text: () => t('tour.timesheetsTabs.text',
-      'Recording, templates and the spreadsheet each have a tab of their own. The walk '
-      + 'opens each one as it gets there.'),
+      'Recording, the list of entries, templates and the spreadsheet each have a tab of their '
+      + 'own. The walk opens each one as it gets there.'),
   },
   {
     target: '#timer-card',
@@ -11946,6 +12106,15 @@ const TOUR_STEPS = [
       + 'your week asks something of count, so a fortnight of leave is ten working days.'),
   },
   {
+    target: '#overtime-tabs',
+    view: 'overtime',
+    permission: 'timesheets:read:own',
+    title: () => t('tour.overtimeTabs.title', 'Your hours, three questions'),
+    text: () => t('tour.overtimeTabs.text',
+      'How your hours were spread, how the year went, and your overtime each have a tab of '
+      + 'their own.'),
+  },
+  {
     target: '#chart-days',
     view: 'overtime',
     permission: 'timesheets:read:own',
@@ -12052,8 +12221,8 @@ const TOUR_STEPS = [
     view: 'settings',
     title: () => t('tour.settingsTabs.title', 'My account, by subject'),
     text: () => t('tour.settingsTabs.text',
-      'Working time, how you sign in, apps and the calendar, and your data each have a '
-      + 'tab of their own. You only see the tabs that have something for you.'),
+      'Working time, notices, how you sign in, apps and the calendar, the API and your data '
+      + 'each have a tab of their own. You only see the tabs that have something for you.'),
   },
   {
     target: '#form-working-times',
@@ -12062,24 +12231,6 @@ const TOUR_STEPS = [
     text: () => t('tour.account.text',
       'Your daily target and your daily ceiling. The target is what the overtime balance '
       + 'is measured against, and nobody but you sets it.'),
-  },
-  {
-    target: '#form-balance-bounds',
-    view: 'settings',
-    permission: 'settings:write:own',
-    title: () => t('tour.bounds.title', 'Bounds for your balance'),
-    text: () => t('tour.bounds.text',
-      'Two figures your running balance should stay between, as on a flexitime account. '
-      + 'While it lies outside them, a banner says so on every screen.'),
-  },
-  {
-    target: '#form-reminders',
-    view: 'settings',
-    permission: 'timesheets:write:own',
-    title: () => t('tour.reminders.title', 'Reminders'),
-    text: () => t('tour.reminders.text',
-      'A banner when the stopwatch has run longer than you choose, or when your last working '
-      + 'day has nothing booked on it. For the stopwatch, this browser can notify you as well.'),
   },
   {
     target: '#schedule-card',
@@ -12105,6 +12256,24 @@ const TOUR_STEPS = [
     text: () => t('tour.myHolidays.text',
       'The public holidays where you work: marked in the calendar and on the week, and left '
       + 'out of your leave. Leave it on the installation\'s unless you work somewhere else.'),
+  },
+  {
+    target: '#form-balance-bounds',
+    view: 'settings',
+    permission: 'settings:write:own',
+    title: () => t('tour.bounds.title', 'Bounds for your balance'),
+    text: () => t('tour.bounds.text',
+      'Two figures your running balance should stay between, as on a flexitime account. '
+      + 'While it lies outside them, a banner says so on every screen.'),
+  },
+  {
+    target: '#form-reminders',
+    view: 'settings',
+    permission: 'timesheets:write:own',
+    title: () => t('tour.reminders.title', 'Reminders'),
+    text: () => t('tour.reminders.text',
+      'A banner when the stopwatch has run longer than you choose, or when your last working '
+      + 'day has nothing booked on it. For the stopwatch, this browser can notify you as well.'),
   },
   {
     target: '#form-password',
@@ -12163,11 +12332,11 @@ const TOUR_STEPS = [
   {
     target: '#token-card',
     view: 'settings',
-    title: () => t('tour.tokens.title', 'Tokens for scripts and the app'),
+    title: () => t('tour.tokens.title', 'Tokens for scripts, the app and assistants'),
     text: () => t('tour.tokens.text',
-      'A personal token lets a script book time as you, and connects the Android app that '
-      + 'scans its code. It carries exactly the rights your role has when it is used, and is '
-      + 'shown once, when it is created.'),
+      'A personal token lets a script book time as you, connects the Android app that scans '
+      + 'its code, and an AI assistant at the address the card names under the list. It carries '
+      + 'exactly the rights your role has when it is used, and is shown once, when it is created.'),
   },
   {
     target: '#managers-card',
@@ -12191,17 +12360,9 @@ const TOUR_STEPS = [
     permission: 'settings:manage',
     title: () => t('tour.adminTabs.title', 'Settings, by subject'),
     text: () => t('tour.adminTabs.text',
-      'General settings, how people sign in, how the installation runs, and its logs each '
-      + 'have a tab of their own. The walk opens each one as it gets there.'),
-  },
-  {
-    target: '#form-branding',
-    view: 'admin',
-    permission: 'settings:manage',
-    title: () => t('tour.branding.title', 'What this installation looks like'),
-    text: () => t('tour.branding.text',
-      'What follows TimePulse, banner, logo and footer. The logo stands at the left of the header once '
-      + "somebody has signed in; the browser tab and the sign-in screen always show TimePulse's own."),
+      'General settings, the appearance, how people sign in, the directory, how the '
+      + 'installation runs, its data and its logs each have a tab of their own. The walk opens '
+      + 'each one as it gets there.'),
   },
   {
     target: '#form-managers',
@@ -12240,6 +12401,25 @@ const TOUR_STEPS = [
       + 'not chosen their own. Until a choice is saved, nobody keeps any.'),
   },
   {
+    target: '#form-branding',
+    view: 'admin',
+    permission: 'settings:manage',
+    title: () => t('tour.branding.title', 'What this installation looks like'),
+    text: () => t('tour.branding.text',
+      'What follows TimePulse, banner, logo and footer. The logo stands at the left of the header once '
+      + "somebody has signed in; the browser tab and the sign-in screen always show TimePulse's own."),
+  },
+  {
+    target: '#form-openid',
+    view: 'admin',
+    permission: 'settings:manage',
+    title: () => t('tour.provider.title', 'A sign-in provider'),
+    text: () => t('tour.provider.text',
+      'People can sign in through your organisation\'s provider instead of with a password, '
+      + 'once each has linked their account to it. Nobody gets an account just because the '
+      + 'provider knows them.'),
+  },
+  {
     target: '#form-ldap',
     view: 'admin',
     permission: 'settings:manage',
@@ -12256,16 +12436,6 @@ const TOUR_STEPS = [
         'Accounts can come from LDAP instead of being created here. Reconciling them deletes '
         + 'accounts, and is left to the built-in administrator or the role "{0}".')
         .replace('{0}', roleTitle(ADMINISTERING_ROLE))),
-  },
-  {
-    target: '#form-openid',
-    view: 'admin',
-    permission: 'settings:manage',
-    title: () => t('tour.provider.title', 'A sign-in provider'),
-    text: () => t('tour.provider.text',
-      'People can sign in through your organisation\'s provider instead of with a password, '
-      + 'once each has linked their account to it. Nobody gets an account just because the '
-      + 'provider knows them.'),
   },
   {
     target: '#restart-card',
@@ -12286,16 +12456,6 @@ const TOUR_STEPS = [
       + 'replace itself, it downloads and installs the new one from here.'),
   },
   {
-    target: '#backup-card',
-    view: 'admin',
-    permission: 'settings:manage',
-    title: () => t('tour.backup.title', 'Backups'),
-    text: () => t('tour.backup.text',
-      'The whole installation in one sealed file: made now and downloaded, or made on a '
-      + 'schedule and kept on the server, the oldest going past the number you set. It '
-      + 'comes back through the installer, into an empty database.'),
-  },
-  {
     target: '#form-maintenance',
     view: 'admin',
     permission: 'settings:manage',
@@ -12314,6 +12474,16 @@ const TOUR_STEPS = [
       + 'new account starts on.'),
   },
   {
+    target: '#backup-card',
+    view: 'admin',
+    permission: 'settings:manage',
+    title: () => t('tour.backup.title', 'Backups'),
+    text: () => t('tour.backup.text',
+      'The whole installation in one sealed file: made now and downloaded, or made on a '
+      + 'schedule and kept on the server, the oldest going past the number you set. It '
+      + 'comes back through the installer, into an empty database.'),
+  },
+  {
     target: '#form-datasource',
     view: 'admin',
     permission: 'settings:manage',
@@ -12323,15 +12493,6 @@ const TOUR_STEPS = [
       + 'saved, and the change applies at the next start.'),
   },
   {
-    target: '#form-telemetry',
-    view: 'admin',
-    permission: 'settings:manage',
-    title: () => t('tour.telemetry.title', 'Metrics and tracing'),
-    text: () => t('tour.telemetry.text',
-      'The log level, the metrics endpoint and where traces are exported to. The level applies '
-      + 'at once; the other two are read when the process starts, so they wait for the next one.'),
-  },
-  {
     target: '#changes-card',
     view: 'admin',
     permission: 'settings:manage',
@@ -12339,6 +12500,15 @@ const TOUR_STEPS = [
     text: () => t('tour.changes.text',
       'Every account, role and setting created, changed or deleted, every switch of '
       + 'maintenance mode and every restart, with who did it, newest first.'),
+  },
+  {
+    target: '#form-telemetry',
+    view: 'admin',
+    permission: 'settings:manage',
+    title: () => t('tour.telemetry.title', 'Metrics and tracing'),
+    text: () => t('tour.telemetry.text',
+      'The log level, the metrics endpoint and where traces are exported to. The level applies '
+      + 'at once; the other two are read when the process starts, so they wait for the next one.'),
   },
   {
     target: '#log-card',
@@ -13295,50 +13465,108 @@ function dashboardTiles() {
   return $$('#dashboard > .tile');
 }
 
-/** The tiles under the greeting that this account sees, in the order they stand. */
+/**
+ * The tiles under the greeting that are on screen, in the order they stand: the
+ * ones this account may see and has not put away. The two are kept apart - the
+ * rights decide hidden, the owner decides put-away - because every reading of
+ * the account sets hidden again, and a tile put away came back with it.
+ */
 function shownTiles() {
-  return dashboardTiles().filter((tile) => !tile.hidden);
+  return dashboardTiles().filter((tile) => !tile.hidden && !tile.classList.contains('put-away'));
+}
+
+/** The tiles this account may see and has put away, in the order they stand. */
+function putAwayTiles() {
+  return dashboardTiles().filter((tile) => !tile.hidden && tile.classList.contains('put-away'));
 }
 
 /**
  * Puts the tiles in the order an arrangement names: the ones it names first, in
- * its order, then every other in the order the screen ships with. A name the
- * screen does not have is passed over, which is what lets an arrangement saved
- * by an earlier release outlive a tile being added or taken away.
+ * its order, then every other in the order the screen ships with - and puts away
+ * the ones it names with a "-" before them. A name the screen does not have is
+ * passed over, which is what lets an arrangement saved by an earlier release
+ * outlive a tile being added or taken away.
  */
 function arrangeDashboard(names) {
   const board = $('#dashboard');
   if (!board) return;
 
-  const named = (names ?? []).filter((name) => shippedTiles.includes(name));
+  const entries = names ?? [];
+  const away = new Set(entries.filter((entry) => entry.startsWith('-')).map((entry) => entry.slice(1)));
+  const named = entries.map((entry) => entry.replace(/^-/, '')).filter((name) => shippedTiles.includes(name));
 
   for (const name of new Set([...named, ...shippedTiles])) {
     const tile = board.querySelector(`:scope > [data-tile="${name}"]`);
-    if (tile) board.append(tile);
+    if (!tile) continue;
+
+    tile.classList.toggle('put-away', away.has(name));
+    board.append(tile);
   }
 
   offerTheShippedOrder();
+  showTheDashboardFoot();
 }
 
-/** Offers the way back to the order the screen ships with, once the tiles stand in another. */
+/** The arrangement as it is kept: each tile by name, a "-" before one put away. */
+function arrangementOnScreen() {
+  return dashboardTiles().map((tile) => (tile.classList.contains('put-away') ? '-' : '') + tile.dataset.tile);
+}
+
+/** Offers the way back to the arrangement the screen ships with, once the tiles stand in another. */
 function offerTheShippedOrder() {
-  $('#dashboard-reset').hidden = dashboardTiles().map((tile) => tile.dataset.tile).join()
-    === shippedTiles.join();
-}
-
-/** Says how the tiles are moved, once any tile is on screen. */
-function showTheDashboardFoot() {
-  $('#dashboard-foot').hidden = shownTiles().length === 0;
+  $('#dashboard-reset').hidden = arrangementOnScreen().join() === shippedTiles.join();
 }
 
 /**
- * Keeps the order the tiles stand in on the account, so the phone shows what was
- * arranged at the desk. Every tile is kept in its place, the ones this account
- * does not see included: an administrator's tile keeps its place for the day the
- * account administers.
+ * Says how the tiles are moved, once any tile is on screen or put away, and
+ * offers each one put away back: named after its heading, so it follows a
+ * heading the script rewrites and the language it is read in.
+ */
+function showTheDashboardFoot() {
+  const away = putAwayTiles();
+
+  $('#dashboard-foot').hidden = shownTiles().length === 0 && away.length === 0;
+
+  const list = $('#dashboard-put-away');
+  if (!list) return;
+
+  list.hidden = away.length === 0;
+  list.replaceChildren(list.firstElementChild, ...away.map((tile) => el('button', {
+    type: 'button',
+    class: 'link',
+    id: `tile-back-${tile.dataset.tile}`,
+    text: tile.querySelector('h3')?.textContent.trim() ?? tile.dataset.tile,
+    onclick: () => putTheTileAway(tile, false),
+  })));
+}
+
+/**
+ * Puts a tile away or brings it back, keeps that on the account, and says it for
+ * whoever cannot see it. The focus goes where the tile went - to the way to bring
+ * it back, or to its own handle - rather than to the page with the button gone.
+ */
+function putTheTileAway(tile, away) {
+  const name = tile.querySelector('h3')?.textContent.trim() ?? '';
+
+  tile.classList.toggle('put-away', away);
+  showTheDashboardFoot();
+  keepTheArrangement();
+
+  $('#dashboard-said').textContent = away
+    ? fillIn(t('dashboard.putAwaySaid', '{0}: put away'), [name])
+    : fillIn(t('dashboard.backSaid', '{0}: back on the screen'), [name]);
+
+  (away ? $(`#tile-back-${tile.dataset.tile}`) : $(`#tile-grip-${tile.dataset.tile}`))?.focus();
+}
+
+/**
+ * Keeps the arrangement on the account, so the phone shows what was arranged at
+ * the desk. Every tile is kept in its place, the ones this account does not see
+ * included - an administrator's tile keeps its place for the day the account
+ * administers - and a tile put away keeps its place too, so it comes back there.
  */
 function keepTheArrangement() {
-  const tiles = dashboardTiles().map((tile) => tile.dataset.tile);
+  const tiles = arrangementOnScreen();
 
   arrangedHere = tiles;
   if (me.user) me.user.dashboard = tiles;
@@ -13477,7 +13705,24 @@ function wireDashboard() {
       if (event.button === 0) dragTile(tile, event);
     });
 
-    tile.querySelector('.welcome-recent-head').append(grip);
+    // Beside the handle, for a tile its owner does not need: it waits under the
+    // tiles to be brought back. Named after the tile as the handle is.
+    const hide = el('button', {
+      type: 'button',
+      class: 'tile-hide',
+      id: `tile-hide-${tile.dataset.tile}`,
+      'aria-label': t('dashboard.hide', 'Put away'),
+      'data-i18n-aria': 'dashboard.hide',
+      'data-i18n-aria-source': 'Put away',
+      title: t('dashboard.hide', 'Put away'),
+      'data-i18n-title': 'dashboard.hide',
+      'data-i18n-title-source': 'Put away',
+    });
+
+    hide.setAttribute('aria-labelledby', `${hide.id} ${tile.getAttribute('aria-labelledby')}`);
+    hide.addEventListener('click', () => putTheTileAway(tile, true));
+
+    tile.querySelector('.welcome-recent-head').append(grip, hide);
   }
 
   $('#dashboard-reset').addEventListener('click', () => {
@@ -13972,10 +14217,12 @@ const OPERATIONAL_FIELDS = [
 /**
  * Fills the operational form.
  *
- * An overridden value goes in the field; anything still following the
- * configuration file leaves the field empty and shows that file's value as the
- * placeholder. Prefilling every field instead would turn "not set here" into a
- * deliberate-looking choice the moment anyone pressed Save.
+ * Every field holds the value in force: the one set here, or the configuration
+ * file's, as the database connection's fields do. An empty field with the file's
+ * value as a placeholder read as "not configured" on an installation configured
+ * through its file. What keeps "not set here" from becoming a choice the moment
+ * somebody presses Save is the payload, which leaves out a value that is the
+ * file's - see operationalPayload.
  */
 function fillOperationalForm(data) {
   const form = $('#form-operational');
@@ -14018,14 +14265,23 @@ function fillOperationalForm(data) {
       continue;
     }
 
-    const override = data.configured?.[field];
+    const fromFile = data.defaults?.[field];
 
-    input.value = override ?? '';
-    input.placeholder = String(data.defaults?.[field] ?? '');
+    input.value = String(data.configured?.[field] ?? fromFile ?? '');
+    input.dataset.file = String(fromFile ?? '');
+
+    // And as the placeholder, for a field somebody empties: it then says what
+    // applies once the file is followed again.
+    input.placeholder = String(fromFile ?? '');
   }
 }
 
-/** Reads the form, omitting empty fields so they keep following the file. */
+/**
+ * Reads the form, leaving out what keeps following the file: an emptied field,
+ * and one holding the file's own value. Sending that value would store it as a
+ * setting, and a later change to the file would then stop reaching this
+ * installation, for a field nobody had touched.
+ */
 function operationalPayload() {
   const form = $('#form-operational');
   const body = {};
@@ -14035,10 +14291,19 @@ function operationalPayload() {
     if (!input) continue;
 
     const raw = input.value.trim();
-    if (raw !== '') body[field] = Number(raw);
+    if (raw !== '' && !theFilesOwn(raw, input.dataset.file)) body[field] = Number(raw);
   }
 
   return body;
+}
+
+/** Whether what a field holds is the configuration file's own value for it. */
+function theFilesOwn(raw, file) {
+  if (file === undefined || file === '') return false;
+
+  const asNumbers = [Number(raw), Number(file)];
+
+  return asNumbers.every(Number.isFinite) ? asNumbers[0] === asNumbers[1] : raw === file;
 }
 
 function wireOperational() {
@@ -15840,6 +16105,13 @@ function fillToday(field) {
   setDateField(field, todayISO());
 }
 
+/**
+ * statisticsShown is the answer the statistics charts were drawn from, kept for
+ * the workbook of them: a chart has no cells, so the workbook writes the figures
+ * the bars stand for. Forgotten with the rest at a sign-out.
+ */
+let statisticsShown = null;
+
 async function loadStatistics() {
   const card = $('#statistics-card');
   if (!card || !can('timesheets:read:own')) return;
@@ -15856,6 +16128,7 @@ async function loadStatistics() {
 
   const stats = await api(`/me/statistics?${params}`);
 
+  statisticsShown = stats;
   evaluatedPeriod.statistics = { from: stats.from, to: stats.to };
 
   $('#statistics-total').textContent =
@@ -16017,6 +16290,46 @@ async function downloadDocument(doc, name) {
       'X-CSRF-Token': readCookie('timepulse_csrf'),
     },
     body: JSON.stringify(doc),
+  });
+}
+
+/**
+ * The same evaluation as a workbook. What goes is the document without its
+ * pictures and colours, which a sheet has no use for, and with every figure the
+ * screen wrote read back as a number - in the reader's own way of writing one,
+ * as the tables are sorted by - so the sheet holds a column it can add up. A
+ * builder holding the numbers themselves sends them as figures and is believed.
+ */
+async function downloadWorkbook(doc, name) {
+  const separators = numberSeparators();
+  const figure = (text) => numberKey(String(text ?? '').trim(), separators);
+
+  const sections = (doc.sections ?? []).map(({ heading, caption, table }) => ({
+    heading,
+    caption,
+    table: table && {
+      ...table,
+      figures: table.figures
+        ?? table.rows.map((row) => row.map((cell, i) => (table.numeric?.[i] ? figure(cell) : null))),
+    },
+  }));
+
+  const summary = doc.summary ?? [];
+
+  await downloadFile(`${API}/exports/workbook?lang=${encodeURIComponent(activeLanguage())}`,
+    name, 'xlsx', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': readCookie('timepulse_csrf'),
+    },
+    body: JSON.stringify({
+      title: doc.title,
+      subtitle: doc.subtitle,
+      sections,
+      summary,
+      summaryFigures: doc.summaryFigures ?? summary.map((line) => figure(line.value)),
+    }),
   });
 }
 
@@ -16538,13 +16851,14 @@ function coverageOf(evaluated) {
 }
 
 /**
- * Sends one evaluation off to be laid out, and saves what comes back.
+ * Sends one evaluation off to be laid out, and saves what comes back - as a PDF,
+ * or as whatever download asks for.
  *
  * The whole card is disabled while it runs. Building the picture and posting it
  * takes a moment on a long table, and a second press would produce a second
  * identical document rather than a faster one.
  */
-async function exportEvaluation(button, name, build) {
+async function exportEvaluation(button, name, build, download = downloadDocument) {
   if (!button) return;
 
   // What the button is, kept so it can be given back. The key comes off the
@@ -16566,7 +16880,7 @@ async function exportEvaluation(button, name, build) {
   swapTheLabel(button, 'report.exporting', 'Preparing …');
 
   try {
-    await downloadDocument(await build(), name);
+    await download(await build(), name);
   } catch (err) {
     toastFailure(err);
   } finally {
@@ -16648,6 +16962,71 @@ async function statisticsDocument() {
   };
 }
 
+/**
+ * statisticsWorkbook is the statistics screen for a workbook. Its sections are
+ * charts, which have no cells, so it carries the figures they are drawn from
+ * instead - the answer on screen, labelled as the bars are.
+ */
+function statisticsWorkbook() {
+  const stats = statisticsShown ?? {};
+  const table = (heading, bars) => ({
+    columns: [heading, t('field.hours', 'Hours')],
+    numeric: [false, true],
+    rows: bars.map((bar) => [bar.label, fmtHours(bar.value)]),
+    figures: bars.map((bar) => [null, bar.value]),
+  });
+
+  return {
+    title: t('stats.title', 'My hours'),
+    subtitle: periodOf(evaluatedPeriod.statistics),
+    sections: [
+      {
+        heading: t('stats.perDay', 'Hours per day'),
+        table: table(t('field.day', 'Day'),
+          (stats.days ?? []).map((day) => ({ label: fmtDate(day.date), value: day.hours }))),
+      },
+      {
+        heading: t('stats.perProject', 'Hours per project'),
+        table: table(t('field.project', 'Project'), projectBars(stats.projects ?? [])),
+      },
+      {
+        heading: t('stats.perActivity', 'Hours per activity'),
+        table: table(t('stats.activity', 'Activity'),
+          activityBars(stats.tags ?? [], stats.untaggedHours ?? 0)),
+      },
+    ],
+    summary: [{ label: t('stats.total', 'Total'), value: fmtHours(stats.totalHours ?? 0) }],
+    summaryFigures: [stats.totalHours ?? 0],
+  };
+}
+
+/** The year card: its months against the year before, and what it comes to. */
+async function yearDocument() {
+  return {
+    title: $('#year-title').textContent.trim(),
+    colours: screenColours(),
+    subtitle: $('#year-summary').textContent.trim(),
+    sections: [{ table: tableAsFigures($('#table-year')) }],
+  };
+}
+
+/**
+ * The days away as their list shows them, for an employer's records - this
+ * year's, narrowed to a reason or searched where somebody did that, which the
+ * subtitle then says.
+ */
+async function absenceDocument() {
+  const table = $('#table-absences');
+  const pager = pagers.get(table);
+
+  return {
+    title: t('absence.title', 'Days away'),
+    colours: screenColours(),
+    subtitle: [todayISO().slice(0, 4), pager?.choice, pager?.query].filter(Boolean).join(' · '),
+    sections: [{ table: tableAsFigures(table) }],
+  };
+}
+
 /** The overtime screen: the day-by-day table and the balance. */
 async function overtimeDocument() {
   return {
@@ -16674,11 +17053,11 @@ async function overtimeDocument() {
  * is pressed, not when it is wired: somebody who switches language after the
  * page loads should get a file named in the language they are now reading.
  */
-function wireDocumentExport(selector, name, build) {
+function wireDocumentExport(selector, name, build, download = downloadDocument) {
   const button = $(selector);
   if (!button) return;
 
-  button.addEventListener('click', () => exportEvaluation(button, name(), build));
+  button.addEventListener('click', () => exportEvaluation(button, name(), build, download));
 }
 
 /**
@@ -16700,6 +17079,25 @@ function wireDocumentExports() {
   wireDocumentExport('#changes-pdf', () => t('changes.filename', 'changes-to-the-installation'),
     changesDocument);
   wireDocumentExport('#vacation-pdf', () => t('vacation.filename', 'leave'), vacationDocument);
+  wireDocumentExport('#absence-pdf', () => t('absence.filename', 'days-away'), absenceDocument);
+  wireDocumentExport('#year-pdf', () => t('year.filename', 'year'), yearDocument);
+
+  // The same screens as workbooks, from the same builders but one: the
+  // statistics are charts, which have no cells, so their workbook is built from
+  // the figures the charts are drawn from.
+  wireDocumentExport('#report-xlsx', () => t('report.filename', 'report'), reportDocument,
+    downloadWorkbook);
+  wireDocumentExport('#statistics-xlsx', () => t('stats.filename', 'statistics'),
+    statisticsWorkbook, downloadWorkbook);
+  wireDocumentExport('#overtime-xlsx', () => t('ot.filename', 'overtime'), overtimeDocument,
+    downloadWorkbook);
+  wireDocumentExport('#changes-xlsx', () => t('changes.filename', 'changes-to-the-installation'),
+    changesDocument, downloadWorkbook);
+  wireDocumentExport('#vacation-xlsx', () => t('vacation.filename', 'leave'), vacationDocument,
+    downloadWorkbook);
+  wireDocumentExport('#absence-xlsx', () => t('absence.filename', 'days-away'), absenceDocument,
+    downloadWorkbook);
+  wireDocumentExport('#year-xlsx', () => t('year.filename', 'year'), yearDocument, downloadWorkbook);
 }
 
 // ------------------------------------------- export and import, table by table
@@ -16881,7 +17279,7 @@ function buildSheetCard(spec) {
   });
 
   const picker = el('label', { class: 'file-pick', 'data-perm': spec.write },
-    el('span', { 'data-i18n': 'wb.choose', text: 'Choose a file…' }), file);
+    el('span', { 'data-i18n': 'wb.importFrom', text: 'Import from .xlsx…' }), file);
 
   file.addEventListener('change', () => {
     const chosen = Boolean(file.files?.length);
@@ -16989,12 +17387,20 @@ const reportChart = { kind: 'bars', scope: 'projects', projects: [], days: [] };
  * its name, target and booked hours, and the charts of where its time went. The
  * chart's shape is a preference rather than anybody's hours, and its buttons
  * show it, so only the figures go.
+ *
+ * The statement of work was missing here, and it is the one that says what
+ * somebody's hours are charged at: its card stayed up with the last account's
+ * total per currency in its foot.
  */
 function forgetEveryEvaluation() {
-  for (const card of ['#report-result', '#overtime-result']) {
+  for (const card of ['#report-result', '#overtime-result', '#statement-result']) {
     const node = $(card);
     if (node) node.hidden = true;
   }
+
+  $('#table-statement tfoot')?.replaceChildren();
+  statementShown = null;
+  statisticsShown = null;
 
   for (const said of ['#report-total', '#report-chart-caption', '#overtime-total', '#overtime-meta',
     '#overtime-rule', '#statistics-total', '#report-budget', '#workday-total']) {
@@ -17834,7 +18240,7 @@ function fillTelemetryForm(data) {
   // which the comment over it calls the one thing here somebody wants to copy.
   // An administrator who types in this form and then restarts from the card below
   // came back to a description of the process that had gone.
-  if (!beingEdited(form)) fillTelemetryBoxes(form, configured);
+  if (!beingEdited(form)) fillTelemetryBoxes(form, configured, data.file ?? {});
 
   const active = data.active ?? {};
 
@@ -17862,8 +18268,28 @@ function fillTelemetryForm(data) {
   if (active.tracerUrl) form.elements.tracerUrl.placeholder = active.tracerUrl;
 }
 
-/** The stored settings, which are whoever is at the keyboard's to change. */
-function fillTelemetryBoxes(form, configured) {
+/**
+ * The stored settings, which are whoever is at the keyboard's to change, with
+ * what the configuration file says wherever nothing is stored - as values, as
+ * the database connection shows its own.
+ *
+ * A select keeps its option for following the file, because "the file's, until
+ * the file changes" and "this, whatever the file says" are different settings;
+ * the option names what the file says rather than only that it is followed. A
+ * text box holds the file's value, and telemetryPayload leaves out a value that
+ * is the file's, so saving it unchanged keeps following the file.
+ */
+function fillTelemetryBoxes(form, configured, file) {
+  const fromFile = (value) => fillIn(t('tel.fromFile', '{0} - from the configuration file'), [value]);
+
+  followOption(form.elements.logLevel).textContent = file.logLevel ? fromFile(file.logLevel) : t('tel.follow', 'Follow the configuration file');
+  followOption(form.elements.metricsOff).textContent = fromFile(file.metricsServed
+    ? fillIn(t('tel.servedOn', 'Served on port {0}'), [file.metricsPort])
+    : t('tel.notServed', 'Not served'));
+  followOption(form.elements.traceExporter).textContent = fromFile(file.traceExporter
+    ? file.traceExporter.toUpperCase()
+    : t('tel.notExported', 'Exported nowhere'));
+
   form.elements.logLevel.value = configured.logLevel ?? '';
   form.elements.metricsOff.value = configured.metricsOff ? TELEMETRY_OFF : '';
 
@@ -17874,8 +18300,15 @@ function fillTelemetryBoxes(form, configured) {
     form.elements.traceExporter.value = configured.traceExporter || TELEMETRY_OFF;
   }
 
-  form.elements.tracerUrl.value = configured.tracerUrl ?? '';
-  form.elements.tracerRatio.value = configured.tracerRatio ?? '';
+  form.elements.tracerUrl.value = configured.tracerUrl ?? file.tracerUrl ?? '';
+  form.elements.tracerUrl.dataset.file = file.tracerUrl ?? '';
+  form.elements.tracerRatio.value = String(configured.tracerRatio ?? file.tracerRatio ?? '');
+  form.elements.tracerRatio.dataset.file = String(file.tracerRatio ?? '');
+}
+
+/** A select's option for following the configuration file, its empty one. */
+function followOption(select) {
+  return select.querySelector('option[value=""]');
 }
 
 /**
@@ -17922,11 +18355,13 @@ function telemetryPayload() {
   if (exporter === TELEMETRY_OFF) body.traceExporter = '';
   else if (exporter !== '') body.traceExporter = exporter;
 
+  // The file's own value is left out like an empty box, so a box filled with it
+  // by the loader keeps following the file when the form is saved unchanged.
   const url = form.elements.tracerUrl.value.trim();
-  if (url !== '') body.tracerUrl = url;
+  if (url !== '' && !theFilesOwn(url, form.elements.tracerUrl.dataset.file)) body.tracerUrl = url;
 
   const ratio = form.elements.tracerRatio.value.trim();
-  if (ratio !== '') body.tracerRatio = Number(ratio);
+  if (ratio !== '' && !theFilesOwn(ratio, form.elements.tracerRatio.dataset.file)) body.tracerRatio = Number(ratio);
 
   return body;
 }
@@ -18736,7 +19171,7 @@ function warnAboutLevelsTheProcessDoesNotWrite() {
   warning.textContent = quieter.length
     ? t('log.levelTooQuiet',
       'This installation is writing {0} and above, so {1} will stay empty. '
-      + 'The log level is set under "Logging, metrics and tracing" on the Operation tab.')
+      + 'The log level is set under "Logging, metrics and tracing" just above.')
       .replace('{0}', logView.runningLevel)
       .replace('{1}', quieter.join(', '))
     : '';
@@ -19316,9 +19751,10 @@ function arrangeScreenTabs() {
  * Shows one tab of a screen, and hides the panels of the others.
  *
  * Kept for the session, per screen, so a reload comes back to the same tab
- * rather than to the first one, which is seldom where somebody was working.
+ * rather than to the first one, which is seldom where somebody was working -
+ * unless remember is false, for a tab only standing in for an empty one.
  */
-function showScreenTab(view, key, { focus = false } = {}) {
+function showScreenTab(view, key, { focus = false, remember = true } = {}) {
   if (!key) return;
 
   for (const tab of $$('[role="tab"]', view)) {
@@ -19334,6 +19770,8 @@ function showScreenTab(view, key, { focus = false } = {}) {
     const shown = panel.dataset.cardPanel === key;
     if (panel.hidden === shown) panel.hidden = !shown;
   }
+
+  if (!remember) return;
 
   try {
     sessionStorage.setItem(`timepulse.tab.${view.id}`, key);
@@ -19384,6 +19822,12 @@ function rememberedScreenTab(view) {
  *
  * The chosen one moves to the first left when it empties, and the strip goes
  * when one tab is all there is: a choice of one says nothing the cards do not.
+ *
+ * The tab moved to only stands in, so it is not remembered as anybody's choice,
+ * and the one it stood in for comes back as soon as it holds something again.
+ * Before anybody signs in, the cards of the time entries' first tab are hidden
+ * by their rights: remembering the stand-in opened that screen on the list of
+ * entries for the rest of the session instead of on the form that books one.
  */
 function offerTheTabsThatHoldSomething(view) {
   const tabs = $$('[role="tab"]', view);
@@ -19403,7 +19847,16 @@ function offerTheTabsThatHoldSomething(view) {
   if (strip && strip.hidden === several) strip.hidden = !several;
 
   const chosen = tabs.find((tab) => tab.getAttribute('aria-selected') === 'true');
-  if (first && (!chosen || chosen.hidden)) chooseScreenTab(view, first.dataset.cardTab);
+  const wantedKey = rememberedScreenTab(view) ?? tabs[0]?.dataset.cardTab;
+  const wanted = tabs.find((tab) => tab.dataset.cardTab === wantedKey);
+
+  if (wanted && !wanted.hidden) {
+    if (chosen !== wanted) chooseScreenTab(view, wantedKey, { remember: false });
+
+    return;
+  }
+
+  if (first && (!chosen || chosen.hidden)) chooseScreenTab(view, first.dataset.cardTab, { remember: false });
 }
 
 /** Moves along a strip with the arrow keys, Home and End, as any tab strip does. */
@@ -19846,11 +20299,10 @@ function wireForms() {
       changes.budgetHours = budget === '' ? 0 : Number(budget);
 
       // The same for the rate: an emptied box takes it off. The switch says what
-      // it says either way, and an emptied currency is euros again.
+      // it says either way.
       const rate = form.elements.hourlyRate.value;
       changes.hourlyRate = rate === '' ? 0 : Number(rate);
       changes.billable = form.elements.billable.checked;
-      changes.currency = form.elements.currency.value.trim();
 
       mutate(() => api(`/projects/${id}`,
         { method: 'PUT', body: JSON.stringify(changes) }),
@@ -19875,6 +20327,9 @@ function wireForms() {
   });
 
   $('#project-cancel').addEventListener('click', resetProjectForm);
+
+  // Named in the language the screen speaks, and again whenever that changes.
+  redrawable('currencies', () => fillCurrencies(), { installation: true });
 
   $('#form-timesheet').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -19925,6 +20380,7 @@ function wireForms() {
       // Keeps the project and the date, so booking several entries in a row stays
       // quick.
       resetTimesheetForm();
+      if (editing) returnFromCorrection();
 
       // Kept, nothing changed on the server to show, and nothing could be asked
       // of it anyway: reloading would only add a second notice to the first.
@@ -19940,7 +20396,10 @@ function wireForms() {
     });
   });
 
-  $('#timesheet-cancel').addEventListener('click', resetTimesheetForm);
+  $('#timesheet-cancel').addEventListener('click', () => {
+    resetTimesheetForm();
+    returnFromCorrection();
+  });
 
   // Back to the placeholder once it has filled the form: left showing the
   // template, it would go on claiming the form says what the template says after

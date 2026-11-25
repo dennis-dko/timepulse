@@ -32,6 +32,7 @@ func TestTheEntriesAreSearchedFromTheList(t *testing.T) {
 	})()`, nil)
 
 	p.run("open the entries", p.click(`.tab[data-view="timesheets"]`),
+		p.click(`#timesheets-tabs [data-card-tab="entries"]`),
 		chromedp.WaitVisible("#form-ts-filters", chromedp.ByID),
 		chromedp.SendKeys("#filter-ts-q", "review", chromedp.ByID))
 

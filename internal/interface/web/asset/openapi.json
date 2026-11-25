@@ -359,7 +359,7 @@
           "me"
         ],
         "summary": "Arrange the tiles of your welcome screen, or go back to the order it ships with",
-        "description": "Body: {\"tiles\": [\"leave\", \"week\", \"balance\"]} - the tiles' names in the order they are to stand; GET /me answers the order as dashboard. A tile not named keeps its place after the named ones, in the order the screen ships with, and a name the screen no longer has is passed over, so an arrangement outlives a release that adds or removes a tile. An empty list goes back to the shipped order. Names are lower-case letters, none twice and at most 24 of them; anything else is refused naming tiles. Kept on the account rather than in the browser, so the phone shows the order chosen at the desk.",
+        "description": "Body: {\"tiles\": [\"leave\", \"week\", \"balance\"]} - the tiles' names in the order they are to stand; GET /me answers the order as dashboard. A tile not named keeps its place after the named ones, in the order the screen ships with, and a name the screen no longer has is passed over, so an arrangement outlives a release that adds or removes a tile. An empty list goes back to the shipped order. A name with a \"-\" before it is a tile put away: it keeps its place in the arrangement and is not shown, and naming it without the \"-\" brings it back. Names are lower-case letters, none twice and at most 24 of them; anything else is refused naming tiles. Kept on the account rather than in the browser, so the phone shows the order chosen at the desk.",
         "responses": {
           "200": {
             "description": "Saved; answers {\"tiles\": [...]}"
@@ -857,7 +857,7 @@
           "projects"
         ],
         "summary": "Create a project",
-        "description": "The project belongs to whoever created it, always. There was a `private: true` to ask for that, and `projects:write:own` beside `projects:write` to decide which kind you were allowed to make; there is one kind, so neither is left. `startDate` is optional - a project is one person’s way of organising their own hours, not a plan. `budgetHours` is optional too: how many hours you mean to spend on it, between 0 and 100000, which nobody but you sees or signs off. Needs `projects:write`. `ownerId` names an account you look after with `projects:write:team`, while the installation has managers switched on (see /settings/managers): the project is then that account's. Any other account is refused (onlyOwnProjects). `billable`, `hourlyRate` and `currency` say what its hours are charged at, for GET /reports/statement: a rate in whole units of the currency, kept to the hundredth and between 0 and 100000, and a currency of three letters, EUR where left out.",
+        "description": "The project belongs to whoever created it, always. There was a `private: true` to ask for that, and `projects:write:own` beside `projects:write` to decide which kind you were allowed to make; there is one kind, so neither is left. `startDate` is optional - a project is one person’s way of organising their own hours, not a plan. `budgetHours` is optional too: how many hours you mean to spend on it, between 0 and 100000, which nobody but you sees or signs off. Needs `projects:write`. `ownerId` names an account you look after with `projects:write:team`, while the installation has managers switched on (see /settings/managers): the project is then that account's. Any other account is refused (onlyOwnProjects). `billable`, `hourlyRate` and `currency` say what its hours are charged at, for GET /reports/statement: a rate in whole units of the currency, kept to the hundredth and between 0 and 100000, and a currency of three letters, EUR where left out. A project is created archived only with `projects:archive` (missingPermission).",
         "requestBody": {
           "required": true,
           "content": {
@@ -909,7 +909,7 @@
           "projects"
         ],
         "summary": "Update a project",
-        "description": "Changes a project of your own, or with `projects:write:team` one of an account you look after as a manager; any other answers 404. Every field is optional: one left out or sent as null stays as it is - null does not remove anything here. An empty `endDate` takes the end date off, an empty `description` empties it, a `budgetHours` of 0 takes the budget off, an `hourlyRate` of 0 takes the rate off, and an empty `currency` is EUR again. A rate below 0 or above 100000 is refused (invalidFields hourlyRate), and a currency that is not three letters (invalidFields currency).",
+        "description": "Changes a project of your own, or with `projects:write:team` one of an account you look after as a manager; any other answers 404. Every field is optional: one left out or sent as null stays as it is - null does not remove anything here. An empty `endDate` takes the end date off, an empty `description` empties it, a `budgetHours` of 0 takes the budget off, an `hourlyRate` of 0 takes the rate off, and an empty `currency` is EUR again. A rate below 0 or above 100000 is refused (invalidFields hourlyRate), and a currency that is not three letters (invalidFields currency). A `status` that moves the project into the archive or out of it needs `projects:archive`, as the archive route does (missingPermission); one sent as it already is changes nothing.",
         "responses": {
           "200": {
             "description": "Updated"
@@ -1639,7 +1639,7 @@
           "settings"
         ],
         "summary": "Read the logging, metrics and tracing settings",
-        "description": "Returns what has been administered under \"configured\" and what this process is actually writing, serving and exporting under \"active\". The two disagree until the next restart. An absent field under \"configured\" follows the configuration file; \"traceExporter\": \"\" is an administered off, which is a different thing. Administrator only.",
+        "description": "Returns what has been administered under \"configured\" and what this process is actually writing, serving and exporting under \"active\". The two disagree until the next restart. An absent field under \"configured\" follows the configuration file; \"traceExporter\": \"\" is an administered off, which is a different thing. What the configuration file itself says is under \"file\", in the shape of \"active\": the value an absent field follows. Administrator only.",
         "responses": {
           "200": {
             "description": "OK"
@@ -1679,6 +1679,7 @@
           "settings"
         ],
         "summary": "Read the LDAP configuration; the bind password is never returned",
+        "description": "Answers the stored directory configuration without the bind password, with hasPassword saying whether one is stored, and fileSyncSchedule: the reconciliation schedule the configuration file gives, which runs while syncSchedule is empty. Administrator only.",
         "responses": {
           "200": {
             "description": "Configuration"
@@ -2561,6 +2562,45 @@
         }
       }
     },
+    "/exports/workbook": {
+      "post": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Export an evaluation as .xlsx",
+        "description": "The request POST /exports/document takes, read the same way and bounded by the same limits, written as a workbook of one sheet rather than as a page: the title, the period, each section's heading over its table, and the summary. A cell whose `figures` entry is a number is written as that number, so a column of hours can be added up; any other cell is written as the text the screen showed. A chart has no cells and is left out. Who exported it and when are the workbook's properties rather than part of the sheet.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An .xlsx workbook",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The evaluation is missing a title, or is larger than one document may be"
+          },
+          "401": {
+            "description": "No session"
+          }
+        }
+      }
+    },
+
     "/timesheets/export": {
       "get": {
         "tags": [
@@ -3959,6 +3999,17 @@
               }
             },
             "description": "What each cell says with its colour on the screen, row by row beside `rows`: `plus` and `minus` for a balance in credit or in debt, `muted` for a cell quieter than the rest, `notice` for one the screen tints. The document prints each in shades of its own - the light theme's - whatever theme the screen was in. A cell with no tone, or one this server does not know, is printed in the page's ink."
+          },
+          "figures": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "nullable": true
+              }
+            },
+            "description": "Each cell as a number, row by row beside `rows`, null where the cell is not one. Read by POST /exports/workbook alone, which writes such a cell as the number; the PDF prints the text."
           }
         }
       },
@@ -4018,6 +4069,14 @@
               }
             },
             "description": "The figures that stand on their own: a total, or the three numbers an overtime calculation comes to."
+          },
+          "summaryFigures": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "nullable": true
+            },
+            "description": "Each summary line's value as a number, beside `summary`, null where it is not one - for POST /exports/workbook, as `figures` is."
           },
           "colours": {
             "type": "object",

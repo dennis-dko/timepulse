@@ -33,7 +33,35 @@ func TestTheProjectFormStopsWhereTheServerDoes(t *testing.T) {
 		}
 	}
 
-	if !regexp.MustCompile(`name="currency"[^>]*maxlength="3"`).MatchString(html) {
-		t.Error("the currency field takes more than the three letters of a code")
+	// A currency is picked rather than typed, among the codes CURRENCIES in app.js
+	// lists: each three capital letters, as the server takes them, none twice, and
+	// the server's own default among them and named as the picker's.
+	if !regexp.MustCompile(`<select name="currency"`).MatchString(html) {
+		t.Error("the currency is typed rather than picked")
+	}
+
+	script := asset(t, "/app.js")
+
+	block := regexp.MustCompile(`(?s)const CURRENCIES = \[(.*?)\];`).FindStringSubmatch(script)
+	if block == nil {
+		t.Fatal("app.js lists no CURRENCIES for the picker")
+	}
+
+	seen := map[string]bool{}
+
+	for _, code := range regexp.MustCompile(`'([^']*)'`).FindAllStringSubmatch(block[1], -1) {
+		if !regexp.MustCompile(`^[A-Z]{3}$`).MatchString(code[1]) || seen[code[1]] {
+			t.Errorf("the picker offers %q, which is not a code the server takes or is offered twice", code[1])
+		}
+
+		seen[code[1]] = true
+	}
+
+	if !seen[model.DefaultCurrency] {
+		t.Errorf("the picker does not offer %s, the server's default", model.DefaultCurrency)
+	}
+
+	if !regexp.MustCompile(`const DEFAULT_CURRENCY = '` + model.DefaultCurrency + `';`).MatchString(script) {
+		t.Errorf("the picker's default is not %s, the server's", model.DefaultCurrency)
 	}
 }

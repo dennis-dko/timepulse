@@ -38,6 +38,7 @@ func TestACorrectedEntryShowsWhatItSaidBefore(t *testing.T) {
 	})()`, nil)
 
 	p.run("open the entries", p.click(`.tab[data-view="timesheets"]`),
+		p.click(`#timesheets-tabs [data-card-tab="entries"]`),
 		chromedp.WaitVisible("#table-timesheets", chromedp.ByID))
 
 	p.waitForText("#table-timesheets tbody", "3.00")

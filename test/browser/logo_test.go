@@ -24,7 +24,7 @@ func TestTheSignInScreenKeepsTimePulsesMarkWhateverTheLogo(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	// Through the API rather than the file picker: what is being checked is what
@@ -154,7 +154,7 @@ func TestTheLogoSlotsStayEmptyUntilALogoIsConfigured(t *testing.T) {
 
 	// And a configured logo fills the header.
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.storeBranding(t, wideLogo)
@@ -265,14 +265,14 @@ func TestSavingTheLogoRedrawsTheBarWithoutAReload(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.storeBranding(t, wideLogo)
 
 	p.reload()
 	p.run("open Settings again", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	before := p.attr("#brand-logo", "src")

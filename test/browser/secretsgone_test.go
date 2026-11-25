@@ -25,11 +25,11 @@ import (
 // enrolment's, the one a new token is shown with for an app to scan, and the
 // calendar address's.
 //
-// In two rounds, because the enrolment and the other two are on different tabs of
-// My account, and changing tabs takes a secret off the screen as leaving the
-// screen does: a token and a calendar address, signed out; then an enrolment,
-// signed out. Between them every marked element has to have held something, or
-// the case is not covering what it means to.
+// In three rounds, because the three are on different tabs of My account, and
+// changing tabs takes a secret off the screen as leaving the screen does: a
+// token, signed out; a calendar address, signed out; then an enrolment, signed
+// out. Between them every marked element has to have held something, or the case
+// is not covering what it means to.
 func TestNothingMarkedSecretSurvivesTheSignOut(t *testing.T) {
 	t.Parallel()
 
@@ -84,20 +84,29 @@ func TestNothingMarkedSecretSurvivesTheSignOut(t *testing.T) {
 		return before
 	}
 
-	p.run("make a token and a calendar address",
+	p.run("make a token",
 		p.click(`.tab[data-view="settings"]`),
-		p.click(`#settings-tabs [data-card-tab="apps"]`),
+		p.click(`#settings-tabs [data-card-tab="api"]`),
 		chromedp.SendKeys(`#form-token input[name="name"]`, "Reader", chromedp.ByQuery),
 		p.click(`#form-token button[type="submit"]`),
-		chromedp.WaitVisible("#token-secret", chromedp.ByID),
-		p.click("#feed-create"),
-		chromedp.WaitVisible("#feed-address", chromedp.ByID))
+		chromedp.WaitVisible("#token-secret", chromedp.ByID))
 
-	marked := signOutAndLook("with a token and a calendar address")
+	marked := signOutAndLook("with a token")
 
 	if len(marked) == 0 {
 		t.Fatal("nothing on the page is marked as a secret, so this case checks nothing")
 	}
+
+	p.signIn(workerEmail, workerPassword)
+	p.waitGone("#login-screen")
+
+	p.run("make a calendar address",
+		p.click(`.tab[data-view="settings"]`),
+		p.click(`#settings-tabs [data-card-tab="apps"]`),
+		p.click("#feed-create"),
+		chromedp.WaitVisible("#feed-address", chromedp.ByID))
+
+	signOutAndLook("with a calendar address")
 
 	p.signIn(workerEmail, workerPassword)
 	p.waitGone("#login-screen")

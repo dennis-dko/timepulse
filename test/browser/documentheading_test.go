@@ -37,7 +37,9 @@ func TestAnEvaluationDocumentIsHeadedWithThePeriodItsFiguresAreFor(t *testing.T)
 			`#form-overtime button[type="submit"]`, "#overtime-result", "#overtime-pdf"},
 		{"overtime", "#statistics-from", "#statistics-to", "#statistics-load", "#statistics-card", "#statistics-pdf"},
 	} {
-		p.run("evaluate March on "+screen.button, p.click(`.tab[data-view="`+screen.tab+`"]`),
+		p.run("open "+screen.tab, p.click(`.tab[data-view="`+screen.tab+`"]`))
+		p.showTabOf(screen.ask)
+		p.run("evaluate March on "+screen.button,
 			chromedp.Evaluate(`setDateField(document.querySelector('`+screen.from+`'), '2026-03-01');
 				setDateField(document.querySelector('`+screen.to+`'), '2026-03-31')`, nil),
 			p.click(screen.ask))

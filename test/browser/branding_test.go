@@ -37,7 +37,7 @@ func TestAConfiguredTextFillsInPlaceholdersAndMakesLinks(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.storeBranding(t, "")
@@ -86,7 +86,7 @@ func TestAConfiguredTextCannotSmuggleSomethingIn(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.setBrandingText(t, "footerText",
@@ -162,7 +162,7 @@ func TestTheConfiguredTextsFollowTheReadersLanguage(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	// English first, which is the base: what a reader gets when their own
@@ -214,7 +214,7 @@ func TestALanguageWithNoTextsFallsBackRatherThanEmptying(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.run("write one language only",
@@ -307,7 +307,7 @@ func TestTheBrowserTabCanBeNamedSeparately(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.run("add to both",
@@ -370,7 +370,7 @@ func TestALanguageWithNothingWrittenKeepsFollowingTheBase(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.saveBranding(t, "name the installation",

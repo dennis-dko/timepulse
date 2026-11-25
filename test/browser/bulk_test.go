@@ -47,6 +47,9 @@ func TestSeveralRowsAreDeletedAtOnce(t *testing.T) {
 		p.waitForText("#table-timesheets tbody", figure)
 	}
 
+	// The list is a tab of its own, beside the form that booked them.
+	p.showTabOf("#entries-card")
+
 	// The column exists because the rows offer deletion, and there is one checkbox
 	// per row rather than one for the table.
 	if got := p.count("#table-timesheets tbody input.row-pick"); got != len(hours) {
@@ -137,6 +140,8 @@ func TestTheBarStandsDownWhenOnlySomeRowsWereDeleted(t *testing.T) {
 
 		p.waitForText("#table-timesheets tbody", figure)
 	}
+
+	p.showTabOf("#entries-card")
 
 	// Two of the three, by ticking them one at a time rather than select-all.
 	p.run("tick the first two",

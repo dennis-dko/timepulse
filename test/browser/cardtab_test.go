@@ -24,24 +24,24 @@ func TestTheLongScreensAreSortedIntoTabs(t *testing.T) {
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`), chromedp.WaitVisible(`#admin-tabs`, chromedp.ByQuery))
 
-	if !p.visible("#form-branding") || p.visible("#form-ldap") || p.visible("#log-card") {
-		t.Error("Settings does not open on its first tab alone: the appearance should be shown, " +
-			"and the directory and the log should not")
+	if !p.visible("#form-timezone") || p.visible("#form-branding") || p.visible("#form-ldap") || p.visible("#log-card") {
+		t.Error("Settings does not open on its first tab alone: the timezone should be shown, " +
+			"and the appearance, the directory and the log should not")
 	}
 
-	p.run("choose the sign-in tab", p.click(`#admin-tabs [data-card-tab="signin"]`))
+	p.run("choose the directory tab", p.click(`#admin-tabs [data-card-tab="directory"]`))
 
-	if !p.visible("#form-ldap") || p.visible("#form-branding") {
-		t.Error("choosing Sign-in did not put the directory on screen in place of the appearance")
+	if !p.visible("#form-ldap") || p.visible("#form-timezone") {
+		t.Error("choosing Directory did not put the directory on screen in place of the general settings")
 	}
 
-	if selected := p.attr(`#admin-tabs [data-card-tab="signin"]`, "aria-selected"); selected != "true" {
+	if selected := p.attr(`#admin-tabs [data-card-tab="directory"]`, "aria-selected"); selected != "true" {
 		t.Errorf("the chosen tab says aria-selected=%q", selected)
 	}
 
 	p.run("walk on with the arrow key", chromedp.KeyEvent(kb.ArrowRight))
 
-	if !p.visible("#form-datasource") || p.visible("#form-ldap") {
+	if !p.visible("#form-maintenance") || p.visible("#form-ldap") {
 		t.Error("the right arrow did not move on to the next tab")
 	}
 

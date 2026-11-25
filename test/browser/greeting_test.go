@@ -184,7 +184,7 @@ func TestTheGreetingShowsTheLastEntries(t *testing.T) {
 
 	// And the way through to all of them.
 	p.run("all entries", p.click("#welcome-recent-all"),
-		chromedp.WaitVisible("#form-timesheet", chromedp.ByID))
+		chromedp.WaitVisible("#entries-card", chromedp.ByID))
 
 	if !p.visible("#table-timesheets") {
 		t.Error("the way to all entries does not lead to them")

@@ -68,7 +68,7 @@ func TestTheInstallCardIsNotInTheAndroidApp(t *testing.T) {
 	// On the tab the card would be on, with a card beside it shown, so that the
 	// card not being there is the card's doing rather than the tab's.
 	p.showTabOf("#install-card")
-	p.waitShown("#token-card")
+	p.waitShown("#feed-card")
 
 	if p.visible("#install-card") {
 		t.Error("inside the Android app the card offers the Android app")
