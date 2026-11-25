@@ -11988,8 +11988,8 @@ const TOUR_STEPS = [
     permission: 'timesheets:read:own',
     title: () => t('tour.timesheetsTabs.title', 'Time entries, by task'),
     text: () => t('tour.timesheetsTabs.text',
-      'Recording, the list of entries, templates and the spreadsheet each have a tab of their '
-      + 'own. The walk opens each one as it gets there.'),
+      'Recording, the list of entries and the templates each have a tab of their own. The '
+      + 'walk opens each one as it gets there.'),
   },
   {
     target: '#timer-card',
@@ -12033,6 +12033,16 @@ const TOUR_STEPS = [
       + 'submit it to.'),
   },
   {
+    target: '#wb-actions',
+    view: 'timesheets',
+    permission: 'timesheets:read:own',
+    title: () => t('tour.sheet.title', 'In and out'),
+    text: () => t('tour.sheet.text',
+      'What the filters show leaves as a PDF or a spreadsheet, every page of it. An import '
+      + 'shows what it would change before it changes anything. Every card keeps its exports '
+      + 'and imports in its last row.'),
+  },
+  {
     target: '#templates-card',
     view: 'timesheets',
     permission: 'timesheets:write:own',
@@ -12040,16 +12050,6 @@ const TOUR_STEPS = [
     text: () => t('tour.templates.text',
       'Bookings you make often, kept with "Save as template" in the booking form on the '
       + 'Record tab. A template only fills that form in: nothing is booked until you press Book.'),
-  },
-  {
-    target: '#workbook-card',
-    view: 'timesheets',
-    permission: 'timesheets:read:own',
-    title: () => t('tour.sheet.title', 'In and out as a spreadsheet'),
-    text: () => t('tour.sheet.text',
-      'Your hours as a spreadsheet, with the column headings in the language you are '
-      + 'reading. An import shows you what it would change before it changes anything. '
-      + 'Every table worth moving this way has the same pair on its own screen.'),
   },
   {
     target: '#week-card',
@@ -16431,7 +16431,7 @@ function renderWorkbookPreview(result) {
   $('#wb-import').hidden = rejected > 0 || writable === 0;
 }
 
-/** The resets of the tables' import cards, which buildSheetCard builds. */
+/** The resets of the tables' imports, which addExportsAndImport adds to their cards. */
 const sheetCardResets = [];
 
 /** Puts every import card back to its resting state. */
@@ -16457,9 +16457,23 @@ function resetWorkbookCard() {
   $('#table-workbook tbody').replaceChildren();
 }
 
+/**
+ * Opens the file input a button names in data-file.
+ *
+ * The input stays out of sight because the browser draws it in its own language
+ * rather than the reader's, and cannot be restyled; the button is what is seen and
+ * pressed, from the pointer and the keyboard alike, and is drawn as every other
+ * button on its row. A label dressed as a button did this before and was drawn as
+ * a box among pills.
+ */
+function wireFileButtons() {
+  for (const button of document.querySelectorAll('button[data-file]')) {
+    button.addEventListener('click', () => document.getElementById(button.dataset.file)?.click());
+  }
+}
+
 function wireWorkbook() {
-  const card = $('#workbook-card');
-  if (!card) return;
+  if (!$('#wb-file')) return;
 
   $('#wb-export').addEventListener('click', () => mutate(
     exportWorkbook, t('wb.exported', 'Export saved'), null));
@@ -16689,6 +16703,13 @@ async function chartAsPicture(container) {
  */
 function cellAsFigure(cell) {
   if (!cell) return '';
+
+  // A cell holding a choice says what is chosen. An account's role is changed
+  // from a dropdown in its row, and the cell's text taken whole is every role the
+  // dropdown offers, run together.
+  const choice = cell.querySelector('select');
+
+  if (choice) return choice.selectedOptions[0]?.textContent.trim() ?? '';
 
   const parts = [...cell.children];
   const stacked = parts.length > 1
@@ -17027,6 +17048,79 @@ async function absenceDocument() {
   };
 }
 
+/** The most entries one document carries: the most the server lays out in a table. */
+const ENTRIES_IN_A_DOCUMENT = 2000;
+
+/**
+ * The entries the filters under Entries show, as a document - every page of
+ * them, as the workbook beside it holds, not the page the list is on. The list
+ * shows a page at a time and the server holds the rest, so they are asked for
+ * here, in the order the list is sorted in.
+ */
+async function entriesDocument() {
+  const params = timesheetFilterParams();
+  const sort = serverSort($('#table-timesheets'));
+
+  if (sort) {
+    params.set('sort', sort.sort);
+    params.set('order', sort.order);
+  }
+
+  const entries = [];
+  let total = 0;
+
+  while (entries.length < ENTRIES_IN_A_DOCUMENT) {
+    params.set('offset', String(entries.length));
+    params.set('limit', String(Math.min(500, ENTRIES_IN_A_DOCUMENT - entries.length)));
+
+    const page = await api(`/timesheets?${params}`);
+    const items = page?.items ?? [];
+
+    total = page?.totalCount ?? 0;
+    entries.push(...items);
+
+    if (items.length === 0 || entries.length >= total) break;
+  }
+
+  const project = $('#filter-ts-project');
+  const from = $('#filter-ts-from')?.value;
+  const to = $('#filter-ts-to')?.value;
+  const search = $('#filter-ts-q')?.value.trim() ?? '';
+
+  return {
+    title: t('nav.timesheets', 'Time entries'),
+    colours: screenColours(),
+    subtitle: [
+      viewingFor?.name,
+      periodOf({ from, to }) || (from ? fmtDate(from) : '') || (to ? fmtDate(to) : ''),
+      project?.value ? project.selectedOptions[0].textContent.trim() : '',
+      search ? fillIn(t('changes.searchedFor', 'search: {0}'), [search]) : '',
+    ].filter(Boolean).join(' · '),
+    sections: [{
+      caption: total > entries.length
+        ? fillIn(t('wb.documentFirst', 'The first {0} of {1} entries; the filters under Entries narrow it further.'),
+          [entries.length, total])
+        : '',
+      table: {
+        columns: [t('field.date', 'Date'), t('field.project', 'Project'), t('field.hours', 'Hours'),
+          t('field.description', 'Description')],
+        numeric: [false, false, true, false],
+        rows: entries.map((entry) => [
+          fmtDate(entry.date),
+          entry.projectId ? projectName(entry.projectId) : t('ts.noProject', 'No project'),
+          fmtNumber(entry.durationHours),
+          entry.description || '–',
+        ]),
+        tones: entries.map((entry) => ['', entry.projectId ? '' : 'muted', '', '']),
+      },
+    }],
+    summary: [{
+      label: t('stats.total', 'Total'),
+      value: fmtNumber(entries.reduce((sum, entry) => sum + (entry.durationHours ?? 0), 0)),
+    }],
+  };
+}
+
 /** The overtime screen: the day-by-day table and the balance. */
 async function overtimeDocument() {
   return {
@@ -17081,6 +17175,7 @@ function wireDocumentExports() {
   wireDocumentExport('#vacation-pdf', () => t('vacation.filename', 'leave'), vacationDocument);
   wireDocumentExport('#absence-pdf', () => t('absence.filename', 'days-away'), absenceDocument);
   wireDocumentExport('#year-pdf', () => t('year.filename', 'year'), yearDocument);
+  wireDocumentExport('#wb-pdf', () => t('wb.filename', 'time-entries'), entriesDocument);
 
   // The same screens as workbooks, from the same builders but one: the
   // statistics are charts, which have no cells, so their workbook is built from
@@ -17126,31 +17221,34 @@ const SHEET_CARDS = [
   {
     key: 'projects',
     path: '/projects',
-    view: '#view-projects',
-    read: 'projects:read',
+    table: '#table-projects',
+    title: () => t('nav.projects', 'Projects'),
     write: 'projects:write',
     reload: () => refreshAll(),
   },
   {
     key: 'users',
     path: '/users',
-    view: '#view-users',
-    read: 'users:read',
+    table: '#table-users',
+    title: () => t('nav.users', 'Users'),
     write: 'users:write',
     reload: () => refreshAll(),
   },
   {
     key: 'roles',
     path: '/roles',
-    view: '#view-roles',
-    read: 'roles:read',
+    table: '#table-roles',
+    title: () => t('nav.roles', 'Roles'),
     write: 'roles:write',
     reload: () => refreshAll(),
   },
 ];
 
 /**
- * Builds the export/import card for one table.
+ * Gives a table's card its exports and its import: under the table, in the card's
+ * last row, where every card keeps them. They were a card of their own below the
+ * table's, on a tab of their own for the time entries, which put a table and the
+ * way it leaves in two places.
  *
  * Built here rather than written into index.html three times over. The markup is
  * identical for every table - the only differences are the words and the endpoint -
@@ -17161,17 +17259,20 @@ const SHEET_CARDS = [
  * translated, so this renders a file of projects and a file of people with the same
  * code and needs to know nothing about either.
  */
-function buildSheetCard(spec) {
+function addExportsAndImport(spec) {
+  const card = $(spec.table)?.closest('.card');
+  if (!card) return;
+
   const summary = el('p', { class: 'muted' });
   const headRow = el('tr');
   const body = el('tbody');
 
   const wrap = el('div', { class: 'table-wrap' },
-    el('table', {}, el('thead', {}, headRow), body));
+    el('table', { class: 'import-preview' }, el('thead', {}, headRow), body));
   wrap.hidden = true;
 
   const file = el('input', {
-    type: 'file',
+    type: 'file', class: 'file-input', tabindex: '-1', 'aria-hidden': 'true',
     accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 
@@ -17270,6 +17371,14 @@ function buildSheetCard(spec) {
     write.hidden = rejected > 0 || writable === 0;
   };
 
+  const pdfButton = el('button', {
+    type: 'button', class: 'secondary',
+    'data-i18n': 'action.exportPdf', text: 'Export as PDF',
+  });
+
+  pdfButton.addEventListener('click', () => exportEvaluation(
+    pdfButton, t(`sheet.${spec.key}.file`, spec.key), () => sheetDocument(spec)));
+
   const exportButton = el('button', {
     type: 'button', class: 'secondary',
     'data-i18n': 'wb.export', text: 'Export as .xlsx',
@@ -17278,8 +17387,11 @@ function buildSheetCard(spec) {
       t('wb.exported', 'Export saved'), null),
   });
 
-  const picker = el('label', { class: 'file-pick', 'data-perm': spec.write },
-    el('span', { 'data-i18n': 'wb.importFrom', text: 'Import from .xlsx…' }), file);
+  const picker = el('button', {
+    type: 'button', class: 'secondary', 'data-perm': spec.write,
+    'data-i18n': 'wb.importFrom', text: 'Import from .xlsx…',
+    onclick: () => file.click(),
+  });
 
   file.addEventListener('change', () => {
     const chosen = Boolean(file.files?.length);
@@ -17319,16 +17431,35 @@ function buildSheetCard(spec) {
   cancel.addEventListener('click', reset);
   sheetCardResets.push(reset);
 
-  return el('div', { class: 'card', 'data-perm': spec.read },
-    el('h2', { 'data-i18n': 'wb.title', text: 'Spreadsheet' }),
+  card.append(
     el('p', {
       class: 'muted',
       'data-i18n': `sheet.${spec.key}.text`,
       text: SHEET_TEXTS[spec.key],
     }),
-    el('div', { class: 'row' }, exportButton, picker, check, write, cancel),
     summary,
-    wrap);
+    wrap,
+    el('div', { class: 'file-actions' }, pdfButton, exportButton, picker, file, check, write, cancel));
+}
+
+/**
+ * A table's card as a document: the table as its screen shows it, every page of
+ * it, narrowed where somebody narrowed it - which the subtitle then says.
+ *
+ * Read off the screen rather than asked of the server, as the other screens'
+ * documents are, so the words and the order are the reader's. The workbook beside
+ * it is the server's, because it is the file an import reads back.
+ */
+async function sheetDocument(spec) {
+  const table = $(spec.table);
+  const pager = pagers.get(table);
+
+  return {
+    title: spec.title(),
+    colours: screenColours(),
+    subtitle: [pager?.choice, pager?.query].filter(Boolean).join(' · '),
+    sections: [{ table: tableAsFigures(table) }],
+  };
 }
 
 /**
@@ -17340,29 +17471,25 @@ function buildSheetCard(spec) {
  * them.
  */
 const SHEET_TEXTS = {
-  projects: 'Exports your projects. An import matches rows '
-    + 'by name: a name that already exists is updated, a new one is created. '
-    + 'An empty cell leaves that '
-    + 'value alone, so nothing is lost by a column somebody deleted.',
-  roles: 'Exports every role with a column per permission, holding yes or no - which '
-    + 'is the grid you want when the question is what four roles may do. An import '
-    + 'matches rows by name, creates a role that is not there yet, and refuses a '
-    + 'heading naming a right this application does not enforce. A system role can be '
-    + 'described differently and nothing else.',
-  users: 'Exports every account: name, email, role, and whether its password lives in '
-    + 'the directory. An import changes the name and the role, matched on the email '
-    + 'address, and does not create accounts - a new one needs a password, which does '
-    + 'not belong in a spreadsheet. Working times and time zones are not here: they '
-    + 'belong to whoever they are about, who sets them under My account.',
+  projects: 'The PDF holds the list as this screen shows it. The .xlsx file holds your '
+    + 'projects, and an import matches its rows by name: a name that already exists is '
+    + 'updated, a new one is created. An empty cell leaves that value alone, so nothing '
+    + 'is lost by a column somebody deleted.',
+  roles: 'The PDF holds the list as this screen shows it. The .xlsx file holds every role '
+    + 'with a column per permission, holding yes or no - which is the grid you want when '
+    + 'the question is what four roles may do. An import matches rows by name, creates a '
+    + 'role that is not there yet, and refuses a heading naming a right this application '
+    + 'does not enforce. A system role can be described differently and nothing else.',
+  users: 'The PDF holds the list as this screen shows it. The .xlsx file holds every '
+    + 'account: name, email, role, and whether its password lives in the directory. An '
+    + 'import changes the name and the role, matched on the email address, and does not '
+    + 'create accounts - a new one needs a password, which does not belong in a '
+    + 'spreadsheet. Working times and time zones are not in it: they belong to whoever '
+    + 'they are about, who sets them under My account.',
 };
 
 function wireSheetCards() {
-  for (const spec of SHEET_CARDS) {
-    const view = $(spec.view);
-    if (!view) continue;
-
-    view.append(buildSheetCard(spec));
-  }
+  for (const spec of SHEET_CARDS) addExportsAndImport(spec);
 }
 
 /**
@@ -20845,6 +20972,7 @@ async function init() {
     wireStatistics();
     wireDocumentExports();
     wireReportChart();
+    wireFileButtons();
     wireWorkbook();
     wireSheetCards();
     wireSetup();

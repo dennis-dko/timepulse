@@ -63,8 +63,8 @@ func TestChoosingAnotherFileDoesNotBringTheOldVerdictBack(t *testing.T) {
 
 	p.run("check the first file",
 		chromedp.Click(`.tab[data-view="timesheets"]`, chromedp.ByQuery),
-		chromedp.Click(`#timesheets-tabs [data-card-tab="sheet"]`, chromedp.ByQuery),
-		chromedp.WaitVisible("#workbook-card", chromedp.ByID),
+		chromedp.Click(`#timesheets-tabs [data-card-tab="entries"]`, chromedp.ByQuery),
+		chromedp.WaitVisible("#wb-actions", chromedp.ByID),
 		chromedp.SetUploadFiles("#wb-file", []string{first}, chromedp.ByQuery))
 
 	p.waitShown("#wb-preview")

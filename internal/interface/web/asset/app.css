@@ -1369,36 +1369,15 @@ tbody tr.clickable:focus-visible {
 /* Submit and cancel on one line, cancel reading as secondary. */
 .form-actions { align-items: center; display: flex; gap: 12px; }
 
-/* The file picker, dressed as a button.
-   The browser's own control is a button and a filename with no styling worth
-   keeping, and it cannot be restyled directly - so the input is hidden inside a
-   label that looks like the secondary buttons beside it. Clicking the label opens
-   the picker, which is what a label does for its input. */
-.file-pick {
-  align-items: center;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  cursor: pointer;
-  display: inline-flex;
-  flex-direction: row;
-  font-size: 15px;
-  padding: 9px 16px;
-}
-
-.file-pick:hover { border-color: var(--accent); }
-
-/* The focus ring belongs on the label, which is what is drawn: the input that has
-   the focus is hidden by design, as a switch's is. */
-.file-pick:has(input:focus-visible) {
-  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  outline-offset: 2px;
-}
-
-.file-pick input[type="file"] {
+/* A file input, out of sight. The browser draws its own control - a button and a
+   line saying no file has been chosen - in its own language rather than the
+   reader's, and it cannot be restyled; so the button.secondary that names it in
+   data-file is what is seen and pressed, and the input only answers that button.
+   Not display: none, which some browsers have refused to open a chooser from. */
+.file-input {
   height: 0;
   opacity: 0;
+  pointer-events: none;
   position: absolute;
   width: 0;
 }
@@ -1738,6 +1717,22 @@ body:has(#login-screen:not([hidden])) .toast-stack { bottom: calc(var(--footer-h
    account's rights have moved - the one banner with a control of its own,
    where without the air the button reads as the end of the sentence. */
 .row-apart { margin-top: 18px; }
+
+/* A card's exports and its import, in one place on every card: its last row,
+   under a hairline. They stood wherever the card that grew them had room - at
+   the foot of a table, beside a heading, under a description - so whoever had
+   found them on one card had learnt nothing about where they were on the next.
+   The space between them and on either side of the hairline is the one every
+   button keeps; 12 pixels where nothing declares it. */
+.file-actions {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--button-space, 12px);
+  margin-top: var(--button-space, 12px);
+  padding-top: var(--button-space, 12px);
+}
 
 /* Every answer that is not the form's own: a tint of the text rather than a box
    inside a border, which beside a field read as one more field. Darker under the
@@ -3673,14 +3668,6 @@ input[readonly]:focus, textarea[readonly]:focus {
 
   /* A tile's handle as wide as it is high, because a finger aims at both. */
   .tile-grip, .tile-hide { min-width: 44px; }
-
-  /* A file field is drawn by the browser and barely restylable; what can be
-     given room is the label around it, which is what a thumb aims at. */
-  .file-pick {
-    align-items: center;
-    display: flex;
-    min-height: 44px;
-  }
 
   /* A switch is pressed by its label, not by the checkbox inside it - which is
      invisible and 22px. Fifteen rights in a column, each a row to hit. */

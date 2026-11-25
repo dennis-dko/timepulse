@@ -55,8 +55,8 @@ func TestASignOutTakesAnImportsFileAndVerdictWithIt(t *testing.T) {
 
 	const card = `#view-projects .card:has(input[type="file"])`
 
-	p.run("check a file of time entries", p.click(`.tab[data-view="timesheets"]`), p.click(`#timesheets-tabs [data-card-tab="sheet"]`),
-		chromedp.WaitVisible("#workbook-card", chromedp.ByID),
+	p.run("check a file of time entries", p.click(`.tab[data-view="timesheets"]`), p.click(`#timesheets-tabs [data-card-tab="entries"]`),
+		chromedp.WaitVisible("#wb-actions", chromedp.ByID),
 		chromedp.SetUploadFiles("#wb-file", []string{entriesPath}, chromedp.ByQuery))
 	p.waitShown("#wb-preview")
 	p.run("press check", p.click("#wb-preview"))
@@ -66,7 +66,7 @@ func TestASignOutTakesAnImportsFileAndVerdictWithIt(t *testing.T) {
 		chromedp.WaitVisible(card, chromedp.ByQuery),
 		chromedp.SetUploadFiles(card+` input[type="file"]`, []string{projectsPath}, chromedp.ByQuery),
 		p.click(card+` button[data-i18n="wb.preview"]`))
-	p.waitForText(card+" tbody", "A project of somebody else's")
+	p.waitForText(card+" table.import-preview tbody", "A project of somebody else's")
 
 	p.run("sign out", p.click("#logout"), chromedp.WaitVisible("#form-login", chromedp.ByID))
 
@@ -77,10 +77,10 @@ func TestASignOutTakesAnImportsFileAndVerdictWithIt(t *testing.T) {
 	}
 
 	p.run("read what the next account would find", chromedp.Evaluate(`(() => {
-		const cards = ['#workbook-card', '`+card+`'].map((s) => document.querySelector(s));
+		const cards = ['#entries-card', '`+card+`'].map((s) => document.querySelector(s));
 
 		return {
-			rows: cards.filter((c) => /somebody else's/.test(c.querySelector('tbody').textContent)).length,
+			rows: cards.filter((c) => /somebody else's/.test(c.querySelector('table.import-preview tbody').textContent)).length,
 			files: cards.reduce((n, c) => n + c.querySelector('input[type="file"]').files.length, 0),
 			offered: cards.some((c) => !c.querySelector('button[data-i18n="wb.import"]').hidden),
 			said: cards.map((c) => c.querySelector('p.muted:not([data-i18n])')?.textContent ?? '').join(''),

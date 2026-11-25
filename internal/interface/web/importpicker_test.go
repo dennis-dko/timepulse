@@ -20,17 +20,34 @@ func TestEveryImportPickerSaysItImports(t *testing.T) {
 
 	var pickers []picker
 
-	markup := regexp.MustCompile(`(?s)<label class="file-pick"[^>]*>\s*<span data-i18n="([^"]+)">([^<]+)</span>\s*<input type="file"[^>]*accept="([^"]*)"`)
-	for _, m := range markup.FindAllStringSubmatch(asset(t, "/"), -1) {
-		pickers = append(pickers, picker{"index.html", m[1], m[2], m[3]})
+	// Each is the button that opens a file input out of sight, naming it in
+	// data-file; what it accepts is the input's.
+	html := asset(t, "/")
+
+	opener := regexp.MustCompile(`<button\b([^>]*\bdata-file="([^"]+)"[^>]*)>([^<]+)</button>`)
+	for _, m := range opener.FindAllStringSubmatch(html, -1) {
+		key := regexp.MustCompile(`\bdata-i18n="([^"]+)"`).FindStringSubmatch(m[1])
+		input := regexp.MustCompile(`<input[^>]*\bid="` + regexp.QuoteMeta(m[2]) + `"[^>]*>`).FindString(html)
+		accept := regexp.MustCompile(`\baccept="([^"]*)"`).FindStringSubmatch(input)
+
+		if key == nil || accept == nil {
+			t.Errorf("the button opening #%s names no words or its input accepts nothing named", m[2])
+
+			continue
+		}
+
+		pickers = append(pickers, picker{"index.html", key[1], m[3], accept[1]})
 	}
 
 	// The tables' own cards build theirs in the script, from one file input.
 	script := asset(t, "/app.js")
 
-	built := regexp.MustCompile(`(?s)const file = el\('input', \{\s*type: 'file',\s*accept: '([^']*)',.*?el\('label', \{ class: 'file-pick'[^}]*\},\s*el\('span', \{ 'data-i18n': '([^']+)', text: '([^']+)' \}\), file\)`)
-	for _, m := range built.FindAllStringSubmatch(script, -1) {
-		pickers = append(pickers, picker{"app.js", m[2], m[3], m[1]})
+	accepts := regexp.MustCompile(`const file = el\('input', \{[^}]*accept: '([^']*)'`).FindStringSubmatch(script)
+	built := regexp.MustCompile(`const picker = el\('button', \{[^}]*'data-i18n': '([^']+)', text: '([^']+)'`).
+		FindStringSubmatch(script)
+
+	if accepts != nil && built != nil {
+		pickers = append(pickers, picker{"app.js", built[1], built[2], accepts[1]})
 	}
 
 	imports := 0

@@ -33,12 +33,12 @@ func TestAFileCardForgetsThePreviewItNoLongerDescribes(t *testing.T) {
 		forgets string
 	}{
 		{
-			"the timesheet card in the markup",
+			"the time entries' import in the markup",
 			"$('#wb-file').addEventListener('change'",
 			"stopRedrawing('workbookPreview')",
 		},
 		{
-			"the card buildSheetCard makes for projects, accounts and roles",
+			"the import addExportsAndImport adds for projects, accounts and roles",
 			"file.addEventListener('change'",
 			"stopRedrawing(`sheetPreview:${spec.key}`)",
 		},
