@@ -1639,7 +1639,7 @@
           "settings"
         ],
         "summary": "Read the logging, metrics and tracing settings",
-        "description": "Returns what has been administered under \"configured\" and what this process is actually writing, serving and exporting under \"active\". The two disagree until the next restart. An absent field under \"configured\" follows the configuration file; \"traceExporter\": \"\" is an administered off, which is a different thing. Administrator only.",
+        "description": "Returns what has been administered under \"configured\" and what this process is actually writing, serving and exporting under \"active\". The two disagree until the next restart. An absent field under \"configured\" follows the configuration file; \"traceExporter\": \"\" is an administered off, which is a different thing. What the configuration file itself says is under \"file\", in the shape of \"active\": the value an absent field follows. Administrator only.",
         "responses": {
           "200": {
             "description": "OK"
@@ -1679,6 +1679,7 @@
           "settings"
         ],
         "summary": "Read the LDAP configuration; the bind password is never returned",
+        "description": "Answers the stored directory configuration without the bind password, with hasPassword saying whether one is stored, and fileSyncSchedule: the reconciliation schedule the configuration file gives, which runs while syncSchedule is empty. Administrator only.",
         "responses": {
           "200": {
             "description": "Configuration"
