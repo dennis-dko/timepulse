@@ -16457,6 +16457,21 @@ function resetWorkbookCard() {
   $('#table-workbook tbody').replaceChildren();
 }
 
+/**
+ * Opens the file input a button names in data-file.
+ *
+ * The input stays out of sight because the browser draws it in its own language
+ * rather than the reader's, and cannot be restyled; the button is what is seen and
+ * pressed, from the pointer and the keyboard alike, and is drawn as every other
+ * button on its row. A label dressed as a button did this before and was drawn as
+ * a box among pills.
+ */
+function wireFileButtons() {
+  for (const button of document.querySelectorAll('button[data-file]')) {
+    button.addEventListener('click', () => document.getElementById(button.dataset.file)?.click());
+  }
+}
+
 function wireWorkbook() {
   const card = $('#workbook-card');
   if (!card) return;
@@ -17171,7 +17186,7 @@ function buildSheetCard(spec) {
   wrap.hidden = true;
 
   const file = el('input', {
-    type: 'file',
+    type: 'file', class: 'file-input', tabindex: '-1', 'aria-hidden': 'true',
     accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 
@@ -17278,8 +17293,11 @@ function buildSheetCard(spec) {
       t('wb.exported', 'Export saved'), null),
   });
 
-  const picker = el('label', { class: 'file-pick', 'data-perm': spec.write },
-    el('span', { 'data-i18n': 'wb.importFrom', text: 'Import from .xlsx…' }), file);
+  const picker = el('button', {
+    type: 'button', class: 'secondary', 'data-perm': spec.write,
+    'data-i18n': 'wb.importFrom', text: 'Import from .xlsx…',
+    onclick: () => file.click(),
+  });
 
   file.addEventListener('change', () => {
     const chosen = Boolean(file.files?.length);
@@ -17328,7 +17346,7 @@ function buildSheetCard(spec) {
     }),
     summary,
     wrap,
-    el('div', { class: 'file-actions' }, exportButton, picker, check, write, cancel));
+    el('div', { class: 'file-actions' }, exportButton, picker, file, check, write, cancel));
 }
 
 /**
@@ -20845,6 +20863,7 @@ async function init() {
     wireStatistics();
     wireDocumentExports();
     wireReportChart();
+    wireFileButtons();
     wireWorkbook();
     wireSheetCards();
     wireSetup();

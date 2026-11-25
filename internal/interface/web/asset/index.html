@@ -948,10 +948,8 @@
         </div>
         <div class="file-actions">
           <button type="button" class="secondary" id="wb-export" data-i18n="wb.export">Export as .xlsx</button>
-          <label class="file-pick" data-perm="timesheets:write:own" data-own-only>
-            <span data-i18n="wb.importFrom">Import from .xlsx…</span>
-            <input type="file" id="wb-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-          </label>
+          <button type="button" class="secondary" id="wb-pick" data-file="wb-file" data-perm="timesheets:write:own" data-own-only data-i18n="wb.importFrom">Import from .xlsx…</button>
+          <input type="file" id="wb-file" class="file-input" tabindex="-1" aria-hidden="true" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
           <button type="button" class="secondary" id="wb-preview" hidden data-i18n="wb.preview">Check the file</button>
           <button type="button" id="wb-import" hidden data-i18n="wb.import">Import</button>
           <button type="button" class="link" id="wb-clear" hidden data-i18n="wb.clear">cancel</button>
@@ -2215,10 +2213,8 @@
         </div>
         <p class="muted" id="logo-hint" data-i18n="admin.logo">Logo (PNG or JPEG, max. 256 KB)</p>
         <div class="row">
-          <label class="file-pick">
-            <span data-i18n="admin.logoChoose">Choose an image…</span>
-            <input type="file" id="logo-file" accept="image/png,image/jpeg" aria-describedby="logo-hint">
-          </label>
+          <button type="button" class="secondary" id="logo-pick" data-file="logo-file" aria-describedby="logo-hint" data-i18n="admin.logoChoose">Choose an image…</button>
+          <input type="file" id="logo-file" class="file-input" tabindex="-1" aria-hidden="true" accept="image/png,image/jpeg">
           <button type="button" class="secondary" id="logo-clear" data-i18n="admin.logoClear">Remove logo</button>
         </div>
         <!-- The one place the logo is drawn, at the size it is drawn there: the left
