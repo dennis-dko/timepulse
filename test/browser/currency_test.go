@@ -87,13 +87,21 @@ func TestAProjectsCurrencyIsPickedFromTheOnesInUse(t *testing.T) {
 
 	var older bool
 
+	// Made in euros and given its code in the database, as a project typed in
+	// while the field was a box holds one: the server refuses a code ISO 4217
+	// does not list to anybody sending one now.
 	p.awaitJSON(`(async () => {
 		await api('/projects', { method: 'POST', body: JSON.stringify({
-			name: 'Altbestand', startDate: todayISO(), billable: true, hourlyRate: 50, currency: 'XYZ',
+			name: 'Altbestand', startDate: todayISO(), billable: true, hourlyRate: 50, currency: 'EUR',
 		}) });
-		await refreshAll();
 		return true;
 	})()`, &older)
+
+	if _, err := p.app.DB(t).Exec(`UPDATE projects SET currency = 'XYZ' WHERE name = 'Altbestand'`); err != nil {
+		t.Fatalf("give the project a code from before the list: %v", err)
+	}
+
+	p.awaitJSON(`refreshAll().then(() => true)`, &older)
 
 	p.waitForText("#table-projects tbody", "Altbestand")
 

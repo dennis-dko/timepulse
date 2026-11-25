@@ -100,7 +100,7 @@ working time first — `task readme:pictures` takes them again.
     </td>
     <td valign="top">
       <img src="doc/image/workday.png" alt="The working time of the month: when each day began and ended, its breaks, and the hours booked beside them">
-      <p><b>Your working time, on record.</b> When each day began and ended and how long the breaks were, beside the hours booked; a gap shows as one, and the month leaves as a PDF.</p>
+      <p><b>Your working time, on record.</b> When each day began and ended and how long the breaks were, beside the hours booked; a gap shows as one, and the month leaves as a PDF or a workbook.</p>
     </td>
   </tr>
   <tr>
