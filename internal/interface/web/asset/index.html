@@ -738,7 +738,7 @@
                 data-i18n="ts.tab.templates">Templates</button>
         <button type="button" role="tab" id="timesheets-tab-sheet" class="screen-tab" data-card-tab="sheet"
                 aria-controls="timesheets-panel-sheet" aria-selected="false" tabindex="-1"
-                data-i18n="ts.tab.sheet">Spreadsheet</button>
+                data-i18n="ts.tab.sheet">Export and import</button>
       </div>
       <div id="timesheets-panel-record" class="screen-panel" role="tabpanel"
            aria-labelledby="timesheets-tab-record" data-card-panel="record"></div>
@@ -927,7 +927,7 @@
         </div>
       </div>
       <div class="card" id="workbook-card" data-perm="timesheets:read:own" data-tab="sheet">
-        <h2 data-i18n="wb.title">Spreadsheet</h2>
+        <h2 data-i18n="wb.title">Export and import</h2>
         <p class="muted" data-i18n="wb.text">Exports what the filters under Entries are showing. An import creates entries; it never changes or replaces the ones that are already there.</p>
         <p class="muted" id="wb-summary"></p>
         <div class="table-wrap" id="wb-preview-wrap" hidden>
@@ -947,6 +947,7 @@
           </table>
         </div>
         <div class="file-actions">
+          <button type="button" class="secondary" id="wb-pdf" data-i18n="action.exportPdf">Export as PDF</button>
           <button type="button" class="secondary" id="wb-export" data-i18n="wb.export">Export as .xlsx</button>
           <button type="button" class="secondary" id="wb-pick" data-file="wb-file" data-perm="timesheets:write:own" data-own-only data-i18n="wb.importFrom">Import from .xlsx…</button>
           <input type="file" id="wb-file" class="file-input" tabindex="-1" aria-hidden="true" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">

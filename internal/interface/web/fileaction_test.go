@@ -131,10 +131,10 @@ func TestEveryExportAndImportStandsInItsCardsLastRow(t *testing.T) {
 		}
 	}
 
-	// Nine screens with a PDF and a workbook each, and the time entries' workbook
-	// with its import: fewer is the walk no longer finding them, not a card gone.
-	if controls < 21 {
-		t.Fatalf("found %d exports and imports in the markup, want at least 21", controls)
+	// Ten cards with a PDF and a workbook each, and the time entries' import: fewer
+	// is the walk no longer finding them, not a card gone.
+	if controls < 22 {
+		t.Fatalf("found %d exports and imports in the markup, want at least 22", controls)
 	}
 
 	// The tables' own cards are built rather than written, and build the same row
@@ -147,7 +147,7 @@ func TestEveryExportAndImportStandsInItsCardsLastRow(t *testing.T) {
 		t.Fatal("buildSheetCard does not end its card with a div.file-actions row")
 	}
 
-	for _, part := range []string{"exportButton", "picker"} {
+	for _, part := range []string{"pdfButton", "exportButton", "picker"} {
 		if !regexp.MustCompile(`\b` + part + `\b`).MatchString(foot[1]) {
 			t.Errorf("the row at the foot of a table's card holds %q and not %s", foot[1], part)
 		}

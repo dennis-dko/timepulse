@@ -11988,8 +11988,8 @@ const TOUR_STEPS = [
     permission: 'timesheets:read:own',
     title: () => t('tour.timesheetsTabs.title', 'Time entries, by task'),
     text: () => t('tour.timesheetsTabs.text',
-      'Recording, the list of entries, templates and the spreadsheet each have a tab of their '
-      + 'own. The walk opens each one as it gets there.'),
+      'Recording, the list of entries, templates, and export and import each have a tab of '
+      + 'their own. The walk opens each one as it gets there.'),
   },
   {
     target: '#timer-card',
@@ -12045,11 +12045,13 @@ const TOUR_STEPS = [
     target: '#workbook-card',
     view: 'timesheets',
     permission: 'timesheets:read:own',
-    title: () => t('tour.sheet.title', 'In and out as a spreadsheet'),
+    title: () => t('tour.sheet.title', 'In and out, as a PDF or a spreadsheet'),
     text: () => t('tour.sheet.text',
-      'Your hours as a spreadsheet, with the column headings in the language you are '
-      + 'reading. An import shows you what it would change before it changes anything. '
-      + 'Every table worth moving this way has the same pair on its own screen.'),
+      'Your hours as a PDF to read or as a spreadsheet to work on, with the column headings '
+      + 'in the language you are reading - the entries the filters under Entries show. An '
+      + 'import shows you what it would change before it changes anything. Projects, users '
+      + 'and roles have the same buttons on their own screens, and on every card its exports '
+      + 'and imports stand in its last row.'),
   },
   {
     target: '#week-card',
@@ -16705,6 +16707,13 @@ async function chartAsPicture(container) {
 function cellAsFigure(cell) {
   if (!cell) return '';
 
+  // A cell holding a choice says what is chosen. An account's role is changed
+  // from a dropdown in its row, and the cell's text taken whole is every role the
+  // dropdown offers, run together.
+  const choice = cell.querySelector('select');
+
+  if (choice) return choice.selectedOptions[0]?.textContent.trim() ?? '';
+
   const parts = [...cell.children];
   const stacked = parts.length > 1
     && parts.every((part) => window.getComputedStyle(part).display === 'block');
@@ -17042,6 +17051,79 @@ async function absenceDocument() {
   };
 }
 
+/** The most entries one document carries: the most the server lays out in a table. */
+const ENTRIES_IN_A_DOCUMENT = 2000;
+
+/**
+ * The entries the filters under Entries show, as a document - every page of
+ * them, as the workbook beside it holds, not the page the list is on. The list
+ * shows a page at a time and the server holds the rest, so they are asked for
+ * here, in the order the list is sorted in.
+ */
+async function entriesDocument() {
+  const params = timesheetFilterParams();
+  const sort = serverSort($('#table-timesheets'));
+
+  if (sort) {
+    params.set('sort', sort.sort);
+    params.set('order', sort.order);
+  }
+
+  const entries = [];
+  let total = 0;
+
+  while (entries.length < ENTRIES_IN_A_DOCUMENT) {
+    params.set('offset', String(entries.length));
+    params.set('limit', String(Math.min(500, ENTRIES_IN_A_DOCUMENT - entries.length)));
+
+    const page = await api(`/timesheets?${params}`);
+    const items = page?.items ?? [];
+
+    total = page?.totalCount ?? 0;
+    entries.push(...items);
+
+    if (items.length === 0 || entries.length >= total) break;
+  }
+
+  const project = $('#filter-ts-project');
+  const from = $('#filter-ts-from')?.value;
+  const to = $('#filter-ts-to')?.value;
+  const search = $('#filter-ts-q')?.value.trim() ?? '';
+
+  return {
+    title: t('nav.timesheets', 'Time entries'),
+    colours: screenColours(),
+    subtitle: [
+      viewingFor?.name,
+      periodOf({ from, to }) || (from ? fmtDate(from) : '') || (to ? fmtDate(to) : ''),
+      project?.value ? project.selectedOptions[0].textContent.trim() : '',
+      search ? fillIn(t('changes.searchedFor', 'search: {0}'), [search]) : '',
+    ].filter(Boolean).join(' · '),
+    sections: [{
+      caption: total > entries.length
+        ? fillIn(t('wb.documentFirst', 'The first {0} of {1} entries; the filters under Entries narrow it further.'),
+          [entries.length, total])
+        : '',
+      table: {
+        columns: [t('field.date', 'Date'), t('field.project', 'Project'), t('field.hours', 'Hours'),
+          t('field.description', 'Description')],
+        numeric: [false, false, true, false],
+        rows: entries.map((entry) => [
+          fmtDate(entry.date),
+          entry.projectId ? projectName(entry.projectId) : t('ts.noProject', 'No project'),
+          fmtNumber(entry.durationHours),
+          entry.description || '–',
+        ]),
+        tones: entries.map((entry) => ['', entry.projectId ? '' : 'muted', '', '']),
+      },
+    }],
+    summary: [{
+      label: t('stats.total', 'Total'),
+      value: fmtNumber(entries.reduce((sum, entry) => sum + (entry.durationHours ?? 0), 0)),
+    }],
+  };
+}
+
 /** The overtime screen: the day-by-day table and the balance. */
 async function overtimeDocument() {
   return {
@@ -17096,6 +17178,7 @@ function wireDocumentExports() {
   wireDocumentExport('#vacation-pdf', () => t('vacation.filename', 'leave'), vacationDocument);
   wireDocumentExport('#absence-pdf', () => t('absence.filename', 'days-away'), absenceDocument);
   wireDocumentExport('#year-pdf', () => t('year.filename', 'year'), yearDocument);
+  wireDocumentExport('#wb-pdf', () => t('wb.filename', 'time-entries'), entriesDocument);
 
   // The same screens as workbooks, from the same builders but one: the
   // statistics are charts, which have no cells, so their workbook is built from
@@ -17142,6 +17225,8 @@ const SHEET_CARDS = [
     key: 'projects',
     path: '/projects',
     view: '#view-projects',
+    table: '#table-projects',
+    title: () => t('nav.projects', 'Projects'),
     read: 'projects:read',
     write: 'projects:write',
     reload: () => refreshAll(),
@@ -17150,6 +17235,8 @@ const SHEET_CARDS = [
     key: 'users',
     path: '/users',
     view: '#view-users',
+    table: '#table-users',
+    title: () => t('nav.users', 'Users'),
     read: 'users:read',
     write: 'users:write',
     reload: () => refreshAll(),
@@ -17158,6 +17245,8 @@ const SHEET_CARDS = [
     key: 'roles',
     path: '/roles',
     view: '#view-roles',
+    table: '#table-roles',
+    title: () => t('nav.roles', 'Roles'),
     read: 'roles:read',
     write: 'roles:write',
     reload: () => refreshAll(),
@@ -17285,6 +17374,14 @@ function buildSheetCard(spec) {
     write.hidden = rejected > 0 || writable === 0;
   };
 
+  const pdfButton = el('button', {
+    type: 'button', class: 'secondary',
+    'data-i18n': 'action.exportPdf', text: 'Export as PDF',
+  });
+
+  pdfButton.addEventListener('click', () => exportEvaluation(
+    pdfButton, t(`sheet.${spec.key}.file`, spec.key), () => sheetDocument(spec)));
+
   const exportButton = el('button', {
     type: 'button', class: 'secondary',
     'data-i18n': 'wb.export', text: 'Export as .xlsx',
@@ -17338,7 +17435,7 @@ function buildSheetCard(spec) {
   sheetCardResets.push(reset);
 
   return el('div', { class: 'card', 'data-perm': spec.read },
-    el('h2', { 'data-i18n': 'wb.title', text: 'Spreadsheet' }),
+    el('h2', { 'data-i18n': 'wb.title', text: 'Export and import' }),
     el('p', {
       class: 'muted',
       'data-i18n': `sheet.${spec.key}.text`,
@@ -17346,7 +17443,27 @@ function buildSheetCard(spec) {
     }),
     summary,
     wrap,
-    el('div', { class: 'file-actions' }, exportButton, picker, file, check, write, cancel));
+    el('div', { class: 'file-actions' }, pdfButton, exportButton, picker, file, check, write, cancel));
+}
+
+/**
+ * A table's card as a document: the table as its screen shows it, every page of
+ * it, narrowed where somebody narrowed it - which the subtitle then says.
+ *
+ * Read off the screen rather than asked of the server, as the other screens'
+ * documents are, so the words and the order are the reader's. The workbook beside
+ * it is the server's, because it is the file an import reads back.
+ */
+async function sheetDocument(spec) {
+  const table = $(spec.table);
+  const pager = pagers.get(table);
+
+  return {
+    title: spec.title(),
+    colours: screenColours(),
+    subtitle: [pager?.choice, pager?.query].filter(Boolean).join(' · '),
+    sections: [{ table: tableAsFigures(table) }],
+  };
 }
 
 /**
@@ -17358,20 +17475,21 @@ function buildSheetCard(spec) {
  * them.
  */
 const SHEET_TEXTS = {
-  projects: 'Exports your projects. An import matches rows '
-    + 'by name: a name that already exists is updated, a new one is created. '
-    + 'An empty cell leaves that '
-    + 'value alone, so nothing is lost by a column somebody deleted.',
-  roles: 'Exports every role with a column per permission, holding yes or no - which '
-    + 'is the grid you want when the question is what four roles may do. An import '
-    + 'matches rows by name, creates a role that is not there yet, and refuses a '
-    + 'heading naming a right this application does not enforce. A system role can be '
-    + 'described differently and nothing else.',
-  users: 'Exports every account: name, email, role, and whether its password lives in '
-    + 'the directory. An import changes the name and the role, matched on the email '
-    + 'address, and does not create accounts - a new one needs a password, which does '
-    + 'not belong in a spreadsheet. Working times and time zones are not here: they '
-    + 'belong to whoever they are about, who sets them under My account.',
+  projects: 'The PDF holds the list as this screen shows it. The .xlsx file holds your '
+    + 'projects, and an import matches its rows by name: a name that already exists is '
+    + 'updated, a new one is created. An empty cell leaves that value alone, so nothing '
+    + 'is lost by a column somebody deleted.',
+  roles: 'The PDF holds the list as this screen shows it. The .xlsx file holds every role '
+    + 'with a column per permission, holding yes or no - which is the grid you want when '
+    + 'the question is what four roles may do. An import matches rows by name, creates a '
+    + 'role that is not there yet, and refuses a heading naming a right this application '
+    + 'does not enforce. A system role can be described differently and nothing else.',
+  users: 'The PDF holds the list as this screen shows it. The .xlsx file holds every '
+    + 'account: name, email, role, and whether its password lives in the directory. An '
+    + 'import changes the name and the role, matched on the email address, and does not '
+    + 'create accounts - a new one needs a password, which does not belong in a '
+    + 'spreadsheet. Working times and time zones are not in it: they belong to whoever '
+    + 'they are about, who sets them under My account.',
 };
 
 function wireSheetCards() {
