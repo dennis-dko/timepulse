@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/dennis-dko/timepulse/internal/domain/model"
+	"github.com/dennis-dko/timepulse/internal/support/security"
 )
 
 // Every limit the form can set is one the server describes.
@@ -134,6 +135,15 @@ func TestTheFormLimitsAreTheOnesTheServerEnforces(t *testing.T) {
 		// The form took 120 characters and the server any number, while an
 		// expression listing every minute of an hour is about 170.
 		"syncSchedule": model.MaxScheduleLength,
+		// bcrypt takes 72 bytes and the server refuses one more, while both forms
+		// that set a password took any length and said so only on pressing Save.
+		// The account form's field is the first named password with a limit: the
+		// sign-in's and the database's set nothing bcrypt keeps.
+		"newPassword": security.MaxPasswordLength,
+		"password":    security.MaxPasswordLength,
+		// Bounded nowhere: an address of any length was stored and sent to every
+		// screen's footer.
+		"companyUrl": model.MaxCompanyURLLength,
 	} {
 		t.Run(field, func(t *testing.T) {
 			pattern := regexp.MustCompile(

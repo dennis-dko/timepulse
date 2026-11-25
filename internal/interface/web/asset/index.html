@@ -1446,7 +1446,7 @@
           <label data-i18n="field.name">Name<input type="text" name="name" maxlength="255" required></label>
           <label data-i18n="field.email">Email<input type="email" name="email" maxlength="255" required></label>
           <label id="user-role-field" data-i18n="field.role">Role<select name="role" required></select></label>
-          <label id="user-password-field" data-i18n="field.password">Password<input type="password" name="password" minlength="8"
+          <label id="user-password-field" data-i18n="field.password">Password<input type="password" name="password" minlength="8" maxlength="72"
                    data-i18n-placeholder="user.initialPassword" placeholder="empty = initial password">
           </label>
         </div>
@@ -1801,7 +1801,7 @@
         <h2 data-i18n="settings.changePassword">Change password</h2>
         <div class="grid">
           <label data-i18n="settings.currentPassword">Current password<input type="password" name="currentPassword" required></label>
-          <label data-i18n="settings.newPassword">New password<input type="password" name="newPassword" minlength="8" required></label>
+          <label data-i18n="settings.newPassword">New password<input type="password" name="newPassword" minlength="8" maxlength="72" required></label>
         </div>
         <button type="submit" data-i18n="settings.changePassword">Change password</button>
       </form>
@@ -2190,7 +2190,7 @@
           </label>
           <label data-i18n="admin.company">Company<input type="text" name="companyName" maxlength="120">
           </label>
-          <label data-i18n="admin.companyUrl">Company website<input type="url" name="companyUrl" placeholder="https://">
+          <label data-i18n="admin.companyUrl">Company website<input type="url" name="companyUrl" maxlength="2000" pattern="https?://.+" placeholder="https://">
           </label>
           <label class="wide" data-i18n="admin.footer">Footer<input type="text" name="footerText" maxlength="200">
           </label>
@@ -2391,7 +2391,7 @@
           <label class="wide" data-i18n="admin.bindDn">Bind DN (optional)<input type="text" name="bindDn"></label>
           <label data-i18n="admin.bindPassword">Bind password<input type="password" name="bindPassword" data-i18n-placeholder="admin.keepStored" placeholder="leave unchanged">
           </label>
-          <label class="wide" data-i18n="admin.userFilter">User filter (%s = login name)<input type="text" name="userFilter">
+          <label class="wide" data-i18n="admin.userFilter">User filter (%s = login name)<input type="text" name="userFilter" pattern=".*%s.*">
           </label>
           <label data-i18n="admin.nameAttr">Name attribute<input type="text" name="nameAttribute"></label>
           <label data-i18n="admin.mailAttr">Email attribute<input type="text" name="emailAttribute"></label>

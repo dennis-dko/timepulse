@@ -4116,6 +4116,10 @@ function wireValidityMessages() {
  */
 const PATTERN_MESSAGES = {
   '[0-9]{6}': () => t('valid.code', 'Please enter the six digits your authenticator app shows.'),
+  // A web address as the server takes it: the browser's url type also takes
+  // mailto: and ftp:, which the server refuses.
+  'https?://.+': () => t('valid.httpUrl', 'Please enter an address beginning with http:// or https://.'),
+  '.*%s.*': () => t('valid.userFilter', 'Please put %s where the login name goes.'),
 };
 
 /** What a field's rule says about its value, or nothing where it has no objection. */
@@ -9695,6 +9699,12 @@ function syncDatasourceFields() {
   $('#ds-server-fields').hidden = !server;
   $('#ds-ssl-label').hidden = form.elements.dialect.value !== 'postgres';
 
+  // What the server refuses a database server's connection without, required
+  // while it is on screen and only then: a field hidden while required stops
+  // the form from being sent at all, and says nothing anybody can see.
+  form.elements.host.required = server;
+  form.elements.user.required = server;
+
   // The key travels with the words. This label says two different things
   // depending on the type, and only the text was being changed - so the element
   // went on declaring itself as one of them while showing the other, and a
@@ -9889,6 +9899,8 @@ async function loadAdmin() {
     // leaves it showing nothing at all.
     ldapForm.elements.defaultRole.value = ldap.defaultRole || ORDINARY_ROLE;
   }
+
+  holdTheDirectoryToTheServersRules(ldapForm);
 
   // Whatever happened above, something is selected. A <select> set to a value
   // none of its options carry selects nothing and draws an empty box, which is
@@ -10455,6 +10467,9 @@ function wireAdmin() {
       async () => { await loadAdmin(); announceSave(); });
   });
 
+  $('#form-ldap').elements.enabled.addEventListener('change',
+    () => holdTheDirectoryToTheServersRules($('#form-ldap')));
+
   $('#form-ldap').addEventListener('submit', (e) => {
     e.preventDefault();
     saveForm(e.target,
@@ -10668,6 +10683,17 @@ function wireDirectorySync() {
       await refreshAll();
     }, null, null);
   });
+}
+
+/**
+ * Asks of the directory's fields what the server asks of them: a host, a base DN
+ * and a filter while the directory is switched on - the filter's %s held by its
+ * pattern - and none of them while it is off, which the server does not check.
+ */
+function holdTheDirectoryToTheServersRules(form) {
+  for (const name of ['host', 'baseDn', 'userFilter']) {
+    form.elements[name].required = form.elements.enabled.checked;
+  }
 }
 
 /** Reads the LDAP form, including its checkboxes and numeric port. */
