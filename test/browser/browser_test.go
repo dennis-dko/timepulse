@@ -147,6 +147,23 @@ func open(t *testing.T) *page {
 func openWith(t *testing.T, env ...string) *page {
 	t.Helper()
 
+	return openWithBrowser(t, nil, env...)
+}
+
+// aMouse tells the browser it has a mouse: a pointer that hovers, and a fine
+// one. Chromium on Linux without a display reports neither - measured in the
+// suite's container, matchMedia('(hover: hover)') answered false - so a page
+// that shows something where the pointer rests was drawn there as on a touch
+// screen, while Chromium on Windows reported a mouse. Given to the cases that
+// are about the pointer resting, not to every case: touch emulation is what
+// the touch cases rely on, and it is not to be second-guessed.
+var aMouse = chromedp.Flag("blink-settings",
+	"primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4")
+
+// openWithBrowser is openWith with options for the browser as well.
+func openWithBrowser(t *testing.T, browser []chromedp.ExecAllocatorOption, env ...string) *page {
+	t.Helper()
+
 	app := harness.Start(t, env...)
 
 	// The language is pinned, because the interface writes figures and dates the
@@ -173,6 +190,8 @@ func openWith(t *testing.T, env ...string) *page {
 		// screens sets its own size.
 		chromedp.WindowSize(1280, 900),
 	)
+
+	opts = append(opts, browser...)
 
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
 	t.Cleanup(cancelAlloc)
