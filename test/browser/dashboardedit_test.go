@@ -24,7 +24,9 @@ import (
 func TestTheTilesAreArrangedOnlyWhileTheDashboardIsBeingCustomized(t *testing.T) {
 	t.Parallel()
 
-	p := open(t)
+	// With a mouse, whatever the machine: on Linux without a display the browser
+	// reports none, and the link is then drawn as on a touch screen.
+	p := openWithBrowser(t, []chromedp.ExecAllocatorOption{aMouse})
 	p.readyWorker()
 
 	p.run("open the greeting", chromedp.Evaluate(`switchView('welcome')`, nil))
