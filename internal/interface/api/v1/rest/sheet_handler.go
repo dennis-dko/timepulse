@@ -147,7 +147,8 @@ func (h *SheetHandler) ImportProjects(c *gofr.Context) (any, error) {
 		return nil, unreadableWorkbook(c, err)
 	}
 
-	plan, err := h.projects.PlanProjects(c, language(c), rows, problems, principal.User)
+	plan, err := h.projects.PlanProjects(c, language(c), rows, problems, principal.User,
+		principal.Can(model.PermProjectArchive))
 	if err != nil {
 		return nil, toHTTPError(err)
 	}

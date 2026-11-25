@@ -55,6 +55,16 @@ func NewProjectApplicationService(
 
 var _ ProjectService = (*ProjectApplicationService)(nil)
 
+// ErrArchivingNeedsTheRight is a project put into the archive or taken out of it
+// by a caller without projects:archive. The transport answers it as that missing
+// permission.
+//
+// Decided here rather than at the archive route alone: that route has always
+// asked for the right, and a correction carrying the status, a project created
+// archived and an imported row did not, so a role made without it archived all
+// the same.
+var ErrArchivingNeedsTheRight = errors.New("moving a project into the archive or out of it needs projects:archive")
+
 // CreateProject processes the command to create a project
 func (s *ProjectApplicationService) CreateProject(
 	ctx context.Context,
@@ -63,6 +73,10 @@ func (s *ProjectApplicationService) CreateProject(
 	status := cmd.Status
 	if status == "" {
 		status = model.ProjectStatusActive
+	}
+
+	if status == model.ProjectStatusArchived && !cmd.MayArchive {
+		return nil, ErrArchivingNeedsTheRight
 	}
 
 	startDate := cmd.StartDate
@@ -238,7 +252,7 @@ func (s *ProjectApplicationService) UpdateProject(
 	}
 
 	if cmd.Status != nil {
-		if err := s.validateStatusTransition(ctx, existingProject, *cmd.Status); err != nil {
+		if err := s.validateStatusTransition(ctx, existingProject, *cmd.Status, cmd.MayArchive); err != nil {
 			return nil, err
 		}
 
@@ -376,14 +390,31 @@ func (s *ProjectApplicationService) withBookedHours(
 }
 
 // validateStatusTransition mirrors the archiving rule enforced by the domain
-// service: a project may only be archived once it is completed and has no
-// open time entries left.
+// service: a project may only be archived once it is completed.
+//
+// A status sent as it already is is no transition. The project form sends the
+// status with whatever else it corrects, and an archived project corrected by
+// its name was refused as an archiving that wanted a completed project.
+//
+// Into the archive and out of it are mayArchive's to allow, before anything
+// else is asked: a caller without the right learns that, rather than which
+// status the project would first have to be in.
 func (s *ProjectApplicationService) validateStatusTransition(
 	ctx context.Context,
 	project *model.Project,
 	newStatus string,
+	mayArchive bool,
 ) error {
-	if newStatus != model.ProjectStatusArchived {
+	if newStatus == project.Status {
+		return nil
+	}
+
+	archives := newStatus == model.ProjectStatusArchived
+	if (archives || project.Status == model.ProjectStatusArchived) && !mayArchive {
+		return ErrArchivingNeedsTheRight
+	}
+
+	if !archives {
 		return nil
 	}
 

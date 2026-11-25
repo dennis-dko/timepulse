@@ -1342,6 +1342,10 @@
                required date labelled optional and the optional one unlabelled. -->
           <label data-i18n="field.start">Start<input type="date" name="startDate"></label>
           <label data-i18n="field.end">End<input type="date" name="endDate" data-i18n-placeholder="field.optional" placeholder="optional"></label>
+          <!-- Only while a project is corrected: one being made starts out active.
+               Disabled while hidden, so a project being made sends no status, and
+               filled by the script with what the server takes from the one it has. -->
+          <label data-i18n="field.status" id="project-status" hidden>Status<select name="status" disabled></select></label>
           <label class="wide" data-i18n="field.description">Description<input type="text" name="description" maxlength="2000" data-i18n-placeholder="field.optional" placeholder="optional"></label>
           <!-- How many hours its owner means to spend on it: theirs to set, and
                nobody's to sign off. Emptied, it takes the budget off again. -->

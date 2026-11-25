@@ -1076,6 +1076,7 @@
   "role.systemRole": "Systemrolle",
   "role.view": "Rolle „{0}“",
   "row.archiveNeedsCompleted": "Archiviert werden kann erst, was den Status „{0}“ hat; „{1}“ ist „{2}“.",
+  "row.archiveNeedsTheRight": "„{0}“ käme ins Archiv oder aus ihm heraus, und dafür fehlt die Berechtigung „{1}“.",
   "row.dateMissing": "Das Datum fehlt.",
   "row.dateNotUnderstood": "„{0}“ ist kein Datum, das der Import versteht (JJJJ-MM-TT).",
   "row.emailInvalid": "„{0}“ ist keine E-Mail-Adresse, und an dieser Spalte wird die Zeile erkannt.",

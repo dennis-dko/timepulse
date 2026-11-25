@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/dennis-dko/timepulse/internal/application/v1/service"
+	"github.com/dennis-dko/timepulse/internal/domain/model"
 	"github.com/dennis-dko/timepulse/internal/support/apperror"
 )
 
@@ -16,6 +18,12 @@ import (
 func toHTTPError(err error) error {
 	if err == nil {
 		return nil
+	}
+
+	// The one permission a service decides, because only it knows whether a
+	// status change reaches the archive; answered as the archive route answers.
+	if errors.Is(err, service.ErrArchivingNeedsTheRight) {
+		return missingPermission(model.PermProjectArchive)
 	}
 
 	detail, ok := apperror.Detail(err)
