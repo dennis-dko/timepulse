@@ -2993,10 +2993,12 @@ a.tab:hover {
  * Measured in German, the longer of the two languages, on a telephone on its
  * side at 568x320: at 340 pixels the tallest step needed 309 of the 296 there
  * are, so its last line had to be scrolled to; at 440 the tallest needs 236.
- * Tighter padding alone came one pixel short.
+ * Tighter padding alone came one pixel short. 480 since the button space grew to
+ * 12: at 440 Back, Next and "Rundgang überspringen" no longer fitted on one line
+ * in the runner's fonts, and their second line took the room from the words.
  */
 @media (max-height: 480px) {
-  .tour-bubble { max-width: min(440px, calc(100vw - 24px)); }
+  .tour-bubble { max-width: min(480px, calc(100vw - 24px)); }
 }
 
 .tour-bubble h3 { font-size: 15px; margin: 0 0 6px; }
