@@ -30,7 +30,7 @@ func TestRunningTheSynchronisationSendsWhatWasConfirmed(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open the card", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="signin"]`),
+		p.click(`#admin-tabs [data-card-tab="directory"]`),
 		chromedp.WaitVisible("#sync-run", chromedp.ByID))
 
 	p.run("play a directory missing one account", chromedp.Evaluate(`(() => {
@@ -103,7 +103,7 @@ func TestAFailedSynchronisationShowsWhatIsLeft(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open the card", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="signin"]`),
+		p.click(`#admin-tabs [data-card-tab="directory"]`),
 		chromedp.WaitVisible("#sync-run", chromedp.ByID))
 
 	p.run("play a run that deletes one account and then fails", chromedp.Evaluate(`(() => {

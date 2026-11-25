@@ -137,7 +137,8 @@ func TestATableWithOrdinaryDataFitsItsCard(t *testing.T) {
 
 	for _, width := range []int64{1600, 1280, 1024} {
 		p.run(fmt.Sprintf("%dpx", width), chromedp.EmulateViewport(width, 900))
-		p.run("open the entries", p.click(`.tab[data-view="timesheets"]`))
+		p.run("open the entries", p.click(`.tab[data-view="timesheets"]`),
+			p.click(`#timesheets-tabs [data-card-tab="entries"]`))
 		p.waitShown("#table-timesheets tbody td.actions")
 
 		check(fmt.Sprintf("the entries at %dpx", width), "#table-timesheets")

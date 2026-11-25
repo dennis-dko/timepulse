@@ -282,8 +282,9 @@ func TestTheEvaluationScreensArriveWithTheirPeriodFilledIn(t *testing.T) {
 		{"report", `#form-report input[name="from"]`, `#form-report input[name="to"]`},
 	} {
 		t.Run(screen.view+" "+screen.from, func(t *testing.T) {
-			p.run("open "+screen.view, p.click(`.tab[data-view="`+screen.view+`"]`),
-				chromedp.WaitVisible(screen.from, chromedp.ByQuery))
+			p.run("open "+screen.view, p.click(`.tab[data-view="`+screen.view+`"]`))
+			p.showTabOf(screen.from)
+			p.run("wait for "+screen.from, chromedp.WaitVisible(screen.from, chromedp.ByQuery))
 
 			from := p.value(screen.from)
 			to := p.value(screen.to)

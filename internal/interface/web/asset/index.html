@@ -726,6 +726,9 @@
         <button type="button" role="tab" id="timesheets-tab-record" class="screen-tab" data-card-tab="record"
                 aria-controls="timesheets-panel-record" aria-selected="true"
                 data-i18n="ts.tab.record">Record</button>
+        <button type="button" role="tab" id="timesheets-tab-entries" class="screen-tab" data-card-tab="entries"
+                aria-controls="timesheets-panel-entries" aria-selected="false" tabindex="-1"
+                data-i18n="ts.tab.entries">Entries</button>
         <button type="button" role="tab" id="timesheets-tab-templates" class="screen-tab" data-card-tab="templates"
                 aria-controls="timesheets-panel-templates" aria-selected="false" tabindex="-1"
                 data-i18n="ts.tab.templates">Templates</button>
@@ -735,6 +738,8 @@
       </div>
       <div id="timesheets-panel-record" class="screen-panel" role="tabpanel"
            aria-labelledby="timesheets-tab-record" data-card-panel="record"></div>
+      <div id="timesheets-panel-entries" class="screen-panel" role="tabpanel"
+           aria-labelledby="timesheets-tab-entries" data-card-panel="entries" hidden></div>
       <div id="timesheets-panel-templates" class="screen-panel" role="tabpanel"
            aria-labelledby="timesheets-tab-templates" data-card-panel="templates" hidden></div>
       <div id="timesheets-panel-sheet" class="screen-panel" role="tabpanel"
@@ -878,7 +883,7 @@
         </div>
       </form>
 
-      <div class="card" id="entries-card" data-tab="record">
+      <div class="card" id="entries-card" data-tab="entries">
         <div class="card-head">
           <h2 data-i18n="ts.entries">Entries</h2>
           <div class="filters">
@@ -919,7 +924,7 @@
       </div>
       <div class="card" id="workbook-card" data-perm="timesheets:read:own" data-tab="sheet">
         <h2 data-i18n="wb.title">Spreadsheet</h2>
-        <p class="muted" data-i18n="wb.text">Exports what the filters above are showing. An import creates entries; it never changes or replaces the ones that are already there.</p>
+        <p class="muted" data-i18n="wb.text">Exports what the filters under Entries are showing. An import creates entries; it never changes or replaces the ones that are already there.</p>
         <div class="row">
           <button type="button" class="secondary" id="wb-export" data-i18n="wb.export">Export as .xlsx</button>
           <label class="file-pick" data-perm="timesheets:write:own" data-own-only>
@@ -1204,11 +1209,32 @@
 
     <!-- Overtime -->
     <section id="view-overtime" class="view" hidden>
+      <!-- Three questions about one's own hours, each a tab: how they were spread,
+           how the year went, and what the balance is. Together they were over two
+           screens long at a laptop's height, the overtime calculation last. -->
+      <div id="overtime-tabs" class="screen-tabs" role="tablist" aria-label="Parts of Overtime"
+           data-i18n-aria="ot.tabs">
+        <button type="button" role="tab" id="overtime-tab-hours" class="screen-tab" data-card-tab="hours"
+                aria-controls="overtime-panel-hours" aria-selected="true"
+                data-i18n="ot.tab.hours">Hours</button>
+        <button type="button" role="tab" id="overtime-tab-year" class="screen-tab" data-card-tab="year"
+                aria-controls="overtime-panel-year" aria-selected="false" tabindex="-1"
+                data-i18n="ot.tab.year">Year</button>
+        <button type="button" role="tab" id="overtime-tab-overtime" class="screen-tab" data-card-tab="overtime"
+                aria-controls="overtime-panel-overtime" aria-selected="false" tabindex="-1"
+                data-i18n="ot.tab.overtime">Overtime</button>
+      </div>
+      <div id="overtime-panel-hours" class="screen-panel" role="tabpanel"
+           aria-labelledby="overtime-tab-hours" data-card-panel="hours"></div>
+      <div id="overtime-panel-year" class="screen-panel" role="tabpanel"
+           aria-labelledby="overtime-tab-year" data-card-panel="year" hidden></div>
+      <div id="overtime-panel-overtime" class="screen-panel" role="tabpanel"
+           aria-labelledby="overtime-tab-overtime" data-card-panel="overtime" hidden></div>
       <!-- Your own hours, drawn. Here rather than under Reports because that screen
            is keyed on one project id and cannot say "every project" or "no project" -
            and because a chart of your own week should not depend on picking a project
            first. Both are the caller's own either way. -->
-      <div class="card" id="statistics-card">
+      <div class="card" id="statistics-card" data-tab="hours">
         <div class="card-head">
           <h2 data-i18n="stats.title">My hours</h2>
           <span class="muted" id="statistics-total"></span>
@@ -1246,7 +1272,7 @@
            their outline rather than by colour alone. Beside it, the year before up
            to the same day, and both month by month as figures. The script owns the
            heading and the two year columns, which name the years. -->
-      <div class="card" id="year-card" data-perm="timesheets:read:own">
+      <div class="card" id="year-card" data-perm="timesheets:read:own" data-tab="year">
         <div class="card-head">
           <h2 id="year-title">Year</h2>
           <div class="filters">
@@ -1280,7 +1306,7 @@
         </div>
       </div>
 
-      <form method="post" id="form-overtime" class="card form">
+      <form method="post" id="form-overtime" class="card form" data-tab="overtime">
         <h2 data-i18n="nav.overtime">Overtime</h2>
         <div class="grid">
           <label data-i18n="field.from">From<input type="date" name="from"></label>
@@ -1289,7 +1315,7 @@
         <button type="submit" data-i18n="action.calculate">Calculate</button>
       </form>
 
-      <div class="card" id="overtime-result" hidden>
+      <div class="card" id="overtime-result" data-tab="overtime" hidden>
         <div class="card-head">
           <h2><span data-i18n="ot.balance">Balance</span> <span id="overtime-total" class="pill"></span></h2>
           <span class="muted" id="overtime-meta"></span>
@@ -1614,22 +1640,32 @@
         <button type="button" role="tab" id="settings-tab-work" class="screen-tab" data-card-tab="work"
                 aria-controls="settings-panel-work" aria-selected="true"
                 data-i18n="settings.tab.work">Working time</button>
+        <button type="button" role="tab" id="settings-tab-notices" class="screen-tab" data-card-tab="notices"
+                aria-controls="settings-panel-notices" aria-selected="false" tabindex="-1"
+                data-i18n="settings.tab.notices">Notices</button>
         <button type="button" role="tab" id="settings-tab-signin" class="screen-tab" data-card-tab="signin"
                 aria-controls="settings-panel-signin" aria-selected="false" tabindex="-1"
                 data-i18n="settings.tab.signin">Sign-in</button>
         <button type="button" role="tab" id="settings-tab-apps" class="screen-tab" data-card-tab="apps"
                 aria-controls="settings-panel-apps" aria-selected="false" tabindex="-1"
                 data-i18n="settings.tab.apps">Apps &amp; calendar</button>
+        <button type="button" role="tab" id="settings-tab-api" class="screen-tab" data-card-tab="api"
+                aria-controls="settings-panel-api" aria-selected="false" tabindex="-1"
+                data-i18n="settings.tab.api">API</button>
         <button type="button" role="tab" id="settings-tab-privacy" class="screen-tab" data-card-tab="privacy"
                 aria-controls="settings-panel-privacy" aria-selected="false" tabindex="-1"
                 data-i18n="settings.tab.privacy">Privacy &amp; help</button>
       </div>
       <div id="settings-panel-work" class="screen-panel" role="tabpanel"
            aria-labelledby="settings-tab-work" data-card-panel="work"></div>
+      <div id="settings-panel-notices" class="screen-panel" role="tabpanel"
+           aria-labelledby="settings-tab-notices" data-card-panel="notices" hidden></div>
       <div id="settings-panel-signin" class="screen-panel" role="tabpanel"
            aria-labelledby="settings-tab-signin" data-card-panel="signin" hidden></div>
       <div id="settings-panel-apps" class="screen-panel" role="tabpanel"
            aria-labelledby="settings-tab-apps" data-card-panel="apps" hidden></div>
+      <div id="settings-panel-api" class="screen-panel" role="tabpanel"
+           aria-labelledby="settings-tab-api" data-card-panel="api" hidden></div>
       <div id="settings-panel-privacy" class="screen-panel" role="tabpanel"
            aria-labelledby="settings-tab-privacy" data-card-panel="privacy" hidden></div>
 
@@ -1655,7 +1691,7 @@
       <!-- The bounds of the running balance, with the balance itself beside them,
            because a bound is chosen against a figure. Past one, a banner stands on
            every screen until the balance is back inside: a state, not news. -->
-      <form method="post" id="form-balance-bounds" class="card form" data-perm="settings:write:own" data-tab="work">
+      <form method="post" id="form-balance-bounds" class="card form" data-perm="settings:write:own" data-tab="notices">
         <h2 data-i18n="bounds.title">Bounds of my balance</h2>
         <p class="muted" data-i18n="bounds.hint">Keep your running balance between two figures, as a flexitime account does. While it lies outside them, a banner says so on every screen until it is back inside. Empty means no bound.</p>
         <div class="grid">
@@ -1673,7 +1709,7 @@
            running stays running - and the stopwatch's may also be a notification,
            where the browser allows one: the one thing a banner cannot do is reach
            somebody looking at another window. -->
-      <form method="post" id="form-reminders" class="card form" data-perm="timesheets:write:own" data-tab="work">
+      <form method="post" id="form-reminders" class="card form" data-perm="timesheets:write:own" data-tab="notices">
         <h2 data-i18n="remind.title">Reminders</h2>
         <div class="perm-grid switch-row">
           <label class="switch"><input type="checkbox" name="unbookedDay"><span class="switch-track"></span><span class="switch-label" data-i18n="remind.unbookedDay">Mention the last working day when nothing is booked on it</span></label>
@@ -1896,7 +1932,7 @@
         </div>
       </div>
 
-      <div class="card" id="token-card" data-tab="apps">
+      <div class="card" id="token-card" data-tab="api">
         <div class="card-head">
           <h2 data-i18n="token.title">API tokens</h2>
           <!-- rel="opener", which a new tab no longer gets by default: the
@@ -1969,22 +2005,37 @@
         <button type="button" role="tab" id="admin-tab-general" class="screen-tab" data-card-tab="general"
                 aria-controls="admin-panel-general" aria-selected="true"
                 data-i18n="admin.tab.general">General</button>
+        <button type="button" role="tab" id="admin-tab-appearance" class="screen-tab" data-card-tab="appearance"
+                aria-controls="admin-panel-appearance" aria-selected="false" tabindex="-1"
+                data-i18n="admin.tab.appearance">Appearance</button>
         <button type="button" role="tab" id="admin-tab-signin" class="screen-tab" data-card-tab="signin"
                 aria-controls="admin-panel-signin" aria-selected="false" tabindex="-1"
                 data-i18n="admin.tab.signin">Sign-in</button>
+        <button type="button" role="tab" id="admin-tab-directory" class="screen-tab" data-card-tab="directory"
+                aria-controls="admin-panel-directory" aria-selected="false" tabindex="-1"
+                data-i18n="admin.tab.directory">Directory</button>
         <button type="button" role="tab" id="admin-tab-operation" class="screen-tab" data-card-tab="operation"
                 aria-controls="admin-panel-operation" aria-selected="false" tabindex="-1"
                 data-i18n="admin.tab.operation">Operation</button>
+        <button type="button" role="tab" id="admin-tab-data" class="screen-tab" data-card-tab="data"
+                aria-controls="admin-panel-data" aria-selected="false" tabindex="-1"
+                data-i18n="admin.tab.data">Data</button>
         <button type="button" role="tab" id="admin-tab-logs" class="screen-tab" data-card-tab="logs"
                 aria-controls="admin-panel-logs" aria-selected="false" tabindex="-1"
                 data-i18n="admin.tab.logs">Logs</button>
       </div>
       <div id="admin-panel-general" class="screen-panel" role="tabpanel"
            aria-labelledby="admin-tab-general" data-card-panel="general"></div>
+      <div id="admin-panel-appearance" class="screen-panel" role="tabpanel"
+           aria-labelledby="admin-tab-appearance" data-card-panel="appearance" hidden></div>
       <div id="admin-panel-signin" class="screen-panel" role="tabpanel"
            aria-labelledby="admin-tab-signin" data-card-panel="signin" hidden></div>
+      <div id="admin-panel-directory" class="screen-panel" role="tabpanel"
+           aria-labelledby="admin-tab-directory" data-card-panel="directory" hidden></div>
       <div id="admin-panel-operation" class="screen-panel" role="tabpanel"
            aria-labelledby="admin-tab-operation" data-card-panel="operation" hidden></div>
+      <div id="admin-panel-data" class="screen-panel" role="tabpanel"
+           aria-labelledby="admin-tab-data" data-card-panel="data" hidden></div>
       <div id="admin-panel-logs" class="screen-panel" role="tabpanel"
            aria-labelledby="admin-tab-logs" data-card-panel="logs" hidden></div>
 
@@ -2033,7 +2084,7 @@
         <p class="muted minus" id="update-problem" hidden></p>
       </div>
 
-      <div id="backup-card" class="card" data-tab="operation" hidden>
+      <div id="backup-card" class="card" data-tab="data" hidden>
         <h2 data-i18n="backup.title">Backups</h2>
         <p class="muted" data-i18n="backup.hint">A backup is the whole installation - every account, every hour, every setting - sealed with BACKUP_PASSPHRASE. It is restored through the installer, into an empty database, with that passphrase - and with the SECRET_KEY it was made under, which the installer asks for where its own is another, or without the secrets that key seals.</p>
         <p class="muted" id="backup-off" hidden></p>
@@ -2071,7 +2122,7 @@
         <button type="submit" data-i18n="action.save">Save</button>
       </form>
 
-      <form method="post" id="form-branding" class="card form" data-tab="general">
+      <form method="post" id="form-branding" class="card form" data-tab="appearance">
         <h2 data-i18n="admin.branding">Appearance</h2>
         <p class="muted" data-i18n="admin.brandingHint">Title, banner, logo and footer of this installation.</p>
         <div class="grid">
@@ -2240,7 +2291,7 @@
         <button type="submit" data-i18n="action.save">Save</button>
       </form>
 
-      <form method="post" id="form-datasource" class="card form" data-tab="operation">
+      <form method="post" id="form-datasource" class="card form" data-tab="data">
         <h2 data-i18n="admin.database">Database connection</h2>
         <p class="muted" id="datasource-active"></p>
         <p class="muted" data-i18n="admin.databaseHint">The connection is saved and used the next time the application starts. Switching it while running would not be safe.</p>
@@ -2284,58 +2335,7 @@
         <p class="muted" id="datasource-test-result"></p>
       </form>
 
-      <form method="post" id="form-telemetry" class="card form" data-tab="operation">
-        <h2 data-i18n="tel.title">Logging, metrics and tracing</h2>
-        <p class="muted" id="telemetry-active"></p>
-        <p class="muted" data-i18n="tel.hint">The log level applies at once. The metrics port is bound and the trace exporter is built while the application starts, so those are saved here and applied the next time it starts; the restart card lists what is waiting. A field left following the configuration file keeps its value from there.</p>
-        <p class="muted minus" data-i18n="tel.warn">The metrics port asks for no sign-in, is not covered by TLS, and serves Go's profiling endpoints beside the metrics — anywhere it is reachable, so is a heap dump. Expose it to your monitoring only.</p>
-        <div class="grid">
-          <label data-i18n="tel.logLevel">Log level
-            <select name="logLevel">
-              <option value="" data-i18n="tel.follow">Follow the configuration file</option>
-              <option value="DEBUG">DEBUG</option>
-              <option value="INFO">INFO</option>
-              <option value="NOTICE">NOTICE</option>
-              <option value="WARN">WARN</option>
-              <option value="ERROR">ERROR</option>
-              <option value="FATAL">FATAL</option>
-            </select>
-          </label>
-          <label data-i18n="tel.metrics">Metrics endpoint
-            <select name="metricsOff">
-              <option value="" data-i18n="tel.follow">Follow the configuration file</option>
-              <option value="off" data-i18n="tel.metricsOff">Do not serve it</option>
-            </select>
-          </label>
-          <label data-i18n="tel.exporter">Trace exporter
-            <select name="traceExporter">
-              <option value="" data-i18n="tel.follow">Follow the configuration file</option>
-              <option value="off" data-i18n="tel.tracesOff">Export nowhere</option>
-              <option value="otlp">OTLP</option>
-              <option value="jaeger">Jaeger</option>
-            </select>
-          </label>
-          <label data-i18n="tel.url">Collector as host:port, encrypted with https:// in front
-            <input type="text" name="tracerUrl" placeholder="jaeger:4317">
-          </label>
-          <label data-i18n="tel.ratio">Share of traces recorded (0–1)
-            <input type="number" name="tracerRatio" step="any" min="0" max="1">
-          </label>
-        </div>
-        <!-- Named rather than filled in. The collector this repository ships an
-             overlay for is the obvious answer, but storing it by default would
-             make an installation without that overlay try to export at every
-             start and write failures nobody asked for. -->
-        <!-- Filled by showTracingHint rather than by data-i18n: the address it
-             names is this installation's own, which no dictionary knows. -->
-        <p class="muted" id="tel-tracing-hint"></p>
-        <div class="row">
-          <button type="submit" data-i18n="action.save">Save</button>
-          <button type="button" class="secondary" id="telemetry-reset" data-i18n="tel.reset">Reset all to the configuration file</button>
-        </div>
-      </form>
-
-      <form method="post" id="form-ldap" class="card form" data-tab="signin">
+      <form method="post" id="form-ldap" class="card form" data-tab="directory">
         <h2 data-i18n="admin.ldap">LDAP connection</h2>
         <p class="muted" data-i18n="admin.ldapHint">When enabled, passwords are checked against the directory. Unknown users are created locally on their first successful sign-in.</p>
         <div class="perm-grid switch-row">
@@ -2372,12 +2372,12 @@
            there cannot be told from a feature that has been removed - which is
            the question this was written after. A sentence and nothing to
            press: the server refuses this account the run. -->
-      <div class="card" id="sync-elsewhere" data-tab="signin" hidden>
+      <div class="card" id="sync-elsewhere" data-tab="directory" hidden>
         <h2 data-i18n="sync.title">Directory synchronisation</h2>
         <p class="muted" id="sync-elsewhere-text"></p>
       </div>
 
-      <div class="card" id="sync-card" data-tab="signin">
+      <div class="card" id="sync-card" data-tab="directory">
         <h2 data-i18n="sync.title">Directory synchronisation</h2>
         <p class="muted" data-i18n="sync.hint">Reconciles the users with the directory. LDAP is only ever read, never changed.</p>
         <p class="muted minus" data-i18n="sync.warning">Careful: accounts missing from the directory are deleted here, together with their recorded time, own projects and tokens. This cannot be undone. Always run the preview first.</p>
@@ -2497,11 +2497,62 @@
         </div>
       </div>
 
+      <form method="post" id="form-telemetry" class="card form" data-tab="logs">
+        <h2 data-i18n="tel.title">Logging, metrics and tracing</h2>
+        <p class="muted" id="telemetry-active"></p>
+        <p class="muted" data-i18n="tel.hint">The log level applies at once. The metrics port is bound and the trace exporter is built while the application starts, so those are saved here and applied the next time it starts; the restart card lists what is waiting. A field left following the configuration file keeps its value from there.</p>
+        <p class="muted minus" data-i18n="tel.warn">The metrics port asks for no sign-in, is not covered by TLS, and serves Go's profiling endpoints beside the metrics — anywhere it is reachable, so is a heap dump. Expose it to your monitoring only.</p>
+        <div class="grid">
+          <label data-i18n="tel.logLevel">Log level
+            <select name="logLevel">
+              <option value="" data-i18n="tel.follow">Follow the configuration file</option>
+              <option value="DEBUG">DEBUG</option>
+              <option value="INFO">INFO</option>
+              <option value="NOTICE">NOTICE</option>
+              <option value="WARN">WARN</option>
+              <option value="ERROR">ERROR</option>
+              <option value="FATAL">FATAL</option>
+            </select>
+          </label>
+          <label data-i18n="tel.metrics">Metrics endpoint
+            <select name="metricsOff">
+              <option value="" data-i18n="tel.follow">Follow the configuration file</option>
+              <option value="off" data-i18n="tel.metricsOff">Do not serve it</option>
+            </select>
+          </label>
+          <label data-i18n="tel.exporter">Trace exporter
+            <select name="traceExporter">
+              <option value="" data-i18n="tel.follow">Follow the configuration file</option>
+              <option value="off" data-i18n="tel.tracesOff">Export nowhere</option>
+              <option value="otlp">OTLP</option>
+              <option value="jaeger">Jaeger</option>
+            </select>
+          </label>
+          <label data-i18n="tel.url">Collector as host:port, encrypted with https:// in front
+            <input type="text" name="tracerUrl" placeholder="jaeger:4317">
+          </label>
+          <label data-i18n="tel.ratio">Share of traces recorded (0–1)
+            <input type="number" name="tracerRatio" step="any" min="0" max="1">
+          </label>
+        </div>
+        <!-- Named rather than filled in. The collector this repository ships an
+             overlay for is the obvious answer, but storing it by default would
+             make an installation without that overlay try to export at every
+             start and write failures nobody asked for. -->
+        <!-- Filled by showTracingHint rather than by data-i18n: the address it
+             names is this installation's own, which no dictionary knows. -->
+        <p class="muted" id="tel-tracing-hint"></p>
+        <div class="row">
+          <button type="submit" data-i18n="action.save">Save</button>
+          <button type="button" class="secondary" id="telemetry-reset" data-i18n="tel.reset">Reset all to the configuration file</button>
+        </div>
+      </form>
+
       <!-- The process log. Last in the administration screen because it is
            what you scroll to when something already went wrong. -->
       <div class="card" id="log-card" data-tab="logs">
         <h2 data-i18n="log.title">Live log</h2>
-        <p class="muted" data-i18n="log.hint">What this process has written, newest at the bottom. Only what the log level admits reaches here, so ticking a level below it shows nothing — the level is set under "Logging, metrics and tracing" on the Operation tab. Held in memory only: what was captured is gone after a restart, and this is no substitute for collecting logs.</p>
+        <p class="muted" data-i18n="log.hint">What this process has written, newest at the bottom. Only what the log level admits reaches here, so ticking a level below it shows nothing — the level is set under "Logging, metrics and tracing" just above. Held in memory only: what was captured is gone after a restart, and this is no substitute for collecting logs.</p>
 
         <div class="log-controls">
           <div class="log-levels" id="log-levels" role="group" aria-label="Log levels"></div>

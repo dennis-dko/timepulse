@@ -37,6 +37,7 @@ func TestACorrectionStillSaysSoAfterALanguageChange(t *testing.T) {
 		chromedp.SendKeys(`#form-timesheet input[name="durationHours"]`, "1.25",
 			chromedp.ByQuery),
 		p.click(`#form-timesheet button[type="submit"]`),
+		p.click(`#timesheets-tabs [data-card-tab="entries"]`),
 		chromedp.WaitVisible(`#table-timesheets tbody tr`, chromedp.ByQuery))
 
 	p.run("open it for correction",
@@ -148,6 +149,7 @@ func TestACorrectionOpenedInGermanSaysSoInEnglish(t *testing.T) {
 		chromedp.SendKeys(`#form-timesheet input[name="durationHours"]`, "2.5",
 			chromedp.ByQuery),
 		p.click(`#form-timesheet button[type="submit"]`),
+		p.click(`#timesheets-tabs [data-card-tab="entries"]`),
 		chromedp.WaitVisible(`#table-timesheets tbody tr`, chromedp.ByQuery))
 
 	// German before the correction, so the source copy is taken while the form is

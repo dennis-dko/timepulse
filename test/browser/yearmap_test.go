@@ -33,6 +33,7 @@ func TestTheYearIsDrawnATileADay(t *testing.T) {
 	})()`, &daysInYear)
 
 	p.run("open the evaluations", p.click(`.tab[data-view="overtime"]`),
+		p.click(`#overtime-tabs [data-card-tab="year"]`),
 		chromedp.WaitVisible("#year-card", chromedp.ByID))
 
 	p.waitFor("a tile for every day of the year", func() bool {
@@ -74,6 +75,7 @@ func TestTheYearFitsATablet(t *testing.T) {
 	p.readyWorker()
 
 	p.run("open the overtime", p.click(`.tab[data-view="overtime"]`),
+		p.click(`#overtime-tabs [data-card-tab="year"]`),
 		chromedp.WaitVisible("#year-card", chromedp.ByID))
 	p.waitForNode("#year-tiles .year-tile")
 

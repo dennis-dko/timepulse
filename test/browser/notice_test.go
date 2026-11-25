@@ -175,7 +175,7 @@ func TestARestartThatIsWaitingIsSaidOnEveryScreenAndOnlyToAdministrators(t *test
 	// Saved the way the screen saves it, so this is the same path an
 	// administrator takes rather than a request shaped to suit the case.
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
 		chromedp.WaitVisible("#form-telemetry", chromedp.ByID))
 	p.settled()
 
@@ -211,6 +211,7 @@ func TestARestartThatIsWaitingIsSaidOnEveryScreenAndOnlyToAdministrators(t *test
 	}
 
 	p.run("follow the notice", p.click("#restart-open"))
+	p.run("open Operation", p.click(`#admin-tabs [data-card-tab="operation"]`))
 	p.waitShown("#restart-card")
 
 	if said := p.text("#restart-card-pending"); !strings.Contains(said, "jaeger:4317") {
@@ -221,7 +222,7 @@ func TestARestartThatIsWaitingIsSaidOnEveryScreenAndOnlyToAdministrators(t *test
 	// at a time: it is the control that means "as it was", and the notice has to
 	// follow it or the installation is left claiming a restart it does not need.
 	p.run("back to Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
 		chromedp.WaitVisible("#form-telemetry", chromedp.ByID))
 	p.run("reset", p.click("#telemetry-reset"))
 

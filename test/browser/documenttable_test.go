@@ -137,6 +137,7 @@ func TestTheOvertimeDocumentIsInTheColoursOfItsScreen(t *testing.T) {
 	})()`, &booked)
 
 	p.run("work out that week's balance", p.click(`.tab[data-view="overtime"]`),
+		p.click(`#overtime-tabs [data-card-tab="overtime"]`),
 		chromedp.WaitVisible("#form-overtime", chromedp.ByID),
 		chromedp.Evaluate(`(() => {
 			const form = document.querySelector('#form-overtime');

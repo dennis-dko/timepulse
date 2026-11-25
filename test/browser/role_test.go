@@ -472,7 +472,7 @@ func TestTheMarkupLegendSurvivesSigningOut(t *testing.T) {
 	}
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	before := rows()
@@ -490,7 +490,7 @@ func TestTheMarkupLegendSurvivesSigningOut(t *testing.T) {
 	p.settleWelcome()
 
 	p.run("open Settings again", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	if after := rows(); after != before {

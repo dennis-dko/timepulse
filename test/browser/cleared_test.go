@@ -44,6 +44,7 @@ func TestClearingADescriptionActuallyClearsIt(t *testing.T) {
 		chromedp.SendKeys(`#form-timesheet input[name="description"]`, "first draft",
 			chromedp.ByQuery),
 		p.click(`#form-timesheet button[type="submit"]`),
+		p.click(`#timesheets-tabs [data-card-tab="entries"]`),
 		chromedp.WaitVisible(`#table-timesheets tbody tr`, chromedp.ByQuery))
 
 	p.run("open it for correction",
@@ -142,6 +143,7 @@ func TestUnassigningAProjectActuallyUnassignsIt(t *testing.T) {
 		return true;
 	})()`, nil),
 		p.click(`#form-timesheet button[type="submit"]`),
+		p.click(`#timesheets-tabs [data-card-tab="entries"]`),
 		chromedp.WaitVisible(`#table-timesheets tbody tr`, chromedp.ByQuery))
 
 	p.run("open it and take the project off",
@@ -194,6 +196,7 @@ func TestAClearedDescriptionReadsLikeNone(t *testing.T) {
 		chromedp.SendKeys(`#form-timesheet input[name="description"]`, "first draft",
 			chromedp.ByQuery),
 		p.click(`#form-timesheet button[type="submit"]`),
+		p.click(`#timesheets-tabs [data-card-tab="entries"]`),
 		chromedp.WaitVisible(`#table-timesheets tbody tr`, chromedp.ByQuery))
 
 	p.run("open it for correction",

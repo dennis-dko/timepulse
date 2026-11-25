@@ -37,6 +37,7 @@ func TestEntriesWithoutAProjectAreAssignedTogether(t *testing.T) {
 	})()`, &projectID)
 
 	p.run("open the entries", p.click(`.tab[data-view="timesheets"]`),
+		p.click(`#timesheets-tabs [data-card-tab="entries"]`),
 		chromedp.WaitVisible("#table-timesheets", chromedp.ByID))
 
 	// Loaded again here rather than before opening, so the count is drawn from

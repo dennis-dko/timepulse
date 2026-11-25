@@ -71,7 +71,7 @@ func TestBackToTheApplicationReturnsToTheTabItCameFrom(t *testing.T) {
 	p.readyWorker()
 
 	p.run("open my account", chromedp.Evaluate(`switchView('settings')`, nil),
-		p.click(`#settings-tabs [data-card-tab="apps"]`))
+		p.click(`#settings-tabs [data-card-tab="api"]`))
 	p.waitShown(`#token-card a[href="/api-docs"]`)
 	p.run("leave a mark", chromedp.Evaluate(`window.__stayed = true`, nil))
 

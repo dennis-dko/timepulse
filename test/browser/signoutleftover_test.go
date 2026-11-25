@@ -123,6 +123,7 @@ func TestASignOutTakesTheLastEvaluationWithIt(t *testing.T) {
 	p.waitShown("#report-result")
 
 	p.run("work out the balance", p.click(`.tab[data-view="overtime"]`),
+		p.click(`#overtime-tabs [data-card-tab="overtime"]`),
 		chromedp.WaitVisible("#form-overtime", chromedp.ByID),
 		p.click(`#form-overtime button[type="submit"]`))
 	p.waitShown("#overtime-result")

@@ -182,7 +182,7 @@ func TestTheFooterStaysAtTheBottomAtOneHeight(t *testing.T) {
 
 	// And the same strip on a screen with plenty on it.
 	p.run("open a longer one", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	long := measure()

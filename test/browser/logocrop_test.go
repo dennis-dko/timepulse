@@ -24,14 +24,14 @@ func TestAPartOfTheLogoCanBeChosenForTheBar(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.storeBranding(t, wideLogo)
 
 	p.reload()
 	p.run("open Settings again", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	// The preview is a control, and opens the chooser. One, because the bar is
@@ -172,14 +172,14 @@ func TestTheChosenPartCanBeAnyShape(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.storeBranding(t, wideLogo)
 
 	p.reload()
 	p.run("open Settings again", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="general"]`),
+		p.click(`#admin-tabs [data-card-tab="appearance"]`),
 		chromedp.WaitVisible("#form-branding", chromedp.ByID))
 
 	p.run("choose the part used in the bar",

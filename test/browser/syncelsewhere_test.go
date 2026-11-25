@@ -30,7 +30,7 @@ func TestAnAdministratorWhoAlsoWorksIsToldWhereTheDirectoryRunIs(t *testing.T) {
 		t.Helper()
 
 		p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-			p.click(`#admin-tabs [data-card-tab="signin"]`),
+			p.click(`#admin-tabs [data-card-tab="directory"]`),
 			chromedp.WaitVisible("#form-ldap", chromedp.ByID))
 
 		// The last thing the screen writes, and never empty - see

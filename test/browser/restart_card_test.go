@@ -34,7 +34,7 @@ func TestTheRestartNoticeLeadsToTheCardThatDoesIt(t *testing.T) {
 	// running process the moment it is saved, so it never waits for anything -
 	// which is exactly what this was written against on the first attempt.
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
 		chromedp.WaitVisible("#form-telemetry", chromedp.ByID))
 
 	p.waitForFilled("#tel-tracing-hint")
@@ -74,6 +74,7 @@ func TestTheRestartNoticeLeadsToTheCardThatDoesIt(t *testing.T) {
 	p.run("follow the notice", p.click("#restart-open"))
 
 	// It lands on the settings screen, on a card that answers.
+	p.run("open Operation", p.click(`#admin-tabs [data-card-tab="operation"]`))
 	p.waitShown("#restart-card")
 
 	if !p.visible("#restart-card") {
@@ -127,7 +128,7 @@ func TestTheRestartCardComesBeforeTheVersionCard(t *testing.T) {
 	// showing.
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
 		p.click(`#admin-tabs [data-card-tab="operation"]`),
-		chromedp.WaitVisible("#form-telemetry", chromedp.ByID))
+		chromedp.WaitVisible("#update-card", chromedp.ByID))
 
 	var order string
 
@@ -164,7 +165,7 @@ func TestTheRestartCardSpeaksTheReadersLanguage(t *testing.T) {
 	p.chooseLanguage("de")
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="logs"]`),
 		chromedp.WaitVisible("#form-telemetry", chromedp.ByID))
 
 	p.waitForFilled("#tel-tracing-hint")
@@ -178,6 +179,7 @@ func TestTheRestartCardSpeaksTheReadersLanguage(t *testing.T) {
 		chromedp.SetValue(`#form-telemetry [name="tracerRatio"]`, "0.35", chromedp.ByQuery),
 		p.click(`#form-telemetry button[type="submit"]`))
 
+	p.run("open Operation", p.click(`#admin-tabs [data-card-tab="operation"]`))
 	p.waitShown("#restart-card-pending")
 
 	said := p.text("#restart-card-pending")
