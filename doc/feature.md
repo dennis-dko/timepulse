@@ -218,7 +218,7 @@ when it finished and how long its breaks were, as the clock showed them, with wh
 that comes to and the hours booked on projects beside it. A day booked
 on with nothing recorded is listed too, so a month with a gap in it shows the gap.
 A stopwatch running on the day offers its start as the day's, and the month leaves
-as a PDF.
+as a PDF or as an .xlsx of figures.
 
 It is each person's own record, kept for themselves. There is no view of anybody
 else's working time — not even a manager's, who looks after somebody's hours and

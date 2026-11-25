@@ -12085,7 +12085,7 @@ const TOUR_STEPS = [
     title: () => t('tour.workday.title', 'Your working time'),
     text: () => t('tour.workday.text',
       'When you began, when you finished and how long your breaks were, beside the hours you '
-      + 'booked - and as a PDF. Days past a limit of the Working Hours Act are marked.'),
+      + 'booked - and as a PDF or a spreadsheet. Days past a limit of the Working Hours Act are marked.'),
   },
   {
     target: '#vacation-card',
