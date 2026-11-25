@@ -768,14 +768,14 @@ button {
    weak as the rule above, so each of those wins with a rule of its own. The
    list is written twice more, for the shadow below and for a touch screen. */
 button:where(:not(.link, .link-button, .tab, .screen-tab, .app-title, .nav-toggle, .logo-use-button,
-  .password-toggle, .date-open, .toast-close, .sort-toggle, .tile-grip)) {
+  .password-toggle, .date-open, .toast-close, .sort-toggle, .tile-grip, .tile-hide)) {
   min-height: var(--control);
   padding: 0 22px;
 }
 
 /* The form's own answer, lifted off the card on a shadow of its own colour. */
 button:where(:not(.secondary, .link, .link-button, .tab, .screen-tab, .danger, .app-title, .nav-toggle,
-  .logo-use-button, .password-toggle, .date-open, .toast-close, .sort-toggle, .tile-grip, :disabled)) {
+  .logo-use-button, .password-toggle, .date-open, .toast-close, .sort-toggle, .tile-grip, .tile-hide, :disabled)) {
   box-shadow: 0 4px 12px var(--ring);
 }
 
@@ -3535,6 +3535,44 @@ input[readonly]:focus, textarea[readonly]:focus {
 .tile-grip:hover,
 .tile-grip:focus-visible { background: var(--quiet); color: var(--text); filter: none; }
 
+/* The cross a tile is put away with, beside its handle and the same size, drawn
+   rather than a character for the reason the handle's dots are. */
+.tile-hide {
+  background: none;
+  border-radius: 6px;
+  color: var(--muted);
+  flex: none;
+  height: 28px;
+  padding: 0;
+  position: relative;
+  width: 24px;
+}
+
+.tile-hide::before,
+.tile-hide::after {
+  background: currentColor;
+  border-radius: 1px;
+  content: '';
+  height: 2px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  width: 12px;
+}
+
+.tile-hide::before { transform: translate(-50%, -50%) rotate(45deg); }
+.tile-hide::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+.tile-hide:hover,
+.tile-hide:focus-visible { background: var(--quiet); color: var(--text); filter: none; }
+
+/* A tile its owner put away. A class of its own rather than hidden, which the
+   rights decide and every reading of the account sets again. */
+.dashboard > .tile.put-away { display: none; }
+
+/* The tiles put away, each a link that brings it back, on one line that wraps. */
+.dashboard-put-away { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+
 /* While a tile is dragged: it is marked as the one moving, and nothing on the
    board is selected or shows a hand that points. */
 .dashboard.arranging,
@@ -3622,7 +3660,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   /* The fields and the buttons that act are as high as a finger needs on every
      screen already; written again here so the line above does not lower them. */
   button:where(:not(.link, .link-button, .tab, .screen-tab, .app-title, .nav-toggle, .logo-use-button,
-  .password-toggle, .date-open, .toast-close, .sort-toggle, .tile-grip)),
+  .password-toggle, .date-open, .toast-close, .sort-toggle, .tile-grip, .tile-hide)),
   select,
   input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
     min-height: var(--control);
@@ -3634,7 +3672,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   summary { line-height: 20px; padding-block: 12px; }
 
   /* A tile's handle as wide as it is high, because a finger aims at both. */
-  .tile-grip { min-width: 44px; }
+  .tile-grip, .tile-hide { min-width: 44px; }
 
   /* A file field is drawn by the browser and barely restylable; what can be
      given room is the label around it, which is what a thumb aims at. */
