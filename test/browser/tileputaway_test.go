@@ -40,6 +40,7 @@ func TestATileCanBePutAwayAndBroughtBack(t *testing.T) {
 	p.run("open the greeting", p.click("#app-title"),
 		chromedp.WaitVisible("#glance-leave", chromedp.ByID))
 	p.atRest()
+	p.run("customize the dashboard", p.click("#dashboard-edit"))
 
 	p.run("put the leave away", p.click("#tile-hide-leave"))
 
@@ -59,6 +60,8 @@ func TestATileCanBePutAwayAndBroughtBack(t *testing.T) {
 	if p.visible("#glance-leave") {
 		t.Error("the leave tile is up again after a reload, so putting it away was not kept")
 	}
+
+	p.run("customize it again", p.click("#dashboard-edit"))
 
 	p.run("bring the leave back", p.click("#tile-back-leave"),
 		chromedp.WaitVisible("#glance-leave", chromedp.ByID))
