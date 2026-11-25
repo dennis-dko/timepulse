@@ -1721,15 +1721,17 @@ body:has(#login-screen:not([hidden])) .toast-stack { bottom: calc(var(--footer-h
 /* A card's exports and its import, in one place on every card: its last row,
    under a hairline. They stood wherever the card that grew them had room - at
    the foot of a table, beside a heading, under a description - so whoever had
-   found them on one card had learnt nothing about where they were on the next. */
+   found them on one card had learnt nothing about where they were on the next.
+   The space between them and on either side of the hairline is the one every
+   button keeps; 12 pixels where nothing declares it. */
 .file-actions {
   align-items: center;
   border-top: 1px solid var(--border);
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-  padding-top: 16px;
+  gap: var(--button-space, 12px);
+  margin-top: var(--button-space, 12px);
+  padding-top: var(--button-space, 12px);
 }
 
 /* Every answer that is not the form's own: a tint of the text rather than a box
