@@ -2249,8 +2249,9 @@ function fmtMoney(amount, currency) {
  *
  * Picked rather than typed, because a typed code was held to its shape alone, so
  * a slip such as EUO saved cleanly and wrote every amount of that project in a
- * currency that does not exist. The server still takes any three capital letters,
- * so a project saved with another code before keeps it - see fillCurrencies.
+ * currency that does not exist. The server takes the same list, model.Currencies,
+ * for a new or changed currency, and keeps a code a project already holds - so a
+ * project saved with another code before keeps it, see fillCurrencies.
  */
 const CURRENCIES = [
   'AED', 'AFN', 'ALL', 'AMD', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BHD', 'BIF',

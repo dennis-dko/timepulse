@@ -3958,7 +3958,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 3,
-            "description": "The ISO 4217 code the rate is in, three letters; EUR where left out or empty."
+            "description": "The ISO 4217 code the rate is in, three letters; EUR where left out or empty. A code ISO 4217 does not list is refused, unless the project already holds it."
           },
           "ownerId": {
             "type": "integer",

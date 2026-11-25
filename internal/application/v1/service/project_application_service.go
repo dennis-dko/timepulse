@@ -116,6 +116,10 @@ func (s *ProjectApplicationService) CreateProject(
 		return nil, err
 	}
 
+	if !model.IsCurrency(currency) {
+		return nil, apperror.InvalidFields("currency")
+	}
+
 	createdProject, err := s.projectRepository.Save(ctx, &model.Project{
 		Name:        cmd.Name,
 		Description: cmd.Description,
@@ -283,6 +287,13 @@ func (s *ProjectApplicationService) UpdateProject(
 		currency, err := currencyCode(*cmd.Currency)
 		if err != nil {
 			return nil, err
+		}
+
+		// One a project already holds is kept, ISO 4217's or not: a project
+		// saved before the list keeps its code, and saving it unchanged is no
+		// reason to refuse a code nobody just typed.
+		if currency != existingProject.Currency && !model.IsCurrency(currency) {
+			return nil, apperror.InvalidFields("currency")
 		}
 
 		existingProject.Currency = currency

@@ -160,6 +160,9 @@ func TestARateAndItsCurrencyAreKeptOrRefusedByName(t *testing.T) {
 		{"hourlyRate", command.UpdateProjectCommand{HourlyRate: ptr(model.MaxHourlyRate + 1.0)}},
 		{"currency", command.UpdateProjectCommand{Currency: ptr("EURO")}},
 		{"currency", command.UpdateProjectCommand{Currency: ptr("E1R")}},
+		// The shape of a code and no currency: EUO is a slip for EUR that
+		// three capital letters let through.
+		{"currency", command.UpdateProjectCommand{Currency: ptr("EUO")}},
 	} {
 		refused.change.ID, refused.change.ActorID = id, f.userID
 
@@ -169,5 +172,58 @@ func TestARateAndItsCurrencyAreKeptOrRefusedByName(t *testing.T) {
 		if !ok || detail.Kind != apperror.KindInvalid || len(detail.Fields) != 1 || detail.Fields[0] != refused.field {
 			t.Errorf("%+v answered %v, want %s refused as invalid", refused.change, err, refused.field)
 		}
+	}
+}
+
+// TestACurrencyIsOneThereIsUnlessTheProjectAlreadyHoldsIt holds a project's
+// currency to the codes the project form offers - ISO 4217's, which a statement
+// can be paid in - whoever sends it, the form or a script. A project that kept
+// another code from before the list keeps it: saved unchanged, it is not
+// refused for a code nobody just typed.
+func TestACurrencyIsOneThereIsUnlessTheProjectAlreadyHoldsIt(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	refusedCurrency := func(what string, err error) {
+		t.Helper()
+
+		detail, ok := apperror.Detail(err)
+		if !ok || detail.Kind != apperror.KindInvalid || len(detail.Fields) != 1 || detail.Fields[0] != "currency" {
+			t.Errorf("%s answered %v, want the currency refused as invalid", what, err)
+		}
+	}
+
+	_, err := f.projects.CreateProject(ctx, command.CreateProjectCommand{
+		Name: "Slip", StartDate: day(1), OwnerID: &f.userID, Billable: true, Currency: "EUO",
+	})
+	refusedCurrency("a new project in EUO", err)
+
+	id := f.billableProject(t, "Older", true, ptr(50.0), "EUR")
+
+	project, err := f.projectRepo.GetByID(ctx, id)
+	if err != nil {
+		t.Fatalf("read the project back: %v", err)
+	}
+
+	// As a project saved before the list would hold it.
+	project.Currency = "XYZ"
+
+	if _, err := f.projectRepo.Update(ctx, project); err != nil {
+		t.Fatalf("give the project an older code: %v", err)
+	}
+
+	if _, err := f.projects.UpdateProject(ctx, command.UpdateProjectCommand{
+		ID: id, ActorID: f.userID, Name: ptr("Older, renamed"), Currency: ptr("XYZ"),
+	}); err != nil {
+		t.Errorf("saving the project with the code it holds answered %v, want it kept", err)
+	}
+
+	_, err = f.projects.UpdateProject(ctx, command.UpdateProjectCommand{ID: id, ActorID: f.userID, Currency: ptr("ABC")})
+	refusedCurrency("changing it to ABC", err)
+
+	if _, err := f.projects.UpdateProject(ctx, command.UpdateProjectCommand{
+		ID: id, ActorID: f.userID, Currency: ptr("chf"),
+	}); err != nil {
+		t.Errorf("changing it to chf answered %v, want CHF taken", err)
 	}
 }
