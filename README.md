@@ -74,7 +74,7 @@ working time first — `task readme:pictures` takes them again.
     </td>
     <td valign="top">
       <img src="doc/image/report.png" alt="A report of the month as a pie chart, one slice per project">
-      <p><b>Reports in the shape the question needs.</b> Bars, columns or a pie, each project keeping its colour in all three, and a PDF of the same.</p>
+      <p><b>Reports in the shape the question needs.</b> Bars, columns or a pie, each project keeping its colour in all three, and a PDF or a workbook of the same.</p>
     </td>
   </tr>
   <tr>
@@ -300,7 +300,7 @@ does.
 | --- | --- | --- |
 | **Recording** | Stopwatch, entry form and week grid; templates for what is booked often; changes to many entries at once; spreadsheet import and export | [Features](doc/feature.md) |
 | **History** | Every correction keeps the version it replaced, for the entry's owner | [Features](doc/feature.md#business-rules) |
-| **Evaluating** | Charts per day, project and activity, reports as bars, columns or a pie, the year as tiles, statements of work, PDF exports | [Features](doc/feature.md) |
+| **Evaluating** | Charts per day, project and activity, reports as bars, columns or a pie, the year as tiles, statements of work, PDF and .xlsx exports | [Features](doc/feature.md) |
 | **Projects** | Private to their owner, with a period, a status, an hour budget and an hourly rate | [Projects](doc/feature.md#projects) |
 | **Targets and time off** | A planned week, the public holidays of seventeen countries and their states or regions, leave with its entitlement and carry-over, sick days and days taken against overtime | [Overtime](doc/feature.md#overtime) |
 | **Working time** | When each day began and ended and its breaks, for each person's own record | [Working time](doc/feature.md#your-own-record-of-your-working-time) |

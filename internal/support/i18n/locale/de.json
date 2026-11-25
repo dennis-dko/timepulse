@@ -1,6 +1,7 @@
 {
   "absence.away": "Abwesend",
   "absence.empty": "In diesem Jahr ist keine Abwesenheit erfasst.",
+  "absence.filename": "abwesenheiten",
   "absence.flexDay": "Gleittag (vom Überstundenkonto)",
   "absence.halfVacation": "Halber Tag Urlaub",
   "absence.hint": "Urlaub, Krankheit und Tage, die vom Überstundenkonto genommen werden. Erfasst werden nur die Tage, an denen deine Woche etwas verlangt – zwei Wochen Urlaub sind also seine zehn Arbeitstage.",
@@ -1155,6 +1156,7 @@
   "statement.noRate": "noch ohne Satz",
   "statement.title": "Leistungsnachweis",
   "statement.total": "Summe in {0}",
+  "stats.activity": "Tätigkeit",
   "stats.activityHint": "Schreib eine Tätigkeit mit # in eine Beschreibung – #besprechung, #review – und ihre Stunden werden hier zusammengezählt. Ein Eintrag mit zweien zählt für beide, deshalb kann die Summe größer sein als die Gesamtzeit.",
   "stats.deletedProject": "gelöschtes Projekt",
   "stats.empty": "In diesem Zeitraum wurde nichts erfasst.",
@@ -1667,6 +1669,7 @@
   "year.away": "Abwesend",
   "year.booked": "Gebucht: {0} · Tage mit Stunden: {1}",
   "year.compare": "{0} bis zum selben Tag: {1}",
+  "year.filename": "jahr",
   "year.holiday": "Feiertag",
   "year.less": "Weniger",
   "year.month": "Monat",

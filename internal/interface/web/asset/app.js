@@ -15840,6 +15840,13 @@ function fillToday(field) {
   setDateField(field, todayISO());
 }
 
+/**
+ * statisticsShown is the answer the statistics charts were drawn from, kept for
+ * the workbook of them: a chart has no cells, so the workbook writes the figures
+ * the bars stand for. Forgotten with the rest at a sign-out.
+ */
+let statisticsShown = null;
+
 async function loadStatistics() {
   const card = $('#statistics-card');
   if (!card || !can('timesheets:read:own')) return;
@@ -15856,6 +15863,7 @@ async function loadStatistics() {
 
   const stats = await api(`/me/statistics?${params}`);
 
+  statisticsShown = stats;
   evaluatedPeriod.statistics = { from: stats.from, to: stats.to };
 
   $('#statistics-total').textContent =
@@ -16017,6 +16025,46 @@ async function downloadDocument(doc, name) {
       'X-CSRF-Token': readCookie('timepulse_csrf'),
     },
     body: JSON.stringify(doc),
+  });
+}
+
+/**
+ * The same evaluation as a workbook. What goes is the document without its
+ * pictures and colours, which a sheet has no use for, and with every figure the
+ * screen wrote read back as a number - in the reader's own way of writing one,
+ * as the tables are sorted by - so the sheet holds a column it can add up. A
+ * builder holding the numbers themselves sends them as figures and is believed.
+ */
+async function downloadWorkbook(doc, name) {
+  const separators = numberSeparators();
+  const figure = (text) => numberKey(String(text ?? '').trim(), separators);
+
+  const sections = (doc.sections ?? []).map(({ heading, caption, table }) => ({
+    heading,
+    caption,
+    table: table && {
+      ...table,
+      figures: table.figures
+        ?? table.rows.map((row) => row.map((cell, i) => (table.numeric?.[i] ? figure(cell) : null))),
+    },
+  }));
+
+  const summary = doc.summary ?? [];
+
+  await downloadFile(`${API}/exports/workbook?lang=${encodeURIComponent(activeLanguage())}`,
+    name, 'xlsx', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': readCookie('timepulse_csrf'),
+    },
+    body: JSON.stringify({
+      title: doc.title,
+      subtitle: doc.subtitle,
+      sections,
+      summary,
+      summaryFigures: doc.summaryFigures ?? summary.map((line) => figure(line.value)),
+    }),
   });
 }
 
@@ -16538,13 +16586,14 @@ function coverageOf(evaluated) {
 }
 
 /**
- * Sends one evaluation off to be laid out, and saves what comes back.
+ * Sends one evaluation off to be laid out, and saves what comes back - as a PDF,
+ * or as whatever download asks for.
  *
  * The whole card is disabled while it runs. Building the picture and posting it
  * takes a moment on a long table, and a second press would produce a second
  * identical document rather than a faster one.
  */
-async function exportEvaluation(button, name, build) {
+async function exportEvaluation(button, name, build, download = downloadDocument) {
   if (!button) return;
 
   // What the button is, kept so it can be given back. The key comes off the
@@ -16566,7 +16615,7 @@ async function exportEvaluation(button, name, build) {
   swapTheLabel(button, 'report.exporting', 'Preparing …');
 
   try {
-    await downloadDocument(await build(), name);
+    await download(await build(), name);
   } catch (err) {
     toastFailure(err);
   } finally {
@@ -16648,6 +16697,71 @@ async function statisticsDocument() {
   };
 }
 
+/**
+ * statisticsWorkbook is the statistics screen for a workbook. Its sections are
+ * charts, which have no cells, so it carries the figures they are drawn from
+ * instead - the answer on screen, labelled as the bars are.
+ */
+function statisticsWorkbook() {
+  const stats = statisticsShown ?? {};
+  const table = (heading, bars) => ({
+    columns: [heading, t('field.hours', 'Hours')],
+    numeric: [false, true],
+    rows: bars.map((bar) => [bar.label, fmtHours(bar.value)]),
+    figures: bars.map((bar) => [null, bar.value]),
+  });
+
+  return {
+    title: t('stats.title', 'My hours'),
+    subtitle: periodOf(evaluatedPeriod.statistics),
+    sections: [
+      {
+        heading: t('stats.perDay', 'Hours per day'),
+        table: table(t('field.day', 'Day'),
+          (stats.days ?? []).map((day) => ({ label: fmtDate(day.date), value: day.hours }))),
+      },
+      {
+        heading: t('stats.perProject', 'Hours per project'),
+        table: table(t('field.project', 'Project'), projectBars(stats.projects ?? [])),
+      },
+      {
+        heading: t('stats.perActivity', 'Hours per activity'),
+        table: table(t('stats.activity', 'Activity'),
+          activityBars(stats.tags ?? [], stats.untaggedHours ?? 0)),
+      },
+    ],
+    summary: [{ label: t('stats.total', 'Total'), value: fmtHours(stats.totalHours ?? 0) }],
+    summaryFigures: [stats.totalHours ?? 0],
+  };
+}
+
+/** The year card: its months against the year before, and what it comes to. */
+async function yearDocument() {
+  return {
+    title: $('#year-title').textContent.trim(),
+    colours: screenColours(),
+    subtitle: $('#year-summary').textContent.trim(),
+    sections: [{ table: tableAsFigures($('#table-year')) }],
+  };
+}
+
+/**
+ * The days away as their list shows them, for an employer's records - this
+ * year's, narrowed to a reason or searched where somebody did that, which the
+ * subtitle then says.
+ */
+async function absenceDocument() {
+  const table = $('#table-absences');
+  const pager = pagers.get(table);
+
+  return {
+    title: t('absence.title', 'Days away'),
+    colours: screenColours(),
+    subtitle: [todayISO().slice(0, 4), pager?.choice, pager?.query].filter(Boolean).join(' · '),
+    sections: [{ table: tableAsFigures(table) }],
+  };
+}
+
 /** The overtime screen: the day-by-day table and the balance. */
 async function overtimeDocument() {
   return {
@@ -16674,11 +16788,11 @@ async function overtimeDocument() {
  * is pressed, not when it is wired: somebody who switches language after the
  * page loads should get a file named in the language they are now reading.
  */
-function wireDocumentExport(selector, name, build) {
+function wireDocumentExport(selector, name, build, download = downloadDocument) {
   const button = $(selector);
   if (!button) return;
 
-  button.addEventListener('click', () => exportEvaluation(button, name(), build));
+  button.addEventListener('click', () => exportEvaluation(button, name(), build, download));
 }
 
 /**
@@ -16700,6 +16814,25 @@ function wireDocumentExports() {
   wireDocumentExport('#changes-pdf', () => t('changes.filename', 'changes-to-the-installation'),
     changesDocument);
   wireDocumentExport('#vacation-pdf', () => t('vacation.filename', 'leave'), vacationDocument);
+  wireDocumentExport('#absence-pdf', () => t('absence.filename', 'days-away'), absenceDocument);
+  wireDocumentExport('#year-pdf', () => t('year.filename', 'year'), yearDocument);
+
+  // The same screens as workbooks, from the same builders but one: the
+  // statistics are charts, which have no cells, so their workbook is built from
+  // the figures the charts are drawn from.
+  wireDocumentExport('#report-xlsx', () => t('report.filename', 'report'), reportDocument,
+    downloadWorkbook);
+  wireDocumentExport('#statistics-xlsx', () => t('stats.filename', 'statistics'),
+    statisticsWorkbook, downloadWorkbook);
+  wireDocumentExport('#overtime-xlsx', () => t('ot.filename', 'overtime'), overtimeDocument,
+    downloadWorkbook);
+  wireDocumentExport('#changes-xlsx', () => t('changes.filename', 'changes-to-the-installation'),
+    changesDocument, downloadWorkbook);
+  wireDocumentExport('#vacation-xlsx', () => t('vacation.filename', 'leave'), vacationDocument,
+    downloadWorkbook);
+  wireDocumentExport('#absence-xlsx', () => t('absence.filename', 'days-away'), absenceDocument,
+    downloadWorkbook);
+  wireDocumentExport('#year-xlsx', () => t('year.filename', 'year'), yearDocument, downloadWorkbook);
 }
 
 // ------------------------------------------- export and import, table by table
@@ -17002,6 +17135,7 @@ function forgetEveryEvaluation() {
 
   $('#table-statement tfoot')?.replaceChildren();
   statementShown = null;
+  statisticsShown = null;
 
   for (const said of ['#report-total', '#report-chart-caption', '#overtime-total', '#overtime-meta',
     '#overtime-rule', '#statistics-total', '#report-budget', '#workday-total']) {
