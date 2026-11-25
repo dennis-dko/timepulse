@@ -19210,7 +19210,7 @@ function appendLogLines(records) {
     // typed into it.
     message.textContent = record.message;
 
-    if (record.traceId) line.title = `trace ${record.traceId}`;
+    if (record.traceId) line.title = fillIn(t('log.trace', 'Trace ID {0}'), [record.traceId]);
 
     line.append(time, level, message);
     batch.append(line);
