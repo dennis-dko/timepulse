@@ -28,7 +28,7 @@ import (
 // whose rows have never been looked at. The card exists to show what a file
 // would do before it does it.
 //
-// The same two lines are missing from the three cards buildSheetCard makes, and
+// The same two lines are missing from the three tables addExportsAndImport serves, and
 // this drives the one in the markup because it is the one that can be reached
 // without an administrator.
 func TestChoosingAnotherFileDoesNotBringTheOldVerdictBack(t *testing.T) {
