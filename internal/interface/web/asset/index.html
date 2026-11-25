@@ -1348,10 +1348,11 @@
           <label data-i18n="field.budgetHours">Hour budget<input type="number" name="budgetHours" step="any" min="0" max="100000" data-i18n-placeholder="field.optional" placeholder="optional"></label>
           <!-- What its hours are charged at, for the statement of work under
                Reports: a rate in whole units of the currency, kept to the
-               hundredth, and a currency that is euros where it is left empty. -->
+               hundredth, and a currency picked from the ones in use, which the
+               script fills in - euros until another is picked. -->
           <label class="switch"><input type="checkbox" name="billable"><span class="switch-track"></span><span class="switch-label" data-i18n="project.billable">Billable</span></label>
           <label data-i18n="field.hourlyRate">Hourly rate<input type="number" name="hourlyRate" step="0.01" min="0" max="100000" data-i18n-placeholder="field.optional" placeholder="optional"></label>
-          <label data-i18n="field.currency">Currency<input type="text" name="currency" maxlength="3" pattern="[A-Za-z]{3}" placeholder="EUR" autocomplete="off"></label>
+          <label data-i18n="field.currency">Currency<select name="currency"></select></label>
         </div>
         <div class="row">
           <button type="submit" id="project-submit" data-i18n="action.create">Create</button>
