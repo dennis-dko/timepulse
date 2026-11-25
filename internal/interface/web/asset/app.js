@@ -9794,15 +9794,25 @@ async function loadAdmin() {
     // next time somebody saved the connection.
     //
     // Not over one being typed, for the same reason as every other card here.
+    // The configuration file's schedule where none is saved, as a value: it is
+    // the one that runs, and an empty field said there was none. Saved unchanged
+    // it stays the file's - see ldapPayload.
     if (!beingEdited(schedule)) {
-      schedule.elements.syncSchedule.value = ldap.syncSchedule ?? '';
+      schedule.elements.syncSchedule.value = ldap.syncSchedule || ldap.fileSyncSchedule || '';
     }
+
+    schedule.elements.syncSchedule.dataset.file = ldap.fileSyncSchedule ?? '';
 
     // What this process is actually scheduled to do, which is not the stored
     // value until the next start - and the restart card is what says so.
-    $('#sync-schedule-active').textContent = ldap.syncSchedule
-      ? `${t('sync.scheduleStored', 'Saved')}: ${ldap.syncSchedule}`
-      : t('sync.scheduleManual', 'Runs only when the button below is pressed.');
+    if (ldap.syncSchedule) {
+      $('#sync-schedule-active').textContent = `${t('sync.scheduleStored', 'Saved')}: ${ldap.syncSchedule}`;
+    } else if (ldap.fileSyncSchedule) {
+      $('#sync-schedule-active').textContent =
+        `${t('sync.scheduleFromFile', 'From the configuration file')}: ${ldap.fileSyncSchedule}`;
+    } else {
+      $('#sync-schedule-active').textContent = t('sync.scheduleManual', 'Runs only when the button below is pressed.');
+    }
   }
 
   // Last, so a log that cannot be read leaves every card above it filled.
@@ -10539,8 +10549,13 @@ function ldapPayload() {
   // it schedules, but it is stored with the rest of the directory settings and
   // travels on the same request - so it has to be in every payload or saving the
   // connection would clear it.
+  //
+  // The configuration file's schedule, which the field holds where none is
+  // saved, goes as no schedule: saved, it would go on running after the file
+  // changed or dropped it.
   const schedule = $('#form-sync-schedule');
-  body.syncSchedule = schedule ? schedule.elements.syncSchedule.value.trim() : '';
+  const typed = schedule ? schedule.elements.syncSchedule.value.trim() : '';
+  body.syncSchedule = theFilesOwn(typed, schedule?.elements.syncSchedule.dataset.file) ? '' : typed;
 
   return body;
 }
@@ -13972,10 +13987,12 @@ const OPERATIONAL_FIELDS = [
 /**
  * Fills the operational form.
  *
- * An overridden value goes in the field; anything still following the
- * configuration file leaves the field empty and shows that file's value as the
- * placeholder. Prefilling every field instead would turn "not set here" into a
- * deliberate-looking choice the moment anyone pressed Save.
+ * Every field holds the value in force: the one set here, or the configuration
+ * file's, as the database connection's fields do. An empty field with the file's
+ * value as a placeholder read as "not configured" on an installation configured
+ * through its file. What keeps "not set here" from becoming a choice the moment
+ * somebody presses Save is the payload, which leaves out a value that is the
+ * file's - see operationalPayload.
  */
 function fillOperationalForm(data) {
   const form = $('#form-operational');
@@ -14018,14 +14035,23 @@ function fillOperationalForm(data) {
       continue;
     }
 
-    const override = data.configured?.[field];
+    const fromFile = data.defaults?.[field];
 
-    input.value = override ?? '';
-    input.placeholder = String(data.defaults?.[field] ?? '');
+    input.value = String(data.configured?.[field] ?? fromFile ?? '');
+    input.dataset.file = String(fromFile ?? '');
+
+    // And as the placeholder, for a field somebody empties: it then says what
+    // applies once the file is followed again.
+    input.placeholder = String(fromFile ?? '');
   }
 }
 
-/** Reads the form, omitting empty fields so they keep following the file. */
+/**
+ * Reads the form, leaving out what keeps following the file: an emptied field,
+ * and one holding the file's own value. Sending that value would store it as a
+ * setting, and a later change to the file would then stop reaching this
+ * installation, for a field nobody had touched.
+ */
 function operationalPayload() {
   const form = $('#form-operational');
   const body = {};
@@ -14035,10 +14061,19 @@ function operationalPayload() {
     if (!input) continue;
 
     const raw = input.value.trim();
-    if (raw !== '') body[field] = Number(raw);
+    if (raw !== '' && !theFilesOwn(raw, input.dataset.file)) body[field] = Number(raw);
   }
 
   return body;
+}
+
+/** Whether what a field holds is the configuration file's own value for it. */
+function theFilesOwn(raw, file) {
+  if (file === undefined || file === '') return false;
+
+  const asNumbers = [Number(raw), Number(file)];
+
+  return asNumbers.every(Number.isFinite) ? asNumbers[0] === asNumbers[1] : raw === file;
 }
 
 function wireOperational() {
@@ -17834,7 +17869,7 @@ function fillTelemetryForm(data) {
   // which the comment over it calls the one thing here somebody wants to copy.
   // An administrator who types in this form and then restarts from the card below
   // came back to a description of the process that had gone.
-  if (!beingEdited(form)) fillTelemetryBoxes(form, configured);
+  if (!beingEdited(form)) fillTelemetryBoxes(form, configured, data.file ?? {});
 
   const active = data.active ?? {};
 
@@ -17862,8 +17897,28 @@ function fillTelemetryForm(data) {
   if (active.tracerUrl) form.elements.tracerUrl.placeholder = active.tracerUrl;
 }
 
-/** The stored settings, which are whoever is at the keyboard's to change. */
-function fillTelemetryBoxes(form, configured) {
+/**
+ * The stored settings, which are whoever is at the keyboard's to change, with
+ * what the configuration file says wherever nothing is stored - as values, as
+ * the database connection shows its own.
+ *
+ * A select keeps its option for following the file, because "the file's, until
+ * the file changes" and "this, whatever the file says" are different settings;
+ * the option names what the file says rather than only that it is followed. A
+ * text box holds the file's value, and telemetryPayload leaves out a value that
+ * is the file's, so saving it unchanged keeps following the file.
+ */
+function fillTelemetryBoxes(form, configured, file) {
+  const fromFile = (value) => fillIn(t('tel.fromFile', '{0} - from the configuration file'), [value]);
+
+  followOption(form.elements.logLevel).textContent = file.logLevel ? fromFile(file.logLevel) : t('tel.follow', 'Follow the configuration file');
+  followOption(form.elements.metricsOff).textContent = fromFile(file.metricsServed
+    ? fillIn(t('tel.servedOn', 'Served on port {0}'), [file.metricsPort])
+    : t('tel.notServed', 'Not served'));
+  followOption(form.elements.traceExporter).textContent = fromFile(file.traceExporter
+    ? file.traceExporter.toUpperCase()
+    : t('tel.notExported', 'Exported nowhere'));
+
   form.elements.logLevel.value = configured.logLevel ?? '';
   form.elements.metricsOff.value = configured.metricsOff ? TELEMETRY_OFF : '';
 
@@ -17874,8 +17929,15 @@ function fillTelemetryBoxes(form, configured) {
     form.elements.traceExporter.value = configured.traceExporter || TELEMETRY_OFF;
   }
 
-  form.elements.tracerUrl.value = configured.tracerUrl ?? '';
-  form.elements.tracerRatio.value = configured.tracerRatio ?? '';
+  form.elements.tracerUrl.value = configured.tracerUrl ?? file.tracerUrl ?? '';
+  form.elements.tracerUrl.dataset.file = file.tracerUrl ?? '';
+  form.elements.tracerRatio.value = String(configured.tracerRatio ?? file.tracerRatio ?? '');
+  form.elements.tracerRatio.dataset.file = String(file.tracerRatio ?? '');
+}
+
+/** A select's option for following the configuration file, its empty one. */
+function followOption(select) {
+  return select.querySelector('option[value=""]');
 }
 
 /**
@@ -17922,11 +17984,13 @@ function telemetryPayload() {
   if (exporter === TELEMETRY_OFF) body.traceExporter = '';
   else if (exporter !== '') body.traceExporter = exporter;
 
+  // The file's own value is left out like an empty box, so a box filled with it
+  // by the loader keeps following the file when the form is saved unchanged.
   const url = form.elements.tracerUrl.value.trim();
-  if (url !== '') body.tracerUrl = url;
+  if (url !== '' && !theFilesOwn(url, form.elements.tracerUrl.dataset.file)) body.tracerUrl = url;
 
   const ratio = form.elements.tracerRatio.value.trim();
-  if (ratio !== '') body.tracerRatio = Number(ratio);
+  if (ratio !== '' && !theFilesOwn(ratio, form.elements.tracerRatio.dataset.file)) body.tracerRatio = Number(ratio);
 
   return body;
 }

@@ -66,6 +66,10 @@ type SettingsHandler struct {
 	// start uses for every telemetry setting nobody has stored.
 	fileTelemetry appconfig.Telemetry
 
+	// fileSchedule is the directory schedule the configuration file gives, which
+	// is what runs while none is saved.
+	fileSchedule string
+
 	// openidCheck reads a sign-in provider's discovery document; see
 	// WithOpenIDCheck. Nil where nothing can, which the test answers as a fault.
 	openidCheck func(ctx context.Context, issuer string) error
@@ -79,6 +83,13 @@ type SettingsHandler struct {
 // restart change anything" about the wrong pair.
 func (h *SettingsHandler) WithFileTelemetry(fromFile appconfig.Telemetry) *SettingsHandler {
 	h.fileTelemetry = fromFile
+
+	return h
+}
+
+// WithFileSchedule attaches the directory schedule the configuration file gives.
+func (h *SettingsHandler) WithFileSchedule(schedule string) *SettingsHandler {
+	h.fileSchedule = schedule
 
 	return h
 }

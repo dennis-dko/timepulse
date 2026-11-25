@@ -100,7 +100,7 @@ nothing sets the variable.
 | `UPDATE_CHECK` | `true` | ask the release feed whether a newer version exists. `false` for an installation that must not reach the internet. The answer is kept for six hours, and each administrator's sign-in asks afresh once, so the *Version* card is behind a release you have just cut only until somebody next signs in — **Check for updates** on the card asks at once, at most once every five minutes |
 | `UPDATE_FEED` | GitHub | where to ask — a mirror, a proxy, or a fork's own releases |
 | `UPDATE_TOKEN` | empty | identifies this installation to the feed. Almost never needed: checking takes no credentials. The limit is counted **per address**, so a dozen instances behind one office connection share sixty checks an hour, and running out answers `403` |
-| `LDAP_SYNC_SCHEDULE` | empty | cron for the directory reconciliation; empty means manual only. Administered under *Settings* as well, where what is saved wins from the next start |
+| `LDAP_SYNC_SCHEDULE` | empty | cron for the directory reconciliation; empty means manual only. Administered under *Settings* as well, where what is saved wins from the next start. The card shows the file's schedule while none is saved, and saving it unchanged keeps it the file's |
 | `LDAP_SYNC_MAX_DELETE_RATIO` | `0.5` | refuse a run removing more than this share of directory accounts. **Administered under Settings**; not in `configs/.env` |
 | `MAX_DAILY_HOURS` | `24` | instance-wide cap per person per day, at most `24`; anything else is read as the default. **Administered under Settings**; not in `configs/.env` |
 | `LOG_LEVEL` | `INFO` | `DEBUG`…`FATAL`; anything else is read as `INFO`. **Administered under Settings**; in `configs/.dev.env` only |
@@ -112,10 +112,11 @@ nothing sets the variable.
 
 Five of the values above are **operational limits** rather than deployment
 facts, so *Settings → Operation and limits* overrides them while the
-application runs — no restart, no file access. A field left empty keeps
-following the file, and its value is shown as the placeholder, so it is always
-visible what a blank field means. The screen also prints what is currently in
-force, and *Reset* drops every override at once.
+application runs — no restart, no file access. Each field shows the value in
+force: the file's, unless it was set here. A field holding the file's value, or
+emptied, keeps following the file - saving the form unchanged stores nothing -
+and an emptied one shows the file's value as its placeholder. The screen also
+prints what is currently in force, and *Reset* drops every override at once.
 
 | Administered from the interface | Applies |
 | --- | --- |

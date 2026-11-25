@@ -49,6 +49,12 @@ type LDAPResponse struct {
 
 	// HasPassword tells the UI a password is stored without revealing it.
 	HasPassword bool `json:"hasPassword"`
+
+	// FileSyncSchedule is the schedule the configuration file gives, which runs
+	// while nothing is saved here. A screen that showed only the saved one said
+	// the reconciliation ran only when its button was pressed, under a file that
+	// scheduled it every night.
+	FileSyncSchedule string `json:"fileSyncSchedule"`
 }
 
 // LDAP handles GET /api/v1/settings/ldap.
@@ -62,7 +68,7 @@ func (h *SettingsHandler) LDAP(c *gofr.Context) (any, error) {
 		return nil, toHTTPError(err)
 	}
 
-	return newLDAPResponse(config), nil
+	return h.ldapResponse(config), nil
 }
 
 // SaveLDAP handles PUT /api/v1/settings/ldap.
@@ -89,7 +95,7 @@ func (h *SettingsHandler) SaveLDAP(c *gofr.Context) (any, error) {
 		h.ldap.configure(config)
 	}
 
-	return newLDAPResponse(config), nil
+	return h.ldapResponse(config), nil
 }
 
 // TestLDAP handles POST /api/v1/settings/ldap/test.
@@ -221,4 +227,13 @@ func newLDAPResponse(c model.LDAPConfig) LDAPResponse {
 		},
 		HasPassword: c.BindPassword != "",
 	}
+}
+
+// ldapResponse is the stored configuration as the screen reads it: without the
+// password, and with the schedule the configuration file gives beside it.
+func (h *SettingsHandler) ldapResponse(config model.LDAPConfig) LDAPResponse {
+	resp := newLDAPResponse(config)
+	resp.FileSyncSchedule = h.fileSchedule
+
+	return resp
 }

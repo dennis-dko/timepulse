@@ -21,6 +21,12 @@ type TelemetryResponse struct {
 	// Active is what this process is serving and exporting right now.
 	Active ActiveTelemetry `json:"active"`
 
+	// File is what the configuration file says, which is what every setting
+	// nobody stored follows - shown as the value of such a field rather than as
+	// an empty one, so an installation configured through its file does not look
+	// unconfigured.
+	File ActiveTelemetry `json:"file"`
+
 	// RestartRequired is whether a restart would change anything, answered by
 	// the same rule as the restart card. GoFr binds the metrics port and builds
 	// the trace exporter at start-up, so nothing but the log level can take
@@ -68,6 +74,7 @@ func (h *SettingsHandler) Telemetry(c *gofr.Context) (any, error) {
 	return TelemetryResponse{
 		Configured: configured,
 		Active:     h.active(),
+		File:       newActiveTelemetry(h.fileTelemetry),
 	}, nil
 }
 
@@ -116,6 +123,7 @@ func (h *SettingsHandler) SaveTelemetry(c *gofr.Context) (any, error) {
 	return TelemetryResponse{
 		Configured: stored,
 		Active:     h.active(),
+		File:       newActiveTelemetry(h.fileTelemetry),
 
 		// The log level is exempt now, so a save that changed only that needs
 		// nothing further. Everything else here is still built inside gofr.New().

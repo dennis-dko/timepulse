@@ -1173,6 +1173,7 @@ func main() {
 			WithLiveLogLevel(applyLogLevel, logs.Level).
 			WithRunningConnection(ds).
 			WithFileTelemetry(fileTelemetry).
+			WithFileSchedule(fileSchedule).
 			WithOpenIDCheck(openIDSignIn.Check),
 	}
 
