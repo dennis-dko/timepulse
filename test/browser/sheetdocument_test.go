@@ -38,7 +38,7 @@ func TestTheCardsThatLeftOnlyAsAWorkbookLeaveAsAPDFToo(t *testing.T) {
 		})()`, &booked)
 
 		p.run("open the time entries' export", p.click(`.tab[data-view="timesheets"]`),
-			p.click(`#timesheets-tabs [data-card-tab="sheet"]`))
+			p.click(`#timesheets-tabs [data-card-tab="entries"]`))
 		p.waitShown("#wb-pdf")
 
 		before := p.documentsAsked()

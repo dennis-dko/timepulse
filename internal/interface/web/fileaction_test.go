@@ -43,6 +43,8 @@ func TestEveryExportAndImportStandsInItsCardsLastRow(t *testing.T) {
 		cards       int
 		controls    int
 		rowsPerCard = map[int]int{}
+		// The card the time entries' list stands in, and the one their import does.
+		cardHolding = map[string]int{}
 		// Set when a file-actions row has closed: the very next tag has to close
 		// its card.
 		mustCloseCard bool
@@ -60,6 +62,12 @@ func TestEveryExportAndImportStandsInItsCardsLastRow(t *testing.T) {
 
 	for _, tag := range markupTag.FindAllStringSubmatch(markup, -1) {
 		closing, name, attrs := tag[1] == "/", strings.ToLower(tag[2]), tag[3]
+
+		for _, id := range []string{"table-timesheets", "wb-pick"} {
+			if card := cardOf(); card >= 0 && strings.Contains(attrs, `id="`+id+`"`) {
+				cardHolding[id] = stack[card].card
+			}
+		}
 
 		if mustCloseCard {
 			mustCloseCard = false
@@ -131,20 +139,32 @@ func TestEveryExportAndImportStandsInItsCardsLastRow(t *testing.T) {
 		}
 	}
 
+	// A table leaves and arrives from its own card. The time entries' exports and
+	// import were a card of their own, on a tab of their own, away from the list
+	// whose filters decide what they hold.
+	if listed, picked := cardHolding["table-timesheets"], cardHolding["wb-pick"]; listed == 0 || listed != picked {
+		t.Errorf("the time entries' import stands in card %d and their list in card %d: a table's "+
+			"exports and its import belong in the card that lists it", picked, listed)
+	}
+
 	// Ten cards with a PDF and a workbook each, and the time entries' import: fewer
 	// is the walk no longer finding them, not a card gone.
 	if controls < 22 {
 		t.Fatalf("found %d exports and imports in the markup, want at least 22", controls)
 	}
 
-	// The tables' own cards are built rather than written, and build the same row
-	// last.
-	built := functionSource(t, asset(t, "/app.js"), "buildSheetCard")
+	// The projects', the users' and the roles' cards get theirs from the script,
+	// which adds the same row to the table's own card, last.
+	built := functionSource(t, asset(t, "/app.js"), "addExportsAndImport")
 
-	foot := regexp.MustCompile(`(?s)return el\('div', \{ class: 'card'[^;]*,\s*el\('div', \{ class: 'file-actions' \},\s*([^;()]*)\)\);`).
+	if !strings.Contains(built, "$(spec.table)?.closest('.card')") {
+		t.Error("addExportsAndImport does not put the exports and the import in the table's own card")
+	}
+
+	foot := regexp.MustCompile(`(?s)card\.append\([^;]*,\s*el\('div', \{ class: 'file-actions' \},\s*([^;()]*)\)\);`).
 		FindStringSubmatch(built)
 	if foot == nil {
-		t.Fatal("buildSheetCard does not end its card with a div.file-actions row")
+		t.Fatal("addExportsAndImport does not end a table's card with a div.file-actions row")
 	}
 
 	for _, part := range []string{"pdfButton", "exportButton", "picker"} {

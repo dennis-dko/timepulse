@@ -52,7 +52,7 @@ func TestEveryFileChooserSpeaksTheApplicationsLanguage(t *testing.T) {
 	}
 
 	// The tables' cards build theirs in the script, and open it the same way.
-	built := functionSource(t, asset(t, "/app.js"), "buildSheetCard")
+	built := functionSource(t, asset(t, "/app.js"), "addExportsAndImport")
 
 	if !regexp.MustCompile(`const file = el\('input', \{[^}]*class: 'file-input'`).MatchString(built) {
 		t.Error("the file input a table's card builds is not kept out of sight with class file-input")

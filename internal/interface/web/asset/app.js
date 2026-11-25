@@ -11988,8 +11988,8 @@ const TOUR_STEPS = [
     permission: 'timesheets:read:own',
     title: () => t('tour.timesheetsTabs.title', 'Time entries, by task'),
     text: () => t('tour.timesheetsTabs.text',
-      'Recording, the list of entries, templates, and export and import each have a tab of '
-      + 'their own. The walk opens each one as it gets there.'),
+      'Recording, the list of entries and the templates each have a tab of their own. The '
+      + 'walk opens each one as it gets there.'),
   },
   {
     target: '#timer-card',
@@ -12033,6 +12033,16 @@ const TOUR_STEPS = [
       + 'submit it to.'),
   },
   {
+    target: '#wb-actions',
+    view: 'timesheets',
+    permission: 'timesheets:read:own',
+    title: () => t('tour.sheet.title', 'In and out'),
+    text: () => t('tour.sheet.text',
+      'What the filters show leaves as a PDF or a spreadsheet, every page of it. An import '
+      + 'shows what it would change before it changes anything. Every card keeps its exports '
+      + 'and imports in its last row.'),
+  },
+  {
     target: '#templates-card',
     view: 'timesheets',
     permission: 'timesheets:write:own',
@@ -12040,18 +12050,6 @@ const TOUR_STEPS = [
     text: () => t('tour.templates.text',
       'Bookings you make often, kept with "Save as template" in the booking form on the '
       + 'Record tab. A template only fills that form in: nothing is booked until you press Book.'),
-  },
-  {
-    target: '#workbook-card',
-    view: 'timesheets',
-    permission: 'timesheets:read:own',
-    title: () => t('tour.sheet.title', 'In and out, as a PDF or a spreadsheet'),
-    text: () => t('tour.sheet.text',
-      'Your hours as a PDF to read or as a spreadsheet to work on, with the column headings '
-      + 'in the language you are reading - the entries the filters under Entries show. An '
-      + 'import shows you what it would change before it changes anything. Projects, users '
-      + 'and roles have the same buttons on their own screens, and on every card its exports '
-      + 'and imports stand in its last row.'),
   },
   {
     target: '#week-card',
@@ -16433,7 +16431,7 @@ function renderWorkbookPreview(result) {
   $('#wb-import').hidden = rejected > 0 || writable === 0;
 }
 
-/** The resets of the tables' import cards, which buildSheetCard builds. */
+/** The resets of the tables' imports, which addExportsAndImport adds to their cards. */
 const sheetCardResets = [];
 
 /** Puts every import card back to its resting state. */
@@ -16475,8 +16473,7 @@ function wireFileButtons() {
 }
 
 function wireWorkbook() {
-  const card = $('#workbook-card');
-  if (!card) return;
+  if (!$('#wb-file')) return;
 
   $('#wb-export').addEventListener('click', () => mutate(
     exportWorkbook, t('wb.exported', 'Export saved'), null));
@@ -17224,37 +17221,34 @@ const SHEET_CARDS = [
   {
     key: 'projects',
     path: '/projects',
-    view: '#view-projects',
     table: '#table-projects',
     title: () => t('nav.projects', 'Projects'),
-    read: 'projects:read',
     write: 'projects:write',
     reload: () => refreshAll(),
   },
   {
     key: 'users',
     path: '/users',
-    view: '#view-users',
     table: '#table-users',
     title: () => t('nav.users', 'Users'),
-    read: 'users:read',
     write: 'users:write',
     reload: () => refreshAll(),
   },
   {
     key: 'roles',
     path: '/roles',
-    view: '#view-roles',
     table: '#table-roles',
     title: () => t('nav.roles', 'Roles'),
-    read: 'roles:read',
     write: 'roles:write',
     reload: () => refreshAll(),
   },
 ];
 
 /**
- * Builds the export/import card for one table.
+ * Gives a table's card its exports and its import: under the table, in the card's
+ * last row, where every card keeps them. They were a card of their own below the
+ * table's, on a tab of their own for the time entries, which put a table and the
+ * way it leaves in two places.
  *
  * Built here rather than written into index.html three times over. The markup is
  * identical for every table - the only differences are the words and the endpoint -
@@ -17265,13 +17259,16 @@ const SHEET_CARDS = [
  * translated, so this renders a file of projects and a file of people with the same
  * code and needs to know nothing about either.
  */
-function buildSheetCard(spec) {
+function addExportsAndImport(spec) {
+  const card = $(spec.table)?.closest('.card');
+  if (!card) return;
+
   const summary = el('p', { class: 'muted' });
   const headRow = el('tr');
   const body = el('tbody');
 
   const wrap = el('div', { class: 'table-wrap' },
-    el('table', {}, el('thead', {}, headRow), body));
+    el('table', { class: 'import-preview' }, el('thead', {}, headRow), body));
   wrap.hidden = true;
 
   const file = el('input', {
@@ -17434,8 +17431,7 @@ function buildSheetCard(spec) {
   cancel.addEventListener('click', reset);
   sheetCardResets.push(reset);
 
-  return el('div', { class: 'card', 'data-perm': spec.read },
-    el('h2', { 'data-i18n': 'wb.title', text: 'Export and import' }),
+  card.append(
     el('p', {
       class: 'muted',
       'data-i18n': `sheet.${spec.key}.text`,
@@ -17493,12 +17489,7 @@ const SHEET_TEXTS = {
 };
 
 function wireSheetCards() {
-  for (const spec of SHEET_CARDS) {
-    const view = $(spec.view);
-    if (!view) continue;
-
-    view.append(buildSheetCard(spec));
-  }
+  for (const spec of SHEET_CARDS) addExportsAndImport(spec);
 }
 
 /**

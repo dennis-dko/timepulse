@@ -27,7 +27,7 @@ func TestAnImportButtonIsDrawnAsTheExportButtonBesideIt(t *testing.T) {
 		cards []card
 	}{
 		{"worker", (*page).readyWorker, []card{
-			{"timesheets", `#timesheets-tabs [data-card-tab="sheet"]`, "#workbook-card"},
+			{"timesheets", `#timesheets-tabs [data-card-tab="entries"]`, "#wb-actions"},
 			{"projects", "", `#view-projects .card:has(input[type="file"])`},
 		}},
 		{"administrator", (*page).readyAdmin, []card{
