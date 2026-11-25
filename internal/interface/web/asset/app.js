@@ -11971,8 +11971,8 @@ const TOUR_STEPS = [
     title: () => t('tour.welcome.title', 'The way back'),
     text: () => t('tour.welcome.text',
       'The title takes you to the welcome screen from wherever you are. It shows your '
-      + 'day, your week and your figures as tiles you arrange by their handles, and it can '
-      + 'start this walk again.'),
+      + 'day, your week and your figures as tiles, which "Customize dashboard" above them '
+      + 'arranges and puts away, and it can start this walk again.'),
   },
   {
     target: '#tabs',
@@ -13444,6 +13444,7 @@ function forgetTheGlance() {
 
   $('#dashboard-foot').hidden = true;
   $('#dashboard-said').textContent = '';
+  customizeDashboard(false);
   arrangeDashboard([]);
 }
 
@@ -13517,15 +13518,39 @@ function offerTheShippedOrder() {
   $('#dashboard-reset').hidden = arrangementOnScreen().join() === shippedTiles.join();
 }
 
+/** Whether the dashboard is being customized, which is when its tiles can be moved and put away. */
+let dashboardEditing = false;
+
 /**
- * Says how the tiles are moved, once any tile is on screen or put away, and
- * offers each one put away back: named after its heading, so it follows a
- * heading the script rewrites and the language it is read in.
+ * Starts customizing the dashboard, or finishes it: the handles, the crosses and
+ * what is said about them come and go with it, and the link that starts it says
+ * Done meanwhile. A new page starts with it finished, whatever the last one did.
+ */
+function customizeDashboard(on) {
+  dashboardEditing = on;
+
+  $('#dashboard-area')?.classList.toggle('editing', on);
+
+  // Each key written out, so the test that every key is translated can read it.
+  if (on) swapTheLabel($('#dashboard-edit'), 'dashboard.done', 'Done');
+  else swapTheLabel($('#dashboard-edit'), 'dashboard.edit', 'Customize dashboard');
+
+  showTheDashboardFoot();
+}
+
+/**
+ * Offers the dashboard to be customized once any tile is on screen or put away,
+ * and while it is: says how the tiles are moved and offers each one put away
+ * back, named after its heading, so it follows a heading the script rewrites and
+ * the language it is read in.
  */
 function showTheDashboardFoot() {
   const away = putAwayTiles();
+  const anything = shownTiles().length > 0 || away.length > 0;
+  const edit = $('#dashboard-edit');
 
-  $('#dashboard-foot').hidden = shownTiles().length === 0 && away.length === 0;
+  if (edit) edit.hidden = !anything;
+  $('#dashboard-foot').hidden = !dashboardEditing || !anything;
 
   const list = $('#dashboard-put-away');
   if (!list) return;
@@ -13724,6 +13749,8 @@ function wireDashboard() {
 
     tile.querySelector('.welcome-recent-head').append(grip, hide);
   }
+
+  $('#dashboard-edit')?.addEventListener('click', () => customizeDashboard(!dashboardEditing));
 
   $('#dashboard-reset').addEventListener('click', () => {
     arrangeDashboard([]);

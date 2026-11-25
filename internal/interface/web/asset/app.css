@@ -3566,6 +3566,41 @@ input[readonly]:focus, textarea[readonly]:focus {
 .tile-hide:hover,
 .tile-hide:focus-visible { background: var(--quiet); color: var(--text); filter: none; }
 
+/* The handles and the crosses only while the dashboard is being customized: the
+   screen is opened to read figures, and arranging them is the exception. */
+.dashboard-area:not(.editing) :is(.tile-grip, .tile-hide) { display: none; }
+
+/* "Customize dashboard", at the right above the tiles. Where a pointer can rest
+   it comes up where the pointer or the keyboard is and stays out of the way
+   otherwise - transparent rather than gone, so Tab still reaches it and shows
+   it. A touch screen has no pointer resting on the tiles, so there it is always
+   shown, and while customizing it says Done and stays. */
+.dashboard-bar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+
+#dashboard-edit { transition: opacity 0.15s ease; }
+
+/* The keyboard's focus rather than any: a button keeps the focus a click gave it,
+   and the link stayed up after Done was clicked and the pointer had left. */
+@media (hover: hover) {
+  .dashboard-area:not(.editing, :hover, :has(:focus-visible)) #dashboard-edit { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #dashboard-edit { transition: none; }
+}
+
+/* Read by a screen reader and drawn nowhere: what a move or a put-away did, which
+   whoever can see the tiles sees happen. */
+.visually-hidden {
+  clip-path: inset(50%);
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 /* A tile its owner put away. A class of its own rather than hidden, which the
    rights decide and every reading of the account sets again. */
 .dashboard > .tile.put-away { display: none; }
