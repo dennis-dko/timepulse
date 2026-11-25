@@ -929,16 +929,6 @@
       <div class="card" id="workbook-card" data-perm="timesheets:read:own" data-tab="sheet">
         <h2 data-i18n="wb.title">Spreadsheet</h2>
         <p class="muted" data-i18n="wb.text">Exports what the filters under Entries are showing. An import creates entries; it never changes or replaces the ones that are already there.</p>
-        <div class="row">
-          <button type="button" class="secondary" id="wb-export" data-i18n="wb.export">Export as .xlsx</button>
-          <label class="file-pick" data-perm="timesheets:write:own" data-own-only>
-            <span data-i18n="wb.importFrom">Import from .xlsx…</span>
-            <input type="file" id="wb-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-          </label>
-          <button type="button" class="secondary" id="wb-preview" hidden data-i18n="wb.preview">Check the file</button>
-          <button type="button" id="wb-import" hidden data-i18n="wb.import">Import</button>
-          <button type="button" class="link" id="wb-clear" hidden data-i18n="wb.clear">cancel</button>
-        </div>
         <p class="muted" id="wb-summary"></p>
         <div class="table-wrap" id="wb-preview-wrap" hidden>
           <table id="table-workbook">
@@ -955,6 +945,16 @@
             </thead>
             <tbody></tbody>
           </table>
+        </div>
+        <div class="file-actions">
+          <button type="button" class="secondary" id="wb-export" data-i18n="wb.export">Export as .xlsx</button>
+          <label class="file-pick" data-perm="timesheets:write:own" data-own-only>
+            <span data-i18n="wb.importFrom">Import from .xlsx…</span>
+            <input type="file" id="wb-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+          </label>
+          <button type="button" class="secondary" id="wb-preview" hidden data-i18n="wb.preview">Check the file</button>
+          <button type="button" id="wb-import" hidden data-i18n="wb.import">Import</button>
+          <button type="button" class="link" id="wb-clear" hidden data-i18n="wb.clear">cancel</button>
         </div>
       </div>
       <!-- The templates kept from the booking form, listed to take them back.
@@ -1079,13 +1079,7 @@
            their breaks were: the person's own record of their working time, beside
            the hours they booked. Nobody else's screen shows it. -->
       <div class="card" id="workday-card" data-perm="timesheets:read:own" data-own-only data-tab="worktime">
-        <div class="card-head">
-          <h2 data-i18n="work.title">Working time</h2>
-          <div class="filters">
-            <button type="button" class="secondary" id="workday-pdf" data-i18n="action.exportPdf">Export as PDF</button>
-            <button type="button" class="secondary" id="workday-xlsx" data-i18n="wb.export">Export as .xlsx</button>
-          </div>
-        </div>
+        <h2 data-i18n="work.title">Working time</h2>
         <p class="muted" data-i18n="work.hint">When you began, when you finished and how long your breaks were, day by day – your own record of your working time, beside the hours you booked on projects. Nobody else sees it.</p>
         <form method="post" id="form-workday" class="form" data-perm="timesheets:write:own">
           <div class="grid">
@@ -1115,6 +1109,10 @@
         </div>
         <p class="muted" id="workday-total"></p>
         <p class="muted" data-i18n="work.actHint">Days past a limit of the Working Hours Act are marked: more than ten hours, a break too short for the hours, or fewer than eleven hours of rest since the day before. They are notices; what happened is what is recorded.</p>
+        <div class="file-actions">
+          <button type="button" class="secondary" id="workday-pdf" data-i18n="action.exportPdf">Export as PDF</button>
+          <button type="button" class="secondary" id="workday-xlsx" data-i18n="wb.export">Export as .xlsx</button>
+        </div>
       </div>
 
       <div class="card" id="calendar-day-card" data-tab="month" hidden>
@@ -1171,7 +1169,7 @@
           </table>
         </div>
         <!-- The year shown, its leave and its days away, for an employer's records. -->
-        <div class="row">
+        <div class="file-actions">
           <button type="button" class="secondary" id="vacation-pdf" data-i18n="action.exportPdf">Export as PDF</button>
           <button type="button" class="secondary" id="vacation-xlsx" data-i18n="wb.export">Export as .xlsx</button>
         </div>
@@ -1211,7 +1209,7 @@
         </div>
         <!-- This year's days away as the list shows them - narrowed to a reason, or
              searched, where somebody did that - for an employer's records. -->
-        <div class="row">
+        <div class="file-actions">
           <button type="button" class="secondary" id="absence-pdf" data-i18n="action.exportPdf">Export as PDF</button>
           <button type="button" class="secondary" id="absence-xlsx" data-i18n="wb.export">Export as .xlsx</button>
         </div>
@@ -1272,7 +1270,7 @@
 
         <p class="muted" id="statistics-empty" hidden data-i18n="stats.empty">Nothing was recorded in this period.</p>
 
-        <div class="row">
+        <div class="file-actions">
           <button type="button" class="secondary" id="statistics-pdf"
                   data-i18n="action.exportPdf">Export as PDF</button>
           <button type="button" class="secondary" id="statistics-xlsx"
@@ -1317,7 +1315,7 @@
             <tbody></tbody>
           </table>
         </div>
-        <div class="row">
+        <div class="file-actions">
           <button type="button" class="secondary" id="year-pdf" data-i18n="action.exportPdf">Export as PDF</button>
           <button type="button" class="secondary" id="year-xlsx" data-i18n="wb.export">Export as .xlsx</button>
         </div>
@@ -1354,7 +1352,7 @@
           </table>
         </div>
 
-        <div class="row">
+        <div class="file-actions">
           <button type="button" class="secondary" id="overtime-pdf"
                   data-i18n="action.exportPdf">Export as PDF</button>
           <button type="button" class="secondary" id="overtime-xlsx"
@@ -1604,7 +1602,7 @@
           </table>
         </div>
 
-        <div class="row">
+        <div class="file-actions">
           <button type="button" class="secondary" id="report-pdf"
                   data-i18n="action.exportPdf">Export as PDF</button>
           <button type="button" class="secondary" id="report-xlsx"
@@ -1643,7 +1641,7 @@
             <tfoot></tfoot>
           </table>
         </div>
-        <div class="row">
+        <div class="file-actions">
           <button type="button" class="secondary" id="statement-pdf"
                   data-i18n="action.exportPdf">Export as PDF</button>
           <button type="button" class="secondary" id="statement-xlsx"
@@ -2532,7 +2530,7 @@
         </div>
         <!-- Every change the search and the area let through, for an audit -
              not the page on screen. -->
-        <div class="row">
+        <div class="file-actions">
           <button type="button" class="secondary" id="changes-pdf" data-i18n="action.exportPdf">Export as PDF</button>
           <button type="button" class="secondary" id="changes-xlsx" data-i18n="wb.export">Export as .xlsx</button>
         </div>

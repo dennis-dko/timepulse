@@ -17326,9 +17326,9 @@ function buildSheetCard(spec) {
       'data-i18n': `sheet.${spec.key}.text`,
       text: SHEET_TEXTS[spec.key],
     }),
-    el('div', { class: 'row' }, exportButton, picker, check, write, cancel),
     summary,
-    wrap);
+    wrap,
+    el('div', { class: 'file-actions' }, exportButton, picker, check, write, cancel));
 }
 
 /**

@@ -1739,6 +1739,20 @@ body:has(#login-screen:not([hidden])) .toast-stack { bottom: calc(var(--footer-h
    where without the air the button reads as the end of the sentence. */
 .row-apart { margin-top: 18px; }
 
+/* A card's exports and its import, in one place on every card: its last row,
+   under a hairline. They stood wherever the card that grew them had room - at
+   the foot of a table, beside a heading, under a description - so whoever had
+   found them on one card had learnt nothing about where they were on the next. */
+.file-actions {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
 /* Every answer that is not the form's own: a tint of the text rather than a box
    inside a border, which beside a field read as one more field. Darker under the
    pointer and darker still while it is pressed, so a click is seen to land. */
