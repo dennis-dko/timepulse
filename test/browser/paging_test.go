@@ -61,7 +61,8 @@ func seedEntries(t *testing.T, p *page, count int) {
 	t.Logf("seeded %d entries in %dms", count, took)
 }
 
-// showTimeView opens the time view and makes the table read the seeded entries.
+// showTimeView opens the list of entries, on its own tab of the time view, and
+// makes the table read the seeded entries.
 //
 // The loader is called rather than a tab clicked, because clicking the tab of the
 // view already showing does nothing at all - which is what the first version of
@@ -72,7 +73,8 @@ func showTimeView(p *page) {
 	p.t.Helper()
 
 	p.run("open the time view", p.click(`.tab[data-view="timesheets"]`),
-		chromedp.WaitVisible("#form-timesheet", chromedp.ByID))
+		p.click(`#timesheets-tabs [data-card-tab="entries"]`),
+		chromedp.WaitVisible("#entries-card", chromedp.ByID))
 
 	p.run("read the seeded entries", chromedp.Evaluate(`loadTimesheets(); 'reloading'`, nil))
 }

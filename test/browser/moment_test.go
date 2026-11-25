@@ -33,7 +33,7 @@ func TestATokenShowsWhenItWasMadeAndNotJustTheDay(t *testing.T) {
 	p.readyWorker()
 
 	p.run("open My account", chromedp.Click(`.tab[data-view="settings"]`, chromedp.ByQuery),
-		p.click(`#settings-tabs [data-card-tab="apps"]`),
+		p.click(`#settings-tabs [data-card-tab="api"]`),
 		chromedp.WaitVisible("#token-card", chromedp.ByID))
 
 	p.run("create a token",

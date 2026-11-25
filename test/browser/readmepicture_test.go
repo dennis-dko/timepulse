@@ -92,6 +92,7 @@ func TestTheReadmePicturesAreTakenFromTheApplication(t *testing.T) {
 
 	p.showView("timesheets")
 	p.shootCard(into, "stopwatch", "#timer-card")
+	p.showTabOf("#entries-card")
 	p.run("search this month's meetings",
 		chromedp.SendKeys("#filter-ts-q", "#meeting", chromedp.ByID),
 		chromedp.Evaluate(`(() => {
@@ -104,7 +105,9 @@ func TestTheReadmePicturesAreTakenFromTheApplication(t *testing.T) {
 	p.showView("overtime")
 	p.shootCard(into, "activity", "#statistics-card",
 		`#statistics-card h3[data-i18n="stats.perDay"]`, ".chart-wrap:has(#chart-days)")
+	p.showTabOf("#year-card")
 	p.shootCard(into, "year", "#year-card", "#year-card .table-wrap")
+	p.showTabOf("#form-overtime")
 	p.run("calculate the balance", p.click(`#form-overtime button[type="submit"]`))
 	p.waitShown("#overtime-result")
 	p.shootCard(into, "overtime", "#overtime-result")
@@ -133,6 +136,7 @@ func TestTheReadmePicturesAreTakenFromTheApplication(t *testing.T) {
 
 	// Opened at a desktop's width, because a telephone folds the tabs away.
 	p.showView("timesheets")
+	p.showTabOf("#timer-card")
 	p.run("a telephone", chromedp.EmulateViewport(390, 844, chromedp.EmulateScale(2)))
 	p.shoot(into, "phone")
 

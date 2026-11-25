@@ -1413,7 +1413,7 @@ which is a different kind of decision from changing a setting.
 ## Backup
 
 The application makes its own backups, on the **Backups** card under *Settings*,
-on the operation tab: one now, downloaded as soon as it is made, or on a schedule
+on the data tab: one now, downloaded as soon as it is made, or on a schedule
 saved on the card and kept on the server, the oldest going once there are more
 than the number set there.
 

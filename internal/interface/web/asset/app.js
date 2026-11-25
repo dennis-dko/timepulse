@@ -6122,10 +6122,13 @@ function renderPermissionLegend() {
     const detail = permissionDetail(permission);
     if (!detail || !offeredRight(permission)) continue;
 
-    list.append(el('dt', {},
-      el('span', { text: permissionTitle(permission) }),
-      el('code', { class: 'perm-id', text: permission })));
-    list.append(el('dd', { text: detail }));
+    // A right and its sentence as one item, which the legend's columns keep
+    // together rather than breaking a name from what it allows.
+    list.append(el('div', {},
+      el('dt', {},
+        el('span', { text: permissionTitle(permission) }),
+        el('code', { class: 'perm-id', text: permission })),
+      el('dd', { text: detail })));
   }
 }
 
@@ -6511,9 +6514,14 @@ function mayEditTimesheet(entry) {
  * duplicated, so the field rules - step="any", the 24 hour ceiling, the
  * description bound - hold for a correction exactly as they do for a new booking.
  */
-function editTimesheet(entry) {
+function editTimesheet(entry, { backTo } = {}) {
   const form = $('#form-timesheet');
   if (!form) return;
+
+  // Where the correction goes back to once it is saved or given up: the list of
+  // entries it was opened from, which stands on a tab of its own.
+  if (backTo) form.dataset.backTo = backTo;
+  else delete form.dataset.backTo;
 
   form.elements.id.value = String(entry.id);
   form.elements.projectId.value = entry.projectId ? String(entry.projectId) : '';
@@ -6560,6 +6568,20 @@ function swapTheLabel(node, key, english) {
   node.dataset.i18nSource = english;
 
   setLeadingText(node, t(key, english));
+}
+
+/**
+ * Opens the tab of the card a correction was opened from, once it is saved or
+ * given up. Not part of resetTimesheetForm: the quick entry resets the form too,
+ * and somebody typing a line there is not to be sent anywhere.
+ */
+function returnFromCorrection() {
+  const form = $('#form-timesheet');
+  const back = form?.dataset.backTo ? $(form.dataset.backTo) : null;
+  if (!back) return;
+
+  delete form.dataset.backTo;
+  openTheTabOf(back);
 }
 
 /** Puts the form back to booking a new entry. */
@@ -6958,7 +6980,7 @@ function timesheetActions(entry) {
     actions.append(el('button', {
       class: 'link',
       text: t('action.edit', 'edit'),
-      onclick: () => editTimesheet(entry),
+      onclick: () => editTimesheet(entry, { backTo: '#entries-card' }),
     }));
   }
 
@@ -11951,8 +11973,8 @@ const TOUR_STEPS = [
     permission: 'timesheets:read:own',
     title: () => t('tour.timesheetsTabs.title', 'Time entries, by task'),
     text: () => t('tour.timesheetsTabs.text',
-      'Recording, templates and the spreadsheet each have a tab of their own. The walk '
-      + 'opens each one as it gets there.'),
+      'Recording, the list of entries, templates and the spreadsheet each have a tab of their '
+      + 'own. The walk opens each one as it gets there.'),
   },
   {
     target: '#timer-card',
@@ -12069,6 +12091,15 @@ const TOUR_STEPS = [
       + 'your week asks something of count, so a fortnight of leave is ten working days.'),
   },
   {
+    target: '#overtime-tabs',
+    view: 'overtime',
+    permission: 'timesheets:read:own',
+    title: () => t('tour.overtimeTabs.title', 'Your hours, three questions'),
+    text: () => t('tour.overtimeTabs.text',
+      'How your hours were spread, how the year went, and your overtime each have a tab of '
+      + 'their own.'),
+  },
+  {
     target: '#chart-days',
     view: 'overtime',
     permission: 'timesheets:read:own',
@@ -12175,8 +12206,8 @@ const TOUR_STEPS = [
     view: 'settings',
     title: () => t('tour.settingsTabs.title', 'My account, by subject'),
     text: () => t('tour.settingsTabs.text',
-      'Working time, how you sign in, apps and the calendar, and your data each have a '
-      + 'tab of their own. You only see the tabs that have something for you.'),
+      'Working time, notices, how you sign in, apps and the calendar, the API and your data '
+      + 'each have a tab of their own. You only see the tabs that have something for you.'),
   },
   {
     target: '#form-working-times',
@@ -12185,24 +12216,6 @@ const TOUR_STEPS = [
     text: () => t('tour.account.text',
       'Your daily target and your daily ceiling. The target is what the overtime balance '
       + 'is measured against, and nobody but you sets it.'),
-  },
-  {
-    target: '#form-balance-bounds',
-    view: 'settings',
-    permission: 'settings:write:own',
-    title: () => t('tour.bounds.title', 'Bounds for your balance'),
-    text: () => t('tour.bounds.text',
-      'Two figures your running balance should stay between, as on a flexitime account. '
-      + 'While it lies outside them, a banner says so on every screen.'),
-  },
-  {
-    target: '#form-reminders',
-    view: 'settings',
-    permission: 'timesheets:write:own',
-    title: () => t('tour.reminders.title', 'Reminders'),
-    text: () => t('tour.reminders.text',
-      'A banner when the stopwatch has run longer than you choose, or when your last working '
-      + 'day has nothing booked on it. For the stopwatch, this browser can notify you as well.'),
   },
   {
     target: '#schedule-card',
@@ -12228,6 +12241,24 @@ const TOUR_STEPS = [
     text: () => t('tour.myHolidays.text',
       'The public holidays where you work: marked in the calendar and on the week, and left '
       + 'out of your leave. Leave it on the installation\'s unless you work somewhere else.'),
+  },
+  {
+    target: '#form-balance-bounds',
+    view: 'settings',
+    permission: 'settings:write:own',
+    title: () => t('tour.bounds.title', 'Bounds for your balance'),
+    text: () => t('tour.bounds.text',
+      'Two figures your running balance should stay between, as on a flexitime account. '
+      + 'While it lies outside them, a banner says so on every screen.'),
+  },
+  {
+    target: '#form-reminders',
+    view: 'settings',
+    permission: 'timesheets:write:own',
+    title: () => t('tour.reminders.title', 'Reminders'),
+    text: () => t('tour.reminders.text',
+      'A banner when the stopwatch has run longer than you choose, or when your last working '
+      + 'day has nothing booked on it. For the stopwatch, this browser can notify you as well.'),
   },
   {
     target: '#form-password',
@@ -12314,17 +12345,9 @@ const TOUR_STEPS = [
     permission: 'settings:manage',
     title: () => t('tour.adminTabs.title', 'Settings, by subject'),
     text: () => t('tour.adminTabs.text',
-      'General settings, how people sign in, how the installation runs, and its logs each '
-      + 'have a tab of their own. The walk opens each one as it gets there.'),
-  },
-  {
-    target: '#form-branding',
-    view: 'admin',
-    permission: 'settings:manage',
-    title: () => t('tour.branding.title', 'What this installation looks like'),
-    text: () => t('tour.branding.text',
-      'What follows TimePulse, banner, logo and footer. The logo stands at the left of the header once '
-      + "somebody has signed in; the browser tab and the sign-in screen always show TimePulse's own."),
+      'General settings, the appearance, how people sign in, the directory, how the '
+      + 'installation runs, its data and its logs each have a tab of their own. The walk opens '
+      + 'each one as it gets there.'),
   },
   {
     target: '#form-managers',
@@ -12363,6 +12386,25 @@ const TOUR_STEPS = [
       + 'not chosen their own. Until a choice is saved, nobody keeps any.'),
   },
   {
+    target: '#form-branding',
+    view: 'admin',
+    permission: 'settings:manage',
+    title: () => t('tour.branding.title', 'What this installation looks like'),
+    text: () => t('tour.branding.text',
+      'What follows TimePulse, banner, logo and footer. The logo stands at the left of the header once '
+      + "somebody has signed in; the browser tab and the sign-in screen always show TimePulse's own."),
+  },
+  {
+    target: '#form-openid',
+    view: 'admin',
+    permission: 'settings:manage',
+    title: () => t('tour.provider.title', 'A sign-in provider'),
+    text: () => t('tour.provider.text',
+      'People can sign in through your organisation\'s provider instead of with a password, '
+      + 'once each has linked their account to it. Nobody gets an account just because the '
+      + 'provider knows them.'),
+  },
+  {
     target: '#form-ldap',
     view: 'admin',
     permission: 'settings:manage',
@@ -12379,16 +12421,6 @@ const TOUR_STEPS = [
         'Accounts can come from LDAP instead of being created here. Reconciling them deletes '
         + 'accounts, and is left to the built-in administrator or the role "{0}".')
         .replace('{0}', roleTitle(ADMINISTERING_ROLE))),
-  },
-  {
-    target: '#form-openid',
-    view: 'admin',
-    permission: 'settings:manage',
-    title: () => t('tour.provider.title', 'A sign-in provider'),
-    text: () => t('tour.provider.text',
-      'People can sign in through your organisation\'s provider instead of with a password, '
-      + 'once each has linked their account to it. Nobody gets an account just because the '
-      + 'provider knows them.'),
   },
   {
     target: '#restart-card',
@@ -12409,16 +12441,6 @@ const TOUR_STEPS = [
       + 'replace itself, it downloads and installs the new one from here.'),
   },
   {
-    target: '#backup-card',
-    view: 'admin',
-    permission: 'settings:manage',
-    title: () => t('tour.backup.title', 'Backups'),
-    text: () => t('tour.backup.text',
-      'The whole installation in one sealed file: made now and downloaded, or made on a '
-      + 'schedule and kept on the server, the oldest going past the number you set. It '
-      + 'comes back through the installer, into an empty database.'),
-  },
-  {
     target: '#form-maintenance',
     view: 'admin',
     permission: 'settings:manage',
@@ -12437,6 +12459,16 @@ const TOUR_STEPS = [
       + 'new account starts on.'),
   },
   {
+    target: '#backup-card',
+    view: 'admin',
+    permission: 'settings:manage',
+    title: () => t('tour.backup.title', 'Backups'),
+    text: () => t('tour.backup.text',
+      'The whole installation in one sealed file: made now and downloaded, or made on a '
+      + 'schedule and kept on the server, the oldest going past the number you set. It '
+      + 'comes back through the installer, into an empty database.'),
+  },
+  {
     target: '#form-datasource',
     view: 'admin',
     permission: 'settings:manage',
@@ -12446,15 +12478,6 @@ const TOUR_STEPS = [
       + 'saved, and the change applies at the next start.'),
   },
   {
-    target: '#form-telemetry',
-    view: 'admin',
-    permission: 'settings:manage',
-    title: () => t('tour.telemetry.title', 'Metrics and tracing'),
-    text: () => t('tour.telemetry.text',
-      'The log level, the metrics endpoint and where traces are exported to. The level applies '
-      + 'at once; the other two are read when the process starts, so they wait for the next one.'),
-  },
-  {
     target: '#changes-card',
     view: 'admin',
     permission: 'settings:manage',
@@ -12462,6 +12485,15 @@ const TOUR_STEPS = [
     text: () => t('tour.changes.text',
       'Every account, role and setting created, changed or deleted, every switch of '
       + 'maintenance mode and every restart, with who did it, newest first.'),
+  },
+  {
+    target: '#form-telemetry',
+    view: 'admin',
+    permission: 'settings:manage',
+    title: () => t('tour.telemetry.title', 'Metrics and tracing'),
+    text: () => t('tour.telemetry.text',
+      'The log level, the metrics endpoint and where traces are exported to. The level applies '
+      + 'at once; the other two are read when the process starts, so they wait for the next one.'),
   },
   {
     target: '#log-card',
@@ -18859,7 +18891,7 @@ function warnAboutLevelsTheProcessDoesNotWrite() {
   warning.textContent = quieter.length
     ? t('log.levelTooQuiet',
       'This installation is writing {0} and above, so {1} will stay empty. '
-      + 'The log level is set under "Logging, metrics and tracing" on the Operation tab.')
+      + 'The log level is set under "Logging, metrics and tracing" just above.')
       .replace('{0}', logView.runningLevel)
       .replace('{1}', quieter.join(', '))
     : '';
@@ -19439,9 +19471,10 @@ function arrangeScreenTabs() {
  * Shows one tab of a screen, and hides the panels of the others.
  *
  * Kept for the session, per screen, so a reload comes back to the same tab
- * rather than to the first one, which is seldom where somebody was working.
+ * rather than to the first one, which is seldom where somebody was working -
+ * unless remember is false, for a tab only standing in for an empty one.
  */
-function showScreenTab(view, key, { focus = false } = {}) {
+function showScreenTab(view, key, { focus = false, remember = true } = {}) {
   if (!key) return;
 
   for (const tab of $$('[role="tab"]', view)) {
@@ -19457,6 +19490,8 @@ function showScreenTab(view, key, { focus = false } = {}) {
     const shown = panel.dataset.cardPanel === key;
     if (panel.hidden === shown) panel.hidden = !shown;
   }
+
+  if (!remember) return;
 
   try {
     sessionStorage.setItem(`timepulse.tab.${view.id}`, key);
@@ -19507,6 +19542,12 @@ function rememberedScreenTab(view) {
  *
  * The chosen one moves to the first left when it empties, and the strip goes
  * when one tab is all there is: a choice of one says nothing the cards do not.
+ *
+ * The tab moved to only stands in, so it is not remembered as anybody's choice,
+ * and the one it stood in for comes back as soon as it holds something again.
+ * Before anybody signs in, the cards of the time entries' first tab are hidden
+ * by their rights: remembering the stand-in opened that screen on the list of
+ * entries for the rest of the session instead of on the form that books one.
  */
 function offerTheTabsThatHoldSomething(view) {
   const tabs = $$('[role="tab"]', view);
@@ -19526,7 +19567,16 @@ function offerTheTabsThatHoldSomething(view) {
   if (strip && strip.hidden === several) strip.hidden = !several;
 
   const chosen = tabs.find((tab) => tab.getAttribute('aria-selected') === 'true');
-  if (first && (!chosen || chosen.hidden)) chooseScreenTab(view, first.dataset.cardTab);
+  const wantedKey = rememberedScreenTab(view) ?? tabs[0]?.dataset.cardTab;
+  const wanted = tabs.find((tab) => tab.dataset.cardTab === wantedKey);
+
+  if (wanted && !wanted.hidden) {
+    if (chosen !== wanted) chooseScreenTab(view, wantedKey, { remember: false });
+
+    return;
+  }
+
+  if (first && (!chosen || chosen.hidden)) chooseScreenTab(view, first.dataset.cardTab, { remember: false });
 }
 
 /** Moves along a strip with the arrow keys, Home and End, as any tab strip does. */
@@ -20050,6 +20100,7 @@ function wireForms() {
       // Keeps the project and the date, so booking several entries in a row stays
       // quick.
       resetTimesheetForm();
+      if (editing) returnFromCorrection();
 
       // Kept, nothing changed on the server to show, and nothing could be asked
       // of it anyway: reloading would only add a second notice to the first.
@@ -20065,7 +20116,10 @@ function wireForms() {
     });
   });
 
-  $('#timesheet-cancel').addEventListener('click', resetTimesheetForm);
+  $('#timesheet-cancel').addEventListener('click', () => {
+    resetTimesheetForm();
+    returnFromCorrection();
+  });
 
   // Back to the placeholder once it has filled the form: left showing the
   // template, it would go on claiming the form says what the template says after

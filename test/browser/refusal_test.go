@@ -32,7 +32,7 @@ func TestAFailedConnectionSaysSoInGermanAndKeepsTheDetail(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="data"]`),
 		chromedp.WaitVisible("#form-datasource", chromedp.ByID))
 
 	// Waited for the card to be filled before anything is typed into it: the form

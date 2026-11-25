@@ -32,7 +32,7 @@ func TestTheDatabasePasswordIsShownFilledAndNeverHeld(t *testing.T) {
 	p.readyAdmin()
 
 	p.run("open Settings", p.click(`.tab[data-view="admin"]`),
-		p.click(`#admin-tabs [data-card-tab="operation"]`),
+		p.click(`#admin-tabs [data-card-tab="data"]`),
 		chromedp.WaitVisible("#form-datasource", chromedp.ByID))
 	p.waitForFilled("#datasource-active")
 	p.settled()
