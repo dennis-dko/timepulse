@@ -11049,6 +11049,91 @@ async function deleteUser(user) {
     refreshAll);
 }
 
+// -------------------------------------------------------------- the sign-in sky
+
+/**
+ * The sign-in sky's colour through the day: an hour and the colour at it, the
+ * colours between two of them mixed. The installer and the Android app's connect
+ * screen carry the same table and the same drawing, and test/sky_test.go holds
+ * the three together.
+ */
+const SKY = [
+  [0, '#1b2a4e'], [5, '#3b3f8f'], [6.5, '#f08a5d'], [9, '#7fb8e6'], [13, '#4ea8de'],
+  [17, '#f2a65a'], [19.5, '#e2678b'], [21, '#4b3f8f'], [24, '#1b2a4e'],
+];
+
+/** When the sun rises on the sky's arc and sets, in hours: a day drawn, not a place's. */
+const SUNRISE = 6;
+const SUNSET = 20;
+
+/** The sky's colour at an hour, mixed from the two colours of the table it falls between. */
+function skyColourAt(hour) {
+  for (let i = 1; i < SKY.length; i++) {
+    const [fromHour, from] = SKY[i - 1];
+    const [toHour, to] = SKY[i];
+
+    if (hour <= toHour) {
+      const share = (hour - fromHour) / (toHour - fromHour);
+      const a = parseInt(from.slice(1), 16);
+      const b = parseInt(to.slice(1), 16);
+      const mix = (shift) => Math.round(((a >> shift) & 255) * (1 - share) + ((b >> shift) & 255) * share);
+
+      return `rgb(${mix(16)} ${mix(8)} ${mix(0)})`;
+    }
+  }
+
+  return SKY[0][1];
+}
+
+/**
+ * Draws a sky at a moment in the reader's own day: the sun on its arc from
+ * sunrise to sunset, the moon on the same arc through the night, the sky's
+ * colour, and the stars, which come out over the last hour and a half of the day
+ * and are all out at night. The arc runs from 40,870 over 800,90 to 1560,870 in
+ * the drawing's own units.
+ */
+function drawTheSky(sky, now = new Date()) {
+  if (!sky) return;
+
+  const hour = now.getHours() + now.getMinutes() / 60;
+  const day = hour >= SUNRISE && hour <= SUNSET;
+  const along = day
+    ? (hour - SUNRISE) / (SUNSET - SUNRISE)
+    : ((hour < SUNRISE ? hour + 24 : hour) - SUNSET) / (24 - SUNSET + SUNRISE);
+  const angle = Math.PI * (1 - along);
+  // Tenths of a unit are enough for a drawing 1600 units wide, and a number
+  // written for an attribute is the browser's to read, not the reader's.
+  const tenth = (value) => String(Math.round(value * 10) / 10);
+  const x = 800 + 760 * Math.cos(angle);
+  const y = 870 - 780 * Math.sin(angle);
+  const night = day ? Math.max(0, 1 - Math.min(hour - SUNRISE, SUNSET - hour) / 1.5) * 0.5 : 1;
+
+  sky.style.setProperty('--sky', skyColourAt(hour));
+  sky.style.setProperty('--night', String(Math.round(night * 100) / 100));
+  sky.classList.toggle('is-night', !day);
+
+  for (const body of sky.querySelectorAll('.sky-sun, .sky-moon, .sky-halo-disc, .sky-glow-around')) {
+    body.setAttribute('cx', tenth(x));
+    body.setAttribute('cy', tenth(y));
+  }
+
+  const cut = sky.querySelector('.sky-crescent-cut');
+  cut?.setAttribute('cx', tenth(x + 18));
+  cut?.setAttribute('cy', tenth(y - 12));
+}
+
+/**
+ * Draws the sign-in sky now, and again every five minutes while the sign-in
+ * screen is up: somebody who leaves it open over an evening sees the sun go.
+ */
+function wireSky() {
+  drawTheSky($('#login-sky'));
+
+  setInterval(() => {
+    if (!$('#login-screen').hidden) drawTheSky($('#login-sky'));
+  }, 5 * 60 * 1000);
+}
+
 // ------------------------------------------------------------------ sign-in
 
 /**
@@ -20727,6 +20812,10 @@ async function init() {
   // submit handler was never attached, which would silently reload the page.
   $('#form-login').addEventListener('submit', submitLogin);
   wireTicketSignIn();
+
+  // The screen's ground, before anything is asked of the server, so the sky is
+  // there while the session is being checked rather than arriving after it.
+  wireSky();
 
   // Before anything can fail for want of a connection, so a page that cannot
   // reach the installation says so rather than only failing.

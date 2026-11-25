@@ -1868,8 +1868,60 @@ tr.self td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
  *
  * Without this the sign-in form is what the markup shows on load, so a user who
  * is already signed in sees it for as long as the first few requests take and
- * then has it taken away - a flash that reads as having been signed out. */
-.login-screen.checking > *:not(.session-check, .site-footer) { display: none; }
+ * then has it taken away - a flash that reads as having been signed out. The sky
+ * apart too, which is the screen's ground rather than anything on it. */
+.login-screen.checking > *:not(.session-check, .site-footer, .sky) { display: none; }
+
+/* The sky behind the sign-in card; see the markup. Fixed rather than absolute,
+ * because this screen scrolls on a short window and the sky stays where it is;
+ * under everything else on the screen, which is what z-index -1 means inside the
+ * screen's own stacking context. The colour and the stars' strength come from
+ * drawTheSky; how strongly they show is the theme's, as a dark ground takes more
+ * of a colour before it is seen. */
+.sky {
+  --sky: transparent;
+  --night: 0;
+  --sky-strength: 0.22;
+  --star-strength: 0.45;
+  --sun: #f6a23c;
+  --halo: #ffd27a;
+  height: 100%;
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  width: 100%;
+  z-index: -1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .sky { --sky-strength: 0.34; --star-strength: 0.7; --sun: #f0a44e; }
+}
+
+:root[data-theme="dark"] .sky { --sky-strength: 0.34; --star-strength: 0.7; --sun: #f0a44e; }
+
+.sky.is-night { --halo: #c9d6ff; }
+.sky .sky-tint { stop-color: var(--sky); }
+.sky .sky-wash { stop-opacity: var(--sky-strength); }
+.sky .sky-glow { stop-opacity: calc(var(--sky-strength) * 1.4); }
+.sky .sky-halo { stop-color: var(--halo); stop-opacity: 0.55; }
+.sky .sky-fade { stop-opacity: 0; }
+.sky .sky-stars circle { fill: var(--text); fill-opacity: calc(var(--night) * var(--star-strength)); }
+.sky .sky-horizon { stroke: var(--muted); stroke-opacity: 0.25; stroke-width: 2; }
+
+.sky .sky-path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-dasharray: 3 16;
+  stroke-linecap: round;
+  stroke-opacity: 0.5;
+  stroke-width: 3;
+}
+
+.sky .sky-ticks circle { fill: var(--muted); fill-opacity: 0.55; }
+.sky .sky-sun { fill: var(--sun); }
+.sky .sky-moon { fill: var(--text); fill-opacity: 0.85; }
+.sky.is-night .sky-sun,
+.sky:not(.is-night) .sky-moon { display: none; }
 
 .session-check { display: none; }
 .login-screen.checking .session-check { display: block; }
@@ -2625,11 +2677,14 @@ body:has(#login-screen:not([hidden])) > .site-footer {
 
 /* Inside the sign-in screen, after the form: across the screen's whole width, the
  * screen's padding taken back at the sides and the bottom. The screen then covers
- * the window, and the footer scrolls with what it holds. */
+ * the window, and the footer scrolls with what it holds. On a ground of its own,
+ * mostly the page's, so it reads over whatever part of the sky is behind it. */
 .login-screen:has(> .site-footer) { inset: 0; }
 
 .login-screen > .site-footer {
   align-self: stretch;
+  backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
   margin: 0 -20px -20px;
 }
 
