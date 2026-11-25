@@ -109,7 +109,7 @@ working time first — `task readme:pictures` takes them again.
       <p><b>Every entry, findable.</b> Narrow the list by project, period or words in the description — the export follows the same filter — and every correction keeps the version it replaced.</p>
     </td>
     <td valign="top">
-      <img src="doc/image/signin.png" alt="The sign-in form, offering a password, a passkey and the organisation's provider">
+      <img src="doc/image/signin.png" alt="The sign-in form on the afternoon sky, the sun on its arc behind it, offering a password, a passkey and the organisation's provider">
       <p><b>Sign in your way.</b> A password and an authenticator app, a passkey, your organisation's provider — or, inside a domain, the Kerberos ticket the browser already holds.</p>
     </td>
   </tr>
@@ -119,7 +119,7 @@ working time first — `task readme:pictures` takes them again.
       <p><b>Operated from the browser.</b> The process log, live; the database, the directory, telemetry, maintenance, backups, updates and a restart, all under <i>Settings</i>.</p>
     </td>
     <td valign="top">
-      <img src="doc/image/installer.png" alt="The installer asking for the setup token and a database">
+      <img src="doc/image/installer.png" alt="The installer on the same sky, asking for the setup token and a database">
       <p><b>Set up in the browser.</b> Without a database the binary serves this screen, guarded by a token from its log, and then takes its port over in the same process — starting empty, with demo data, or from a backup.</p>
     </td>
   </tr>

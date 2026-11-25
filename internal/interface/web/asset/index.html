@@ -491,6 +491,56 @@
        returning user with a valid session sees a quiet screen for a moment
        rather than a sign-in form that is snatched away again. -->
   <div id="login-screen" class="login-screen checking">
+    <!-- The sky behind the card, at the hour the reader is in: the sun on its arc
+         from six in the morning to eight in the evening, the moon on the same arc
+         through the night, the stars coming out as the sun goes, and the sky
+         tinted as the day goes. drawTheSky places them. Chosen by the maintainer
+         on 2026-11-25 from seven drawn side by side, for every screen somebody
+         signs in, sets up or connects on: the installer and the Android app's
+         connect screen draw the same sky, and test/sky_test.go holds the three
+         to one table. -->
+    <svg class="sky" id="login-sky" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice"
+         aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="login-sky-wash" x1="0" y1="0" x2="0" y2="1000" gradientUnits="userSpaceOnUse">
+          <stop offset="0" class="sky-tint sky-wash"/>
+          <stop offset="1" class="sky-tint sky-fade"/>
+        </linearGradient>
+        <radialGradient id="login-sky-glow" class="sky-glow-around" cx="800" cy="90" r="900" gradientUnits="userSpaceOnUse">
+          <stop offset="0" class="sky-tint sky-glow"/>
+          <stop offset="1" class="sky-tint sky-fade"/>
+        </radialGradient>
+        <radialGradient id="login-sky-halo">
+          <stop offset="0" class="sky-halo"/>
+          <stop offset="1" class="sky-halo sky-fade"/>
+        </radialGradient>
+        <mask id="login-sky-crescent" maskUnits="userSpaceOnUse" x="0" y="0" width="1600" height="1000">
+          <rect width="1600" height="1000" fill="#ffffff"/>
+          <circle class="sky-crescent-cut" cx="818" cy="78" r="36" fill="#000000"/>
+        </mask>
+      </defs>
+      <rect width="1600" height="1000" fill="url(#login-sky-wash)"/>
+      <rect width="1600" height="1000" fill="url(#login-sky-glow)"/>
+      <g class="sky-stars">
+        <circle cx="150" cy="120" r="3.5"/><circle cx="330" cy="220" r="2.5"/><circle cx="520" cy="90" r="2.5"/>
+        <circle cx="700" cy="170" r="3.5"/><circle cx="960" cy="70" r="2.5"/><circle cx="1120" cy="190" r="2.5"/>
+        <circle cx="1290" cy="110" r="3.5"/><circle cx="1470" cy="230" r="2.5"/><circle cx="240" cy="340" r="2.5"/>
+        <circle cx="1390" cy="360" r="3.5"/><circle cx="610" cy="300" r="2.5"/><circle cx="1010" cy="280" r="2.5"/>
+        <circle cx="80" cy="470" r="3.5"/><circle cx="1530" cy="480" r="2.5"/>
+      </g>
+      <line class="sky-horizon" x1="0" y1="870" x2="1600" y2="870"/>
+      <path class="sky-path" d="M40 870 A760 780 0 0 1 1560 870"/>
+      <!-- Six, nine, noon, three and six o'clock on the arc, unlabelled: a number
+           there would be written in one clock or the other, and the screen writes
+           times as the reader's language does. -->
+      <g class="sky-ticks">
+        <circle cx="40" cy="870" r="6"/><circle cx="205.8" cy="383.7" r="6"/><circle cx="630.9" cy="109.6" r="6"/>
+        <circle cx="1129.8" cy="167.2" r="6"/><circle cx="1484.8" cy="531.6" r="6"/>
+      </g>
+      <circle class="sky-halo-disc" cx="800" cy="90" r="150" fill="url(#login-sky-halo)"/>
+      <circle class="sky-sun" cx="800" cy="90" r="44"/>
+      <circle class="sky-moon" cx="800" cy="90" r="40" mask="url(#login-sky-crescent)"/>
+    </svg>
     <!-- The notice again, inside the sign-in screen.
          The banner at the top of the page cannot be seen from here: this screen
          is position:fixed over the whole viewport with an opaque background, so

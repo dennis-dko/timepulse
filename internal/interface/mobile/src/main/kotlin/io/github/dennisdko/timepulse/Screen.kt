@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -284,17 +285,22 @@ private fun WaitScreen(state: State, onRetry: () -> Unit, onDisconnect: () -> Un
 /**
  * Page is a screen's column, clear of the system's bars and the keyboard, with
  * the card in its middle as the web interface's sign-in has it - and scrolled
- * once the card is taller than the screen.
+ * once the card is taller than the screen. The sign-in's sky is behind it, under
+ * the bars as well, because it is the screen's ground rather than anything on it.
  */
 @Composable
 private fun Page(content: @Composable ColumnScope.() -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
-        Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            content = content,
-        )
+    Box(Modifier.fillMaxSize()) {
+        DaySky(Modifier.fillMaxSize())
+
+        BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                content = content,
+            )
+        }
     }
 }
 
