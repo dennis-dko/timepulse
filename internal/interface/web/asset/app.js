@@ -8694,6 +8694,18 @@ function forgetTheTokenValue() {
 }
 
 function wireTokens() {
+  // How an assistant connects, from this page's own address: the server answers
+  // the protocol under the API, and the token travels the way every API call
+  // carries one. A placeholder rather than a token, because the card says it for
+  // any of them, and a value is shown once, where it was made.
+  const assistant = `${location.origin}${API}/mcp`;
+  const header = 'Authorization: Bearer <token>';
+
+  $('#token-assistant-address').textContent = assistant;
+  $('#token-assistant-header').textContent = header;
+  $('#token-assistant-command').textContent =
+    `claude mcp add --transport http timepulse ${assistant} --header "${header}"`;
+
   $('#form-token').addEventListener('submit', (e) => {
     e.preventDefault();
 
@@ -12236,11 +12248,11 @@ const TOUR_STEPS = [
   {
     target: '#token-card',
     view: 'settings',
-    title: () => t('tour.tokens.title', 'Tokens for scripts and the app'),
+    title: () => t('tour.tokens.title', 'Tokens for scripts, the app and assistants'),
     text: () => t('tour.tokens.text',
-      'A personal token lets a script book time as you, and connects the Android app that '
-      + 'scans its code. It carries exactly the rights your role has when it is used, and is '
-      + 'shown once, when it is created.'),
+      'A personal token lets a script book time as you, connects the Android app that scans '
+      + 'its code, and an AI assistant at the address the card names under the list. It carries '
+      + 'exactly the rights your role has when it is used, and is shown once, when it is created.'),
   },
   {
     target: '#managers-card',

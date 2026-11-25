@@ -2084,6 +2084,14 @@ tr.self td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
   white-space: pre-wrap;
 }
 
+/* How an assistant connects, under the token list it takes one from. */
+.token-assistant {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+
+.token-assistant h3 { font-size: 15px; margin: 14px 0 6px; }
+
 /* --- date fields ---
  *
  * The native input is still there and still holds the value; it is the picker,

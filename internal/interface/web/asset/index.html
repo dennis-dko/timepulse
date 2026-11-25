@@ -1940,6 +1940,20 @@
             <tbody></tbody>
           </table>
         </div>
+        <!-- An assistant such as Claude reaches this installation through the
+             Model Context Protocol with one of these tokens, and its tools reach
+             the owner's own time and nothing else - so this is for whoever has
+             some. The three values are written by the script from the page's own
+             address, which is right wherever the installation runs. -->
+        <div class="token-assistant" id="token-assistant" data-perm="timesheets:read:own">
+          <h3 data-i18n="token.assistantTitle">Connecting an AI assistant</h3>
+          <p class="muted" data-i18n="token.assistantHint">An assistant such as Claude can read and book your time through the Model Context Protocol (MCP). It signs in with one of these tokens and can do exactly what you could do with it, on your own time and nothing else. Give it a token of its own, which can be taken back without disconnecting anything else. Its address:</p>
+          <pre class="value" id="token-assistant-address"></pre>
+          <p class="muted" data-i18n="token.assistantHeader">The token travels in this header, with every message:</p>
+          <pre class="value" id="token-assistant-header"></pre>
+          <p class="muted" data-i18n="token.assistantExample">In Claude Code, for example:</p>
+          <pre class="value" id="token-assistant-command"></pre>
+        </div>
       </div>
 
       <!-- Who may see this account's time, by name and with what each may do with
