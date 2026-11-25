@@ -268,6 +268,7 @@ func TestOpeningARoleShowsItsRights(t *testing.T) {
 	// nowhere to be seen.
 	var layout struct {
 		Air          float64 `json:"air"`
+		Space        float64 `json:"space"`
 		BeforeLegend bool    `json:"beforeLegend"`
 		OnScreen     bool    `json:"onScreen"`
 	}
@@ -280,6 +281,7 @@ func TestOpeningARoleShowsItsRights(t *testing.T) {
 
 		return {
 			air: box.top - rights.bottom,
+			space: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--button-space')),
 			// Earlier in the document than the legend, which is what puts them
 			// where the eye lands after the jump.
 			beforeLegend: Boolean(
@@ -293,8 +295,11 @@ func TestOpeningARoleShowsItsRights(t *testing.T) {
 			"than the rights this jumped to")
 	}
 
-	if layout.Air < 16 {
-		t.Errorf("the buttons sit %.0fpx under the switches", layout.Air)
+	// Clear of the switches by the space every button keeps from what is around
+	// it - the maintainer's rule since 2026-11-25, where this asked for at least
+	// 16 pixels and the stylesheet gave 22.
+	if layout.Space == 0 || layout.Air < layout.Space-1 || layout.Air > layout.Space+1 {
+		t.Errorf("the buttons sit %.0fpx under the switches, want the button space of %.0fpx", layout.Air, layout.Space)
 	}
 
 	// The buttons at the end of the form are off the bottom of the window after

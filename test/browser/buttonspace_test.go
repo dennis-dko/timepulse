@@ -34,6 +34,13 @@ const measureButtonSpace = `JSON.stringify((() => {
 	// with no token at all would pass.
 	if (!Number.isFinite(space)) return ['the stylesheet declares no --button-space to measure against'];
 	const shown = (el) => el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
+	// What a reader sees beside or above a button: not an empty paragraph waiting
+	// for a verdict, whose margins collapse through it so it stands flush on what
+	// follows, nor a file input kept out of sight at no size.
+	const seen = (el) => {
+		const box = el.getBoundingClientRect();
+		return shown(el) && box.width > 0 && box.height > 0;
+	};
 	const skip = '.screen-tab, .tab, .topbar *, .nav-toggle, .password-toggle, .date-open, .tile-grip, .tile-hide, '
 		+ '.toast-close, .sort-toggle, .pager *, td *, th *, #tour *, .tour-bubble *, .chart-legend *';
 	const holders = '.card, form, .tile, .login-fields';
@@ -48,7 +55,7 @@ const measureButtonSpace = `JSON.stringify((() => {
 		// The element before it in its container, where that stands beside it -
 		// each pair of neighbours is measured once, from its right-hand one.
 		let before = button.previousElementSibling;
-		while (before && !shown(before)) before = before.previousElementSibling;
+		while (before && !seen(before)) before = before.previousElementSibling;
 		if (before) {
 			const r = before.getBoundingClientRect();
 			if (r.bottom > box.top + 1 && r.top < box.bottom - 1 && r.right <= box.left + 1
@@ -63,7 +70,7 @@ const measureButtonSpace = `JSON.stringify((() => {
 
 		const top = standing.getBoundingClientRect().top;
 		let above = standing.previousElementSibling;
-		while (above && (!shown(above) || above.getBoundingClientRect().bottom > top + 1)) above = above.previousElementSibling;
+		while (above && (!seen(above) || above.getBoundingClientRect().bottom > top + 1)) above = above.previousElementSibling;
 		if (!above) continue;
 
 		const gap = top - above.getBoundingClientRect().bottom;
