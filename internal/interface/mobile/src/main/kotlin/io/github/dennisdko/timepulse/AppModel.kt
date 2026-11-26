@@ -91,9 +91,11 @@ class AppModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * install downloads the newer app on offer and hands it to Android, which asks
-     * whoever holds the phone to confirm it on a screen of its own. How far the
-     * download has got is shown on the offer, and so is why it was not installed.
+     * install downloads the newer app on offer and hands it to Android. From
+     * Android 12 on, Android replaces the app without a question and ends it to
+     * do so; below that, it first asks whoever holds the phone to confirm on a
+     * screen of its own. How far the download has got is shown on the offer, and
+     * so is why it was not installed.
      */
     fun install() {
         val update = state.update ?: return
@@ -114,8 +116,9 @@ class AppModel(application: Application) : AndroidViewModel(application) {
                 words.text("mobile.update.notDownloaded", "It could not be downloaded: {0}", failed.message.orEmpty())
             }
 
-            // Handed over, the question is Android's, asked over this screen: the
-            // offer can be pressed again should that question not have come up.
+            // Handed over, the rest is Android's: it ends the app to replace it,
+            // or below Android 12 asks over this screen first. The offer can be
+            // pressed again should neither happen.
             state = state.copy(update = state.update?.copy(loading = null, said = said))
         }
     }
