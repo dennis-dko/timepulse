@@ -921,6 +921,16 @@ button.danger:not(.link) {
 .quick-how { margin-top: 6px; }
 .quick-how ul { margin: 6px 0 0; padding-left: 18px; }
 
+/* The folded explanations - how to write a booking in one line, and what each
+   right allows - look alike, in the muted colour, bold, at the size of the text
+   around them: two looks for one kind of thing read as two kinds. */
+.quick-how summary,
+.perm-legend summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 600;
+}
+
 /* The week grid: a cell is a field the width of a figure, and what the week came
    to underneath reads as a total rather than as one more project.
 
@@ -3214,12 +3224,6 @@ a.tab:hover {
 /* Open by default, and kept open: it is read while the boxes above are being
    ticked, and a legend somebody has to open first is one they tick without. */
 .perm-legend { margin-top: 14px; }
-
-.perm-legend summary {
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 13px;
-}
 
 /* Two columns where each still holds a sentence comfortably: one column of
    fifteen rights made the role screen the longest in the application, and

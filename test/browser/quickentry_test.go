@@ -5,6 +5,7 @@ package browser
 import (
 	"encoding/json"
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -256,5 +257,61 @@ func TestAQuickEntrysButtonStandsWhereTheBookingFormsDoes(t *testing.T) {
 	if !layout.Quick.InActions || math.Abs(layout.Quick.Left) > 1 || layout.Quick.Below <= 0 {
 		t.Errorf("the quick entry's button stands %.0fpx right of its field's edge and %.0fpx under it (in a row of its own: %t), "+
 			"want it where the booking form's stands", layout.Quick.Left, layout.Quick.Below, layout.Quick.InActions)
+	}
+}
+
+// The two folded explanations look alike: "How to write it" under the quick
+// entry and the legend of what each right allows under the role form. Both take
+// the legend's quiet colour and its pointer, and both are bold and as large as
+// the text around them, which is the size the first one already had. Before,
+// the legend was small and grey and the other plain text, so the two read as
+// different kinds of thing.
+func TestTheFoldedExplanationsLookAlike(t *testing.T) {
+	t.Parallel()
+
+	p := open(t)
+	p.readyAdmin()
+
+	var looks struct {
+		How    map[string]string `json:"how"`
+		Legend map[string]string `json:"legend"`
+		Text   string            `json:"text"`
+		Muted  string            `json:"muted"`
+	}
+
+	p.evalJSON(`JSON.stringify((() => {
+		const look = (selector) => {
+			const style = getComputedStyle(document.querySelector(selector));
+
+			return { color: style.color, cursor: style.cursor, fontSize: style.fontSize, fontWeight: style.fontWeight };
+		};
+
+		return {
+			how: look('#form-quick .quick-how > summary'),
+			legend: look('#permission-legend > summary'),
+			text: getComputedStyle(document.body).fontSize,
+			// The line under the quick entry is written in the muted colour.
+			muted: getComputedStyle(document.querySelector('#quick-preview')).color,
+		};
+	})())`, &looks)
+
+	for _, property := range []string{"color", "cursor", "fontSize", "fontWeight"} {
+		if looks.How[property] != looks.Legend[property] {
+			t.Errorf("the folded explanations differ in %s: %q under the quick entry, %q in the rights' legend",
+				property, looks.How[property], looks.Legend[property])
+		}
+	}
+
+	if weight, err := strconv.Atoi(looks.How["fontWeight"]); err != nil || weight < 600 {
+		t.Errorf("how to write a line is folded under a summary of weight %q, want bold", looks.How["fontWeight"])
+	}
+
+	if looks.How["fontSize"] != looks.Text {
+		t.Errorf("how to write a line is folded under a summary of %s, want the %s of the text around it", looks.How["fontSize"], looks.Text)
+	}
+
+	if looks.How["color"] != looks.Muted || looks.How["cursor"] != "pointer" {
+		t.Errorf("how to write a line is folded under a summary in %s with a %s cursor, want the legend's muted %s and a pointer",
+			looks.How["color"], looks.How["cursor"], looks.Muted)
 	}
 }
