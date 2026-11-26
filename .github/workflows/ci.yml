@@ -632,9 +632,53 @@ jobs:
       - name: Build the toolchain image
         run: docker build -t timepulse-android - < internal/interface/mobile/Dockerfile
 
+      # gradle.properties sets two of Gradle's internal properties. No release
+      # promises to keep them, and a name nothing reads is ignored without a
+      # word. So the class that retries a repository while resolving is asked
+      # whether it still reads each of them. It asks that class and not the whole
+      # distribution, because Gradle reads a similar pair for publishing,
+      # org.gradle.internal.network.retry.*, which would pass a search of
+      # everything and change nothing here.
+      - name: Check that this Gradle still reads the retry settings
+        run: |
+          set -euo pipefail
+          props=internal/interface/mobile/gradle.properties
+          keys=$(sed -n 's/^systemProp\.\(org\.gradle\.internal\.[^=]*\)=.*/\1/p' "${props}")
+          if [ -z "${keys}" ]; then
+            echo "::error file=${props}::found no internal Gradle property to check"
+            exit 1
+          fi
+          for key in ${keys}; do
+            if ! docker run --rm timepulse-android sh -c 'for jar in /opt/gradle/lib/*.jar /opt/gradle/lib/plugins/*.jar; do unzip -p "$jar" "org/gradle/api/internal/artifacts/ivyservice/ivyresolve/ErrorHandlingModuleComponentRepository*.class" 2>/dev/null | grep -aqF "$1" && exit 0; done; exit 1' sh "${key}"; then
+              echo "::error file=${props}::ErrorHandlingModuleComponentRepository, which retries a repository while resolving, reads no property named ${key} in the Gradle of internal/interface/mobile/Dockerfile, so setting it changes nothing"
+              exit 1
+            fi
+            echo "${key}: read by this Gradle"
+          done
+
+      # Gradle's downloads, kept between runs. Every run used to fetch the
+      # build's plugins and libraries again, over eight hundred files, and each
+      # request was a chance to meet the outage the retries in gradle.properties
+      # wait out. While the files that decide the downloads stay as they are, a
+      # run asks no repository at all: the whole build, every task rerun, passes
+      # with no network from this directory alone. After a version bump a run
+      # restores the newest cache and fetches only what changed. Only the
+      # dependency cache is kept: the rest of Gradle's home is rebuilt from it,
+      # and the lock and gc.properties are the last run's bookkeeping. The release
+      # does not restore it, because that job holds the signing key.
+      - name: Keep Gradle's downloads between runs
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle-android/caches/modules-2
+            !~/.gradle-android/caches/modules-2/*.lock
+            !~/.gradle-android/caches/modules-2/gc.properties
+          key: android-gradle-${{ hashFiles('internal/interface/mobile/*.gradle.kts', 'internal/interface/mobile/gradle.properties', 'internal/interface/mobile/Dockerfile') }}
+          restore-keys: android-gradle-
+
       - name: Test, lint and build the app
         run: >-
-          docker run --rm -v "$PWD:/src" -w /src/internal/interface/mobile timepulse-android
+          docker run --rm -v "$PWD:/src" -v "$HOME/.gradle-android:/root/.gradle" -w /src/internal/interface/mobile timepulse-android
           gradle --no-daemon --console=plain testDebugUnitTest assembleRelease lintRelease
 
   # Builds the Docker image on every PR as a smoke test. On pushes to main
