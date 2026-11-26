@@ -907,12 +907,11 @@ button.danger:not(.link) {
 .timer-form { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 14px; }
 .timer-form h3 { font-size: 14px; margin: 0 0 10px; }
 
-/* A booking in one line: the line and its button side by side - the button
-   below it on a telephone - what it will book under them, and how to write it
-   folded away. The line under the field keeps its height while empty, so the
-   card does not jump at the first letter. */
-.quick-row { align-items: flex-end; display: flex; flex-wrap: wrap; gap: 12px; }
-.quick-row label { flex: 1 1 280px; }
+/* A booking in one line: the line, its button in a row under it as the booking
+   form below has its own, what it will book under that, and how to write it
+   folded away. Beside the line, the button was the one on the tab to be looked
+   for at the right. The line saying what it will book keeps its height while
+   empty, so the card does not jump at the first letter. */
 .quick-preview { margin: 10px 0 0; min-height: 1.5em; }
 
 /* What keeps a line from being booked, in the text's own colour and weight: it

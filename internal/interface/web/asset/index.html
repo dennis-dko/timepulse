@@ -897,10 +897,12 @@
            would book a second time at the next Enter. -->
       <form method="post" id="form-quick" class="card form" data-perm="timesheets:write:own" data-tab="record" data-no-draft>
         <h2 data-i18n="quick.title">Booking in one line</h2>
-        <div class="quick-row">
+        <div class="grid">
           <label class="wide" data-i18n="quick.line">What you did<input type="text" name="line" maxlength="2000"
                  autocomplete="off" data-i18n-placeholder="quick.example"
                  placeholder="2.5h yesterday Website relaunch #meeting Client call"></label>
+        </div>
+        <div class="form-actions">
           <button type="submit" data-i18n="action.book">Book</button>
         </div>
         <p class="quick-preview muted" id="quick-preview" role="status"></p>

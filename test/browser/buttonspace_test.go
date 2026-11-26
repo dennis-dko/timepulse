@@ -18,9 +18,9 @@ import (
 // Above it: the nearest element above the row the button stands in - or above
 // the button itself where it stands alone in a card, a form or a tile - and
 // not one beside it, as a card's title is beside the arrows in its head. A
-// button that ends level with a labelled field beside it, as Book does, is
-// measured from the top of its row, because what stands above the button there
-// is the field's own caption.
+// button that ends level with a labelled field beside it is measured from the
+// top of its row, because what stands above the button there is the field's
+// own caption.
 //
 // Left out, each for its reason: a screen's tabs and the bar's controls, which
 // are navigation; a table's buttons, which are a row's; a pager's arrows and a
