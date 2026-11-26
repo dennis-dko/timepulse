@@ -12428,9 +12428,9 @@ const TOUR_STEPS = [
     view: 'settings',
     title: () => t('tour.install.title', 'The Android app'),
     text: () => t('tour.install.text',
-      'Scan this code with an Android phone to download the app of the release this '
-      + 'installation runs. It shows this interface, reminds you with notifications, and at '
-      + 'every start offers its new version once this installation has been updated.'),
+      'Scan this code with an Android phone to download the newest app that fits this '
+      + 'installation. It shows this interface, reminds you with notifications, and at every '
+      + 'start offers a newer version as soon as one fits, even before this installation is updated.'),
   },
   {
     target: '#feed-card',

@@ -34,10 +34,25 @@ type Release struct {
 
 	// sums is the SHA256SUMS published beside it.
 	sums string
+
+	// app is the Android app the release carries, empty when it carries none.
+	app string
+
+	// appContract is the contract with an installation that app speaks, as the
+	// release says in its text; zero where it does not say, which every release
+	// from before the contract was named is.
+	appContract int
 }
 
 // HasBinary reports whether this release published something for this platform.
 func (r Release) HasBinary() bool { return r.asset != "" && r.sums != "" }
+
+// AppDownload is the Android app this release carries, empty when it carries none.
+func (r Release) AppDownload() string { return r.app }
+
+// AppContract is the contract with an installation that this release's Android
+// app speaks, zero where the release does not say.
+func (r Release) AppContract() int { return r.appContract }
 
 // Source is where releases are looked up. Its own type so a test can answer
 // without a network, and so an installation can point it at a mirror.
@@ -215,13 +230,16 @@ func (s *Source) Latest(ctx context.Context) (Release, error) {
 		return Release{}, fmt.Errorf("the release feed is not readable: %w", err)
 	}
 
-	release := Release{Version: body.TagName, Notes: body.Body, URL: body.HTMLURL}
+	release := Release{Version: body.TagName, Notes: body.Body, URL: body.HTMLURL, appContract: appContractIn(body.Body)}
 	wanted := assetName(body.TagName)
+	app := androidAssetName(body.TagName)
 
 	for _, asset := range body.Assets {
 		switch asset.Name {
 		case wanted:
 			release.asset = asset.URL
+		case app:
+			release.app = asset.URL
 		case "SHA256SUMS":
 			release.sums = asset.URL
 		}

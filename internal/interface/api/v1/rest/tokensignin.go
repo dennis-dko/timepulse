@@ -34,7 +34,15 @@ func (h *AuthHandler) WithTokens(tokens *service.APITokenService) *AuthHandler {
 // to tell the two apart, and one whose owner is still on the initial password
 // says so, as the token does everywhere else.
 func (h *AuthHandler) TokenSignIn(c *gofr.Context) (any, error) {
-	secret := presentedToken(requestOf(c))
+	request := requestOf(c)
+
+	// An app this installation cannot serve is refused before anything else, so
+	// that it never holds a session it could not use.
+	if err := refuseAppContract(request.Header.Get(appContractHeader)); err != nil {
+		return nil, toHTTPError(err)
+	}
+
+	secret := presentedToken(request)
 	if secret == "" || h.tokens == nil {
 		return nil, unauthorizedError{}
 	}
@@ -54,5 +62,20 @@ func (h *AuthHandler) TokenSignIn(c *gofr.Context) (any, error) {
 		return nil, toHTTPError(err)
 	}
 
-	return completeSignIn(c, h.sessions, h.maintenance, result, h.timezone.resolve(c))
+	answer, err := completeSignIn(c, h.sessions, h.maintenance, result, h.timezone.resolve(c))
+	if err != nil {
+		return nil, err
+	}
+
+	// The range served goes back with the session, so that an app can refuse an
+	// installation that cannot serve it. An installation from before contracts
+	// answers none, and the app reads that as the first contract, the only one
+	// there was.
+	if login, ok := answer.(LoginResponse); ok {
+		login.AppContracts = &AppContracts{Oldest: OldestAppContract, Newest: AppContract}
+
+		return login, nil
+	}
+
+	return answer, nil
 }

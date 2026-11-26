@@ -39,19 +39,21 @@ fun releaseOf(version: String): Release? {
     return Release(major, minor, patch)
 }
 
-/** Offer is the app of the installation's release, newer than this one: which release it is, and where it is downloaded. */
+/** Offer is the app the installation passes on, newer than this one: which release it is, and where it is downloaded. */
 data class Offer(val version: String, val download: String)
 
 /**
  * offerFor is the app the installation offers this one, installed as
- * [installed], read from its answer to /api/v1/me/android: the app of its own
- * release, where that is newer.
+ * [installed], read from its answer to /api/v1/me/android, where that app is
+ * newer.
  *
- * The installation's rather than the newest on GitHub, because the app belongs to
- * the release it was built with, and one ahead of its installation could ask for
- * what that installation does not have yet. Nothing where either is no release:
- * an installation built from source has no app of its own, and an app built from
- * source is signed with a key a release's app cannot replace.
+ * The installation chooses rather than the newest on GitHub: it passes on the
+ * newest release whose app speaks a contract it serves, and its own release's
+ * app otherwise, as the maintainer chose on 2026-11-26. So an app ahead of its
+ * installation never asks for what that installation does not have, and only
+ * the installation asks GitHub, not every phone. Nothing where either is no
+ * release: an installation built from source has no app of its own, and an app
+ * built from source is signed with a key a release's app cannot replace.
  */
 fun offerFor(installed: String, answer: JSONObject?): Offer? {
     val mine = releaseOf(installed) ?: return null

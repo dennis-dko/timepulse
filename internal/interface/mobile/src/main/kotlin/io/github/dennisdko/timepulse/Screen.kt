@@ -103,9 +103,9 @@ fun App(model: AppModel) {
 }
 
 /**
- * UpdateDialog offers the newer app of the installation's release, once each time
- * the app is started: downloaded and installed when somebody presses to, put off
- * until the next start otherwise.
+ * UpdateDialog offers the newer app the installation passes on - the newest that
+ * fits it - once each time the app is started: downloaded and installed when
+ * somebody presses to, put off until the next start otherwise.
  *
  * Android lets an app install another only once it has been allowed to under
  * "Install unknown apps", so the first press opens that setting, and the
@@ -147,19 +147,19 @@ private fun UpdateDialog(update: Update, words: Language, onInstall: () -> Unit,
                 when {
                     Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> words.text(
                         "mobile.update.text",
-                        "Your installation runs {0}, and this app is {1}. The app of {0} is downloaded, and Android asks you to confirm its installation.",
+                        "The app {0} fits your installation, and this app is {1}. It is downloaded, and Android asks you to confirm its installation.",
                         version,
                         BuildConfig.VERSION_NAME,
                     )
                     mayNotify(context) -> words.text(
                         "mobile.update.textQuiet",
-                        "Your installation runs {0}, and this app is {1}. The app of {0} is downloaded and installed, and TimePulse closes for it. A notification opens it again once it is done.",
+                        "The app {0} fits your installation, and this app is {1}. It is downloaded and installed, and TimePulse closes for it. A notification opens it again once it is done.",
                         version,
                         BuildConfig.VERSION_NAME,
                     )
                     else -> words.text(
                         "mobile.update.textQuietOpen",
-                        "Your installation runs {0}, and this app is {1}. The app of {0} is downloaded and installed, and TimePulse closes for it. Open it again once it is done.",
+                        "The app {0} fits your installation, and this app is {1}. It is downloaded and installed, and TimePulse closes for it. Open it again once it is done.",
                         version,
                         BuildConfig.VERSION_NAME,
                     )

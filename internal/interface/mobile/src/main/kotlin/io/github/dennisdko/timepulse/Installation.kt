@@ -11,6 +11,29 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 
 /**
+ * appContract is the contract with an installation this app speaks: the
+ * requests it makes itself, outside the web interface it shows, and what it
+ * expects back - a session for a token, the account, the stopwatch, the notices
+ * and the app on offer. An installation serves a range of contracts and refuses
+ * an app outside it, and the app refuses an installation whose range leaves its
+ * contract out. Neither half then meets a request the other does not understand.
+ *
+ * Raised only when one of those requests changes in a way an installation of the
+ * previous contract would answer wrongly. The release writes it into its text,
+ * read from this very line, for installations of earlier releases to compare
+ * with what they serve before they offer this app to their phones.
+ */
+const val appContract = 1
+
+/**
+ * newestServed is the newest contract a sign-in's [answer] says the installation
+ * serves. An installation from before contracts says none, and served the first,
+ * the only one there was.
+ */
+fun newestServed(answer: String): Int =
+    runCatching { JSONObject(answer).optJSONObject("data")?.optJSONObject("appContracts")?.optInt("newest", 1) }.getOrNull() ?: 1
+
+/**
  * Installation is what the app asks the installation itself, around the web
  * interface it shows: a session for the token it was connected with, whether
  * the session the web interface holds is still one, and - for the reminders it
@@ -31,10 +54,11 @@ class Installation(private val address: String, private val words: Language, pri
     suspend fun handOver(token: String): List<String> = withContext(Dispatchers.IO) {
         val connection = open("/api/v1/auth/token")
 
-        try {
+        val (cookies, newest) = try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Authorization", "Bearer $token")
             connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("X-TimePulse-App-Contract", appContract.toString())
 
             val status = connection.responseCode
             if (status == HttpURLConnection.HTTP_UNAUTHORIZED) throw tokenUnknown()
@@ -50,12 +74,22 @@ class Installation(private val address: String, private val words: Language, pri
 
             if (cookies.none { it.startsWith("timepulse_session=") }) throw notThis()
 
-            cookies
+            cookies to newestServed(connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) })
         } catch (e: IOException) {
             throw unreachable(e)
         } finally {
             connection.disconnect()
         }
+
+        // An installation that knows contracts refuses an app it cannot serve
+        // itself; one from before them cannot, so the app does, and ends the
+        // session it was given, which it could not use.
+        if (appContract > newest) {
+            signOut(cookies.joinToString("; ") { it.substringBefore(';') })
+            throw Refused(words.installationTooOld())
+        }
+
+        cookies
     }
 
     /** signedIn says whether [cookies] - the web interface's, as the WebView keeps them - still open a session. */
@@ -128,9 +162,9 @@ class Installation(private val address: String, private val words: Language, pri
     }
 
     /**
-     * android is where the app of the installation's release is downloaded, and
-     * which release that is, as the installation answers the owner of [token] -
-     * what [offerFor] reads a newer app out of.
+     * android is where the app the installation passes on is downloaded - the
+     * newest that fits it - and which release that is, as the installation answers
+     * the owner of [token]: what [offerFor] reads a newer app out of.
      */
     suspend fun android(token: String): JSONObject? = withContext(Dispatchers.IO) { read("/api/v1/me/android", token) }
 

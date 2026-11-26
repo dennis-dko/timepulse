@@ -1,10 +1,57 @@
 package mobile
 
 import (
+	"encoding/json"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/dennis-dko/timepulse/internal/interface/api/v1/rest"
 )
+
+// TestTheAppSpeaksTheContractItsInstallationSpeaks holds the two halves of the
+// contract together. The app built from a commit speaks the newest contract the
+// installation built from it serves, so a phone and a server of one release
+// always fit. It says so under the header the installation reads. And where an
+// installation from before contracts cannot refuse the app itself, the app
+// refuses it in that installation's own words, which both must spell alike.
+func TestTheAppSpeaksTheContractItsInstallationSpeaks(t *testing.T) {
+	code, _ := lexed(source(t, "Installation.kt"))
+
+	declared := regexp.MustCompile(`(?m)^const val appContract = ([0-9]+)$`).FindStringSubmatch(code)
+	if declared == nil {
+		t.Fatal("Installation.kt declares no appContract")
+	}
+
+	if declared[1] != strconv.Itoa(rest.AppContract) {
+		t.Errorf("the app speaks contract %s and the installation of the same commit %d", declared[1], rest.AppContract)
+	}
+
+	server := read(t, "../api/v1/rest/appcontract.go")
+
+	header := regexp.MustCompile(`appContractHeader = "([^"]+)"`).FindStringSubmatch(server)
+	if header == nil || !strings.Contains(code, `setRequestProperty("`+header[1]+`", appContract.toString())`) {
+		t.Errorf("the app does not say its contract under the header the installation reads, %v", header)
+	}
+
+	theirs := regexp.MustCompile(`Conflictf\("([^"]+)"\)\.WithCode\("appTooNew"\)`).FindStringSubmatch(server)
+	mine := regexp.MustCompile(`text\(\s*"mobile\.installationTooOld",\s*"([^"]+)"\)`).FindStringSubmatch(source(t, "Refusal.kt"))
+
+	if theirs == nil || mine == nil || theirs[1] != mine[1] {
+		t.Errorf("the app refuses an installation too old for it as %v, and an installation refuses such an app as %v", mine, theirs)
+	}
+
+	var german map[string]string
+	if err := json.Unmarshal([]byte(read(t, "../../support/i18n/locale/de.json")), &german); err != nil {
+		t.Fatal(err)
+	}
+
+	if german["mobile.installationTooOld"] == "" || german["mobile.installationTooOld"] != german["err.appTooNew"] {
+		t.Errorf("in German the app says %q where an installation says %q",
+			german["mobile.installationTooOld"], german["err.appTooNew"])
+	}
+}
 
 // TestTheAppReplacesItselfWithoutAskingWhereAndroidLetsIt holds the two halves
 // of an update without a question together. From Android 12 on, Android lets an
