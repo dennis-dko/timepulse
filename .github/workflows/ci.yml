@@ -632,6 +632,30 @@ jobs:
       - name: Build the toolchain image
         run: docker build -t timepulse-android - < internal/interface/mobile/Dockerfile
 
+      # gradle.properties sets two of Gradle's internal properties. No release
+      # promises to keep them, and a name nothing reads is ignored without a
+      # word. So the class that retries a repository while resolving is asked
+      # whether it still reads each of them. It asks that class and not the whole
+      # distribution, because Gradle reads a similar pair for publishing,
+      # org.gradle.internal.network.retry.*, which would pass a search of
+      # everything and change nothing here.
+      - name: Check that this Gradle still reads the retry settings
+        run: |
+          set -euo pipefail
+          props=internal/interface/mobile/gradle.properties
+          keys=$(sed -n 's/^systemProp\.\(org\.gradle\.internal\.[^=]*\)=.*/\1/p' "${props}")
+          if [ -z "${keys}" ]; then
+            echo "::error file=${props}::found no internal Gradle property to check"
+            exit 1
+          fi
+          for key in ${keys}; do
+            if ! docker run --rm timepulse-android sh -c 'for jar in /opt/gradle/lib/*.jar /opt/gradle/lib/plugins/*.jar; do unzip -p "$jar" "org/gradle/api/internal/artifacts/ivyservice/ivyresolve/ErrorHandlingModuleComponentRepository*.class" 2>/dev/null | grep -aqF "$1" && exit 0; done; exit 1' sh "${key}"; then
+              echo "::error file=${props}::ErrorHandlingModuleComponentRepository, which retries a repository while resolving, reads no property named ${key} in the Gradle of internal/interface/mobile/Dockerfile, so setting it changes nothing"
+              exit 1
+            fi
+            echo "${key}: read by this Gradle"
+          done
+
       - name: Test, lint and build the app
         run: >-
           docker run --rm -v "$PWD:/src" -w /src/internal/interface/mobile timepulse-android
