@@ -66,7 +66,12 @@ func TestTheReadmePicturesAreTakenFromTheApplication(t *testing.T) {
 
 	p.run("sign out", chromedp.Click("#logout", chromedp.ByID),
 		chromedp.WaitVisible("#form-login", chromedp.ByID))
-	p.shootCard(into, "signin", "#form-login")
+
+	// The whole sign-in screen rather than its card, for the sky behind it - in a
+	// narrower window than the rest, so the card is not lost in it.
+	p.run("a smaller window", chromedp.EmulateViewport(1040, 760))
+	p.shoot(into, "signin")
+	p.run("a desktop again", chromedp.EmulateViewport(1280, 800))
 
 	p.signIn("robin@example.com", "robin-password-1")
 	p.waitGone("#login-screen")
@@ -140,7 +145,7 @@ func TestTheReadmePicturesAreTakenFromTheApplication(t *testing.T) {
 	p.run("a telephone", chromedp.EmulateViewport(390, 844, chromedp.EmulateScale(2)))
 	p.shoot(into, "phone")
 
-	photographTheInstaller(t, into)
+	photographTheInstaller(t, into, zone)
 }
 
 // afternoon names a zone in which it is early afternoon right now.
@@ -257,8 +262,9 @@ func (p *page) shootCard(into, name, card string, hide ...string) {
 	}
 }
 
-// photographTheInstaller saves the screen a new installation opens on.
-func photographTheInstaller(t *testing.T, into string) {
+// photographTheInstaller saves the screen a new installation opens on, in the
+// zone the other pictures are taken in, so its sky is the afternoon's too.
+func photographTheInstaller(t *testing.T, into, zone string) {
 	t.Helper()
 
 	app := harness.StartUnconfigured(t)
@@ -274,12 +280,15 @@ func photographTheInstaller(t *testing.T, into string) {
 
 	var picture []byte
 
+	// The window rather than the form alone, for the sky behind it: the sky is
+	// fixed to the window, and a picture of the whole page would stretch it.
 	if err := chromedp.Run(ctx,
-		chromedp.EmulateViewport(1280, 800),
+		emulation.SetTimezoneOverride(zone),
+		chromedp.EmulateViewport(1040, 760),
 		chromedp.Navigate(app.BaseURL()),
 		chromedp.WaitVisible("#heading", chromedp.ByID),
 		chromedp.Sleep(time.Second),
-		photograph("main", &picture),
+		chromedp.CaptureScreenshot(&picture),
 	); err != nil {
 		t.Fatalf("photographing the installer: %v", err)
 	}

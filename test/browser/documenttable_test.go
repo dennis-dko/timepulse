@@ -382,6 +382,7 @@ func (p *page) recordAMonthPastTheLimits() {
 
 // askedDocument is a document as the page asked for it to be laid out.
 type askedDocument struct {
+	Title    string `json:"title"`
 	Subtitle string `json:"subtitle"`
 	Sections []struct {
 		Caption string      `json:"caption"`

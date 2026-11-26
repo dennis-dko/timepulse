@@ -11,8 +11,8 @@ What the application does, and the rules it keeps while doing it.
 | Schema | GoFr migrations, applied automatically at start-up |
 | API | REST under `/api/v1`, documented at `/api-docs` |
 | Web interface | Embedded via `go:embed`, vanilla JS with no build step |
-| Welcome screen | The greeting, and under it a tile each for the week against what it asks, the running balance, the days of leave left this year, the projects nearest their budget and the last entries - and for whoever administers, the version running, the newest backup and the latest changes. Every tile somebody may read is shown, saying what will fill it where it holds nothing yet, and leads to the card that keeps its figure. The tiles stand where their owner puts them - dragged by a handle, or moved with the arrow keys on it - in an order kept on the account, so the phone shows the arrangement made at the desk. A tile somebody does not need is put away with its cross and waits under the others to be brought back, keeping its place |
-| Screens in tabs | *My account* is sorted into working time, sign-in, apps and calendar, and privacy and help; *Settings* into general, sign-in, operation and logs. A tab with nothing on it for an account is not offered, a screen comes back on the tab it was left on, and whatever points at a card - a banner's link, the guided tour - opens its tab |
+| Welcome screen | The greeting, and under it a tile each for the week against what it asks, the running balance, the days of leave left this year, the projects nearest their budget and the last entries - and for whoever administers, the version running, the newest backup and the latest changes. Every tile somebody may read is shown, saying what will fill it where it holds nothing yet, and leads to the card that keeps its figure. The tiles stand where their owner puts them, in an order kept on the account, so the phone shows the arrangement made at the desk. They are arranged after *Customize dashboard* above them is pressed - shown where the pointer or the keyboard is, and always on a touch screen - and until *Done*: dragged by a handle, or moved with the arrow keys on it; a tile somebody does not need is put away with its cross and waits under the others to be brought back, keeping its place |
+| Screens in tabs | *Time entries* is sorted into recording, the entries and the templates; *Calendar* into the month, the working time and the leave; *Overtime* into the hours, the year and the overtime; *Reports* into the report and the statement of work; *My account* into working time, notices, sign-in, apps and calendar, the API and privacy; *Settings* into general, appearance, sign-in, the directory, operation, data and logs. A tab with nothing on it for an account is not offered, a screen comes back on the tab it was left on, and whatever points at a card - a banner's link, the guided tour - opens its tab |
 | Access control | RBAC with roles administered at run time; bcrypt password hashes |
 | Sign-in | Session cookies, optional passkeys and TOTP two-factor per user, a browser's Kerberos ticket where a keytab and a directory are configured, and an OpenID Connect provider - Keycloak, Authentik, Entra ID, Google - for the accounts their owners linked to it |
 | Live log | The process log, filterable and searchable, for the built-in administrator |
@@ -218,7 +218,7 @@ when it finished and how long its breaks were, as the clock showed them, with wh
 that comes to and the hours booked on projects beside it. A day booked
 on with nothing recorded is listed too, so a month with a gap in it shows the gap.
 A stopwatch running on the day offers its start as the day's, and the month leaves
-as a PDF.
+as a PDF or as an .xlsx of figures.
 
 It is each person's own record, kept for themselves. There is no view of anybody
 else's working time — not even a manager's, who looks after somebody's hours and
@@ -304,7 +304,8 @@ exist, when they were made and when they were last used.
 ## Spreadsheets
 
 Every table that holds something goes out and comes back as a real **.xlsx**
-workbook, from the tab it belongs to: time entries with the date, the person, the
+workbook, from the foot of the card that lists it, beside a PDF of the list as
+the screen shows it: time entries with the date, the person, the
 project, the hours and the description; projects with their period and status;
 accounts with their role and whether the password lives in the directory; roles
 with a column per permission holding yes or no. Names rather than identifiers,

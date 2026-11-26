@@ -100,7 +100,7 @@ working time first — `task readme:pictures` takes them again.
     </td>
     <td valign="top">
       <img src="doc/image/workday.png" alt="The working time of the month: when each day began and ended, its breaks, and the hours booked beside them">
-      <p><b>Your working time, on record.</b> When each day began and ended and how long the breaks were, beside the hours booked; a gap shows as one, and the month leaves as a PDF.</p>
+      <p><b>Your working time, on record.</b> When each day began and ended and how long the breaks were, beside the hours booked; a gap shows as one, and the month leaves as a PDF or a workbook.</p>
     </td>
   </tr>
   <tr>
@@ -109,7 +109,7 @@ working time first — `task readme:pictures` takes them again.
       <p><b>Every entry, findable.</b> Narrow the list by project, period or words in the description — the export follows the same filter — and every correction keeps the version it replaced.</p>
     </td>
     <td valign="top">
-      <img src="doc/image/signin.png" alt="The sign-in form, offering a password, a passkey and the organisation's provider">
+      <img src="doc/image/signin.png" alt="The sign-in form on the afternoon sky, the sun on its arc behind it, offering a password, a passkey and the organisation's provider">
       <p><b>Sign in your way.</b> A password and an authenticator app, a passkey, your organisation's provider — or, inside a domain, the Kerberos ticket the browser already holds.</p>
     </td>
   </tr>
@@ -119,7 +119,7 @@ working time first — `task readme:pictures` takes them again.
       <p><b>Operated from the browser.</b> The process log, live; the database, the directory, telemetry, maintenance, backups, updates and a restart, all under <i>Settings</i>.</p>
     </td>
     <td valign="top">
-      <img src="doc/image/installer.png" alt="The installer asking for the setup token and a database">
+      <img src="doc/image/installer.png" alt="The installer on the same sky, asking for the setup token and a database">
       <p><b>Set up in the browser.</b> Without a database the binary serves this screen, guarded by a token from its log, and then takes its port over in the same process — starting empty, with demo data, or from a backup.</p>
     </td>
   </tr>
@@ -298,7 +298,7 @@ does.
 
 | Area | What you get | Read more |
 | --- | --- | --- |
-| **Recording** | Stopwatch, entry form and week grid; templates for what is booked often; changes to many entries at once; spreadsheet import and export | [Features](doc/feature.md) |
+| **Recording** | Stopwatch, entry form and week grid; templates for what is booked often; changes to many entries at once; import from a spreadsheet, and the entries out as a PDF or a spreadsheet | [Features](doc/feature.md) |
 | **History** | Every correction keeps the version it replaced, for the entry's owner | [Features](doc/feature.md#business-rules) |
 | **Evaluating** | Charts per day, project and activity, reports as bars, columns or a pie, the year as tiles, statements of work, PDF and .xlsx exports | [Features](doc/feature.md) |
 | **Projects** | Private to their owner, with a period, a status, an hour budget and an hourly rate | [Projects](doc/feature.md#projects) |

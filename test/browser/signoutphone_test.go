@@ -29,8 +29,8 @@ func TestSigningOutOnAPhoneLeavesNothingOfTheApplicationOnScreen(t *testing.T) {
 	p := open(t)
 	p.readyWorker()
 
-	p.run("open the time entries", p.click(`.tab[data-view="timesheets"]`), p.click(`#timesheets-tabs [data-card-tab="sheet"]`))
-	p.waitShown("#workbook-card")
+	p.run("open the time entries", p.click(`.tab[data-view="timesheets"]`), p.click(`#timesheets-tabs [data-card-tab="entries"]`))
+	p.waitShown("#wb-actions")
 
 	p.run("a telephone", chromedp.EmulateViewport(390, 760))
 

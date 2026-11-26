@@ -223,6 +223,7 @@ func TestTheTilesArePutWhereTheirOwnerWantsThem(t *testing.T) {
 	p.run("open the greeting", p.click("#app-title"),
 		chromedp.WaitVisible("#glance-leave", chromedp.ByID))
 	p.waitForRows("#welcome-week-bars li", 7)
+	p.run("customize the dashboard", p.click("#dashboard-edit"))
 
 	shipped := order()
 
@@ -262,6 +263,7 @@ func TestTheTilesArePutWhereTheirOwnerWantsThem(t *testing.T) {
 	p.settled()
 	p.run("open the greeting", p.click("#app-title"),
 		chromedp.WaitVisible("#glance-leave", chromedp.ByID))
+	p.run("customize it again", p.click("#dashboard-edit"))
 
 	if got := order(); !strings.HasPrefix(got, "leave,week,balance") || !p.visible("#dashboard-reset") {
 		t.Errorf("after a reload the tiles stand %q, and the way back is offered: %v", got, p.visible("#dashboard-reset"))

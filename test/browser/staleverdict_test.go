@@ -28,7 +28,7 @@ import (
 // whose rows have never been looked at. The card exists to show what a file
 // would do before it does it.
 //
-// The same two lines are missing from the three cards buildSheetCard makes, and
+// The same two lines are missing from the three tables addExportsAndImport serves, and
 // this drives the one in the markup because it is the one that can be reached
 // without an administrator.
 func TestChoosingAnotherFileDoesNotBringTheOldVerdictBack(t *testing.T) {
@@ -63,8 +63,8 @@ func TestChoosingAnotherFileDoesNotBringTheOldVerdictBack(t *testing.T) {
 
 	p.run("check the first file",
 		chromedp.Click(`.tab[data-view="timesheets"]`, chromedp.ByQuery),
-		chromedp.Click(`#timesheets-tabs [data-card-tab="sheet"]`, chromedp.ByQuery),
-		chromedp.WaitVisible("#workbook-card", chromedp.ByID),
+		chromedp.Click(`#timesheets-tabs [data-card-tab="entries"]`, chromedp.ByQuery),
+		chromedp.WaitVisible("#wb-actions", chromedp.ByID),
 		chromedp.SetUploadFiles("#wb-file", []string{first}, chromedp.ByQuery))
 
 	p.waitShown("#wb-preview")

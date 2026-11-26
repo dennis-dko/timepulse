@@ -238,6 +238,10 @@ func TestAdministeringTheInstanceRefusesWhatCannotBeStored(t *testing.T) {
 			map[string]any{"title": "Fine", "legalNotice": tooLong}},
 		{"a company name longer than the form allows", http.MethodPut, "/settings/branding",
 			map[string]any{"title": "Fine", "companyName": tooLong}},
+		// Bounded nowhere until it was: an address of any length was stored and
+		// handed to every screen's footer.
+		{"a company address longer than the form allows", http.MethodPut, "/settings/branding",
+			map[string]any{"title": "Fine", "companyUrl": "https://" + tooLong}},
 	})
 
 	// And what the form does allow is stored, so the limits are the form's rather
@@ -248,5 +252,6 @@ func TestAdministeringTheInstanceRefusesWhatCannotBeStored(t *testing.T) {
 		"footerText":  strings.Repeat("f", 200),
 		"legalNotice": strings.Repeat("l", 200),
 		"companyName": strings.Repeat("c", 120),
+		"companyUrl":  "https://" + strings.Repeat("u", 2000-len("https://")),
 	}), http.StatusOK)
 }

@@ -2249,8 +2249,9 @@ function fmtMoney(amount, currency) {
  *
  * Picked rather than typed, because a typed code was held to its shape alone, so
  * a slip such as EUO saved cleanly and wrote every amount of that project in a
- * currency that does not exist. The server still takes any three capital letters,
- * so a project saved with another code before keeps it - see fillCurrencies.
+ * currency that does not exist. The server takes the same list, model.Currencies,
+ * for a new or changed currency, and keeps a code a project already holds - so a
+ * project saved with another code before keeps it, see fillCurrencies.
  */
 const CURRENCIES = [
   'AED', 'AFN', 'ALL', 'AMD', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BHD', 'BIF',
@@ -4116,6 +4117,10 @@ function wireValidityMessages() {
  */
 const PATTERN_MESSAGES = {
   '[0-9]{6}': () => t('valid.code', 'Please enter the six digits your authenticator app shows.'),
+  // A web address as the server takes it: the browser's url type also takes
+  // mailto: and ftp:, which the server refuses.
+  'https?://.+': () => t('valid.httpUrl', 'Please enter an address beginning with http:// or https://.'),
+  '.*%s.*': () => t('valid.userFilter', 'Please put %s where the login name goes.'),
 };
 
 /** What a field's rule says about its value, or nothing where it has no objection. */
@@ -9695,6 +9700,12 @@ function syncDatasourceFields() {
   $('#ds-server-fields').hidden = !server;
   $('#ds-ssl-label').hidden = form.elements.dialect.value !== 'postgres';
 
+  // What the server refuses a database server's connection without, required
+  // while it is on screen and only then: a field hidden while required stops
+  // the form from being sent at all, and says nothing anybody can see.
+  form.elements.host.required = server;
+  form.elements.user.required = server;
+
   // The key travels with the words. This label says two different things
   // depending on the type, and only the text was being changed - so the element
   // went on declaring itself as one of them while showing the other, and a
@@ -9889,6 +9900,8 @@ async function loadAdmin() {
     // leaves it showing nothing at all.
     ldapForm.elements.defaultRole.value = ldap.defaultRole || ORDINARY_ROLE;
   }
+
+  holdTheDirectoryToTheServersRules(ldapForm);
 
   // Whatever happened above, something is selected. A <select> set to a value
   // none of its options carry selects nothing and draws an empty box, which is
@@ -10455,6 +10468,9 @@ function wireAdmin() {
       async () => { await loadAdmin(); announceSave(); });
   });
 
+  $('#form-ldap').elements.enabled.addEventListener('change',
+    () => holdTheDirectoryToTheServersRules($('#form-ldap')));
+
   $('#form-ldap').addEventListener('submit', (e) => {
     e.preventDefault();
     saveForm(e.target,
@@ -10668,6 +10684,17 @@ function wireDirectorySync() {
       await refreshAll();
     }, null, null);
   });
+}
+
+/**
+ * Asks of the directory's fields what the server asks of them: a host, a base DN
+ * and a filter while the directory is switched on - the filter's %s held by its
+ * pattern - and none of them while it is off, which the server does not check.
+ */
+function holdTheDirectoryToTheServersRules(form) {
+  for (const name of ['host', 'baseDn', 'userFilter']) {
+    form.elements[name].required = form.elements.enabled.checked;
+  }
 }
 
 /** Reads the LDAP form, including its checkboxes and numeric port. */
@@ -11047,6 +11074,91 @@ async function deleteUser(user) {
     () => api(`/users/${user.id}?purge=true`, { method: 'DELETE' }),
     done,
     refreshAll);
+}
+
+// -------------------------------------------------------------- the sign-in sky
+
+/**
+ * The sign-in sky's colour through the day: an hour and the colour at it, the
+ * colours between two of them mixed. The installer and the Android app's connect
+ * screen carry the same table and the same drawing, and test/sky_test.go holds
+ * the three together.
+ */
+const SKY = [
+  [0, '#1b2a4e'], [5, '#3b3f8f'], [6.5, '#f08a5d'], [9, '#7fb8e6'], [13, '#4ea8de'],
+  [17, '#f2a65a'], [19.5, '#e2678b'], [21, '#4b3f8f'], [24, '#1b2a4e'],
+];
+
+/** When the sun rises on the sky's arc and sets, in hours: a day drawn, not a place's. */
+const SUNRISE = 6;
+const SUNSET = 20;
+
+/** The sky's colour at an hour, mixed from the two colours of the table it falls between. */
+function skyColourAt(hour) {
+  for (let i = 1; i < SKY.length; i++) {
+    const [fromHour, from] = SKY[i - 1];
+    const [toHour, to] = SKY[i];
+
+    if (hour <= toHour) {
+      const share = (hour - fromHour) / (toHour - fromHour);
+      const a = parseInt(from.slice(1), 16);
+      const b = parseInt(to.slice(1), 16);
+      const mix = (shift) => Math.round(((a >> shift) & 255) * (1 - share) + ((b >> shift) & 255) * share);
+
+      return `rgb(${mix(16)} ${mix(8)} ${mix(0)})`;
+    }
+  }
+
+  return SKY[0][1];
+}
+
+/**
+ * Draws a sky at a moment in the reader's own day: the sun on its arc from
+ * sunrise to sunset, the moon on the same arc through the night, the sky's
+ * colour, and the stars, which come out over the last hour and a half of the day
+ * and are all out at night. The arc runs from 40,870 over 800,90 to 1560,870 in
+ * the drawing's own units.
+ */
+function drawTheSky(sky, now = new Date()) {
+  if (!sky) return;
+
+  const hour = now.getHours() + now.getMinutes() / 60;
+  const day = hour >= SUNRISE && hour <= SUNSET;
+  const along = day
+    ? (hour - SUNRISE) / (SUNSET - SUNRISE)
+    : ((hour < SUNRISE ? hour + 24 : hour) - SUNSET) / (24 - SUNSET + SUNRISE);
+  const angle = Math.PI * (1 - along);
+  // Tenths of a unit are enough for a drawing 1600 units wide, and a number
+  // written for an attribute is the browser's to read, not the reader's.
+  const tenth = (value) => String(Math.round(value * 10) / 10);
+  const x = 800 + 760 * Math.cos(angle);
+  const y = 870 - 780 * Math.sin(angle);
+  const night = day ? Math.max(0, 1 - Math.min(hour - SUNRISE, SUNSET - hour) / 1.5) * 0.5 : 1;
+
+  sky.style.setProperty('--sky', skyColourAt(hour));
+  sky.style.setProperty('--night', String(Math.round(night * 100) / 100));
+  sky.classList.toggle('is-night', !day);
+
+  for (const body of sky.querySelectorAll('.sky-sun, .sky-moon, .sky-halo-disc, .sky-glow-around')) {
+    body.setAttribute('cx', tenth(x));
+    body.setAttribute('cy', tenth(y));
+  }
+
+  const cut = sky.querySelector('.sky-crescent-cut');
+  cut?.setAttribute('cx', tenth(x + 18));
+  cut?.setAttribute('cy', tenth(y - 12));
+}
+
+/**
+ * Draws the sign-in sky now, and again every five minutes while the sign-in
+ * screen is up: somebody who leaves it open over an evening sees the sun go.
+ */
+function wireSky() {
+  drawTheSky($('#login-sky'));
+
+  setInterval(() => {
+    if (!$('#login-screen').hidden) drawTheSky($('#login-sky'));
+  }, 5 * 60 * 1000);
 }
 
 // ------------------------------------------------------------------ sign-in
@@ -11971,8 +12083,8 @@ const TOUR_STEPS = [
     title: () => t('tour.welcome.title', 'The way back'),
     text: () => t('tour.welcome.text',
       'The title takes you to the welcome screen from wherever you are. It shows your '
-      + 'day, your week and your figures as tiles you arrange by their handles, and it can '
-      + 'start this walk again.'),
+      + 'day, your week and your figures as tiles, which "Customize dashboard" above them '
+      + 'arranges and puts away, and it can start this walk again.'),
   },
   {
     target: '#tabs',
@@ -11988,8 +12100,8 @@ const TOUR_STEPS = [
     permission: 'timesheets:read:own',
     title: () => t('tour.timesheetsTabs.title', 'Time entries, by task'),
     text: () => t('tour.timesheetsTabs.text',
-      'Recording, the list of entries, templates and the spreadsheet each have a tab of their '
-      + 'own. The walk opens each one as it gets there.'),
+      'Recording, the list of entries and the templates each have a tab of their own. The '
+      + 'walk opens each one as it gets there.'),
   },
   {
     target: '#timer-card',
@@ -12033,6 +12145,16 @@ const TOUR_STEPS = [
       + 'submit it to.'),
   },
   {
+    target: '#wb-actions',
+    view: 'timesheets',
+    permission: 'timesheets:read:own',
+    title: () => t('tour.sheet.title', 'In and out'),
+    text: () => t('tour.sheet.text',
+      'What the filters show leaves as a PDF or a spreadsheet, every page of it. An import '
+      + 'shows what it would change before it changes anything. Every card keeps its exports '
+      + 'and imports in its last row.'),
+  },
+  {
     target: '#templates-card',
     view: 'timesheets',
     permission: 'timesheets:write:own',
@@ -12040,16 +12162,6 @@ const TOUR_STEPS = [
     text: () => t('tour.templates.text',
       'Bookings you make often, kept with "Save as template" in the booking form on the '
       + 'Record tab. A template only fills that form in: nothing is booked until you press Book.'),
-  },
-  {
-    target: '#workbook-card',
-    view: 'timesheets',
-    permission: 'timesheets:read:own',
-    title: () => t('tour.sheet.title', 'In and out as a spreadsheet'),
-    text: () => t('tour.sheet.text',
-      'Your hours as a spreadsheet, with the column headings in the language you are '
-      + 'reading. An import shows you what it would change before it changes anything. '
-      + 'Every table worth moving this way has the same pair on its own screen.'),
   },
   {
     target: '#week-card',
@@ -12085,7 +12197,7 @@ const TOUR_STEPS = [
     title: () => t('tour.workday.title', 'Your working time'),
     text: () => t('tour.workday.text',
       'When you began, when you finished and how long your breaks were, beside the hours you '
-      + 'booked - and as a PDF. Days past a limit of the Working Hours Act are marked.'),
+      + 'booked - and as a PDF or a spreadsheet. Days past a limit of the Working Hours Act are marked.'),
   },
   {
     target: '#vacation-card',
@@ -13444,6 +13556,7 @@ function forgetTheGlance() {
 
   $('#dashboard-foot').hidden = true;
   $('#dashboard-said').textContent = '';
+  customizeDashboard(false);
   arrangeDashboard([]);
 }
 
@@ -13517,15 +13630,39 @@ function offerTheShippedOrder() {
   $('#dashboard-reset').hidden = arrangementOnScreen().join() === shippedTiles.join();
 }
 
+/** Whether the dashboard is being customized, which is when its tiles can be moved and put away. */
+let dashboardEditing = false;
+
 /**
- * Says how the tiles are moved, once any tile is on screen or put away, and
- * offers each one put away back: named after its heading, so it follows a
- * heading the script rewrites and the language it is read in.
+ * Starts customizing the dashboard, or finishes it: the handles, the crosses and
+ * what is said about them come and go with it, and the link that starts it says
+ * Done meanwhile. A new page starts with it finished, whatever the last one did.
+ */
+function customizeDashboard(on) {
+  dashboardEditing = on;
+
+  $('#dashboard-area')?.classList.toggle('editing', on);
+
+  // Each key written out, so the test that every key is translated can read it.
+  if (on) swapTheLabel($('#dashboard-edit'), 'dashboard.done', 'Done');
+  else swapTheLabel($('#dashboard-edit'), 'dashboard.edit', 'Customize dashboard');
+
+  showTheDashboardFoot();
+}
+
+/**
+ * Offers the dashboard to be customized once any tile is on screen or put away,
+ * and while it is: says how the tiles are moved and offers each one put away
+ * back, named after its heading, so it follows a heading the script rewrites and
+ * the language it is read in.
  */
 function showTheDashboardFoot() {
   const away = putAwayTiles();
+  const anything = shownTiles().length > 0 || away.length > 0;
+  const edit = $('#dashboard-edit');
 
-  $('#dashboard-foot').hidden = shownTiles().length === 0 && away.length === 0;
+  if (edit) edit.hidden = !anything;
+  $('#dashboard-foot').hidden = !dashboardEditing || !anything;
 
   const list = $('#dashboard-put-away');
   if (!list) return;
@@ -13724,6 +13861,8 @@ function wireDashboard() {
 
     tile.querySelector('.welcome-recent-head').append(grip, hide);
   }
+
+  $('#dashboard-edit')?.addEventListener('click', () => customizeDashboard(!dashboardEditing));
 
   $('#dashboard-reset').addEventListener('click', () => {
     arrangeDashboard([]);
@@ -16431,7 +16570,7 @@ function renderWorkbookPreview(result) {
   $('#wb-import').hidden = rejected > 0 || writable === 0;
 }
 
-/** The resets of the tables' import cards, which buildSheetCard builds. */
+/** The resets of the tables' imports, which addExportsAndImport adds to their cards. */
 const sheetCardResets = [];
 
 /** Puts every import card back to its resting state. */
@@ -16457,9 +16596,23 @@ function resetWorkbookCard() {
   $('#table-workbook tbody').replaceChildren();
 }
 
+/**
+ * Opens the file input a button names in data-file.
+ *
+ * The input stays out of sight because the browser draws it in its own language
+ * rather than the reader's, and cannot be restyled; the button is what is seen and
+ * pressed, from the pointer and the keyboard alike, and is drawn as every other
+ * button on its row. A label dressed as a button did this before and was drawn as
+ * a box among pills.
+ */
+function wireFileButtons() {
+  for (const button of document.querySelectorAll('button[data-file]')) {
+    button.addEventListener('click', () => document.getElementById(button.dataset.file)?.click());
+  }
+}
+
 function wireWorkbook() {
-  const card = $('#workbook-card');
-  if (!card) return;
+  if (!$('#wb-file')) return;
 
   $('#wb-export').addEventListener('click', () => mutate(
     exportWorkbook, t('wb.exported', 'Export saved'), null));
@@ -16689,6 +16842,13 @@ async function chartAsPicture(container) {
  */
 function cellAsFigure(cell) {
   if (!cell) return '';
+
+  // A cell holding a choice says what is chosen. An account's role is changed
+  // from a dropdown in its row, and the cell's text taken whole is every role the
+  // dropdown offers, run together.
+  const choice = cell.querySelector('select');
+
+  if (choice) return choice.selectedOptions[0]?.textContent.trim() ?? '';
 
   const parts = [...cell.children];
   const stacked = parts.length > 1
@@ -17027,6 +17187,79 @@ async function absenceDocument() {
   };
 }
 
+/** The most entries one document carries: the most the server lays out in a table. */
+const ENTRIES_IN_A_DOCUMENT = 2000;
+
+/**
+ * The entries the filters under Entries show, as a document - every page of
+ * them, as the workbook beside it holds, not the page the list is on. The list
+ * shows a page at a time and the server holds the rest, so they are asked for
+ * here, in the order the list is sorted in.
+ */
+async function entriesDocument() {
+  const params = timesheetFilterParams();
+  const sort = serverSort($('#table-timesheets'));
+
+  if (sort) {
+    params.set('sort', sort.sort);
+    params.set('order', sort.order);
+  }
+
+  const entries = [];
+  let total = 0;
+
+  while (entries.length < ENTRIES_IN_A_DOCUMENT) {
+    params.set('offset', String(entries.length));
+    params.set('limit', String(Math.min(500, ENTRIES_IN_A_DOCUMENT - entries.length)));
+
+    const page = await api(`/timesheets?${params}`);
+    const items = page?.items ?? [];
+
+    total = page?.totalCount ?? 0;
+    entries.push(...items);
+
+    if (items.length === 0 || entries.length >= total) break;
+  }
+
+  const project = $('#filter-ts-project');
+  const from = $('#filter-ts-from')?.value;
+  const to = $('#filter-ts-to')?.value;
+  const search = $('#filter-ts-q')?.value.trim() ?? '';
+
+  return {
+    title: t('nav.timesheets', 'Time entries'),
+    colours: screenColours(),
+    subtitle: [
+      viewingFor?.name,
+      periodOf({ from, to }) || (from ? fmtDate(from) : '') || (to ? fmtDate(to) : ''),
+      project?.value ? project.selectedOptions[0].textContent.trim() : '',
+      search ? fillIn(t('changes.searchedFor', 'search: {0}'), [search]) : '',
+    ].filter(Boolean).join(' · '),
+    sections: [{
+      caption: total > entries.length
+        ? fillIn(t('wb.documentFirst', 'The first {0} of {1} entries; the filters under Entries narrow it further.'),
+          [entries.length, total])
+        : '',
+      table: {
+        columns: [t('field.date', 'Date'), t('field.project', 'Project'), t('field.hours', 'Hours'),
+          t('field.description', 'Description')],
+        numeric: [false, false, true, false],
+        rows: entries.map((entry) => [
+          fmtDate(entry.date),
+          entry.projectId ? projectName(entry.projectId) : t('ts.noProject', 'No project'),
+          fmtNumber(entry.durationHours),
+          entry.description || '–',
+        ]),
+        tones: entries.map((entry) => ['', entry.projectId ? '' : 'muted', '', '']),
+      },
+    }],
+    summary: [{
+      label: t('stats.total', 'Total'),
+      value: fmtNumber(entries.reduce((sum, entry) => sum + (entry.durationHours ?? 0), 0)),
+    }],
+  };
+}
+
 /** The overtime screen: the day-by-day table and the balance. */
 async function overtimeDocument() {
   return {
@@ -17081,6 +17314,7 @@ function wireDocumentExports() {
   wireDocumentExport('#vacation-pdf', () => t('vacation.filename', 'leave'), vacationDocument);
   wireDocumentExport('#absence-pdf', () => t('absence.filename', 'days-away'), absenceDocument);
   wireDocumentExport('#year-pdf', () => t('year.filename', 'year'), yearDocument);
+  wireDocumentExport('#wb-pdf', () => t('wb.filename', 'time-entries'), entriesDocument);
 
   // The same screens as workbooks, from the same builders but one: the
   // statistics are charts, which have no cells, so their workbook is built from
@@ -17126,31 +17360,34 @@ const SHEET_CARDS = [
   {
     key: 'projects',
     path: '/projects',
-    view: '#view-projects',
-    read: 'projects:read',
+    table: '#table-projects',
+    title: () => t('nav.projects', 'Projects'),
     write: 'projects:write',
     reload: () => refreshAll(),
   },
   {
     key: 'users',
     path: '/users',
-    view: '#view-users',
-    read: 'users:read',
+    table: '#table-users',
+    title: () => t('nav.users', 'Users'),
     write: 'users:write',
     reload: () => refreshAll(),
   },
   {
     key: 'roles',
     path: '/roles',
-    view: '#view-roles',
-    read: 'roles:read',
+    table: '#table-roles',
+    title: () => t('nav.roles', 'Roles'),
     write: 'roles:write',
     reload: () => refreshAll(),
   },
 ];
 
 /**
- * Builds the export/import card for one table.
+ * Gives a table's card its exports and its import: under the table, in the card's
+ * last row, where every card keeps them. They were a card of their own below the
+ * table's, on a tab of their own for the time entries, which put a table and the
+ * way it leaves in two places.
  *
  * Built here rather than written into index.html three times over. The markup is
  * identical for every table - the only differences are the words and the endpoint -
@@ -17161,17 +17398,20 @@ const SHEET_CARDS = [
  * translated, so this renders a file of projects and a file of people with the same
  * code and needs to know nothing about either.
  */
-function buildSheetCard(spec) {
+function addExportsAndImport(spec) {
+  const card = $(spec.table)?.closest('.card');
+  if (!card) return;
+
   const summary = el('p', { class: 'muted' });
   const headRow = el('tr');
   const body = el('tbody');
 
   const wrap = el('div', { class: 'table-wrap' },
-    el('table', {}, el('thead', {}, headRow), body));
+    el('table', { class: 'import-preview' }, el('thead', {}, headRow), body));
   wrap.hidden = true;
 
   const file = el('input', {
-    type: 'file',
+    type: 'file', class: 'file-input', tabindex: '-1', 'aria-hidden': 'true',
     accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 
@@ -17270,6 +17510,14 @@ function buildSheetCard(spec) {
     write.hidden = rejected > 0 || writable === 0;
   };
 
+  const pdfButton = el('button', {
+    type: 'button', class: 'secondary',
+    'data-i18n': 'action.exportPdf', text: 'Export as PDF',
+  });
+
+  pdfButton.addEventListener('click', () => exportEvaluation(
+    pdfButton, t(`sheet.${spec.key}.file`, spec.key), () => sheetDocument(spec)));
+
   const exportButton = el('button', {
     type: 'button', class: 'secondary',
     'data-i18n': 'wb.export', text: 'Export as .xlsx',
@@ -17278,8 +17526,11 @@ function buildSheetCard(spec) {
       t('wb.exported', 'Export saved'), null),
   });
 
-  const picker = el('label', { class: 'file-pick', 'data-perm': spec.write },
-    el('span', { 'data-i18n': 'wb.importFrom', text: 'Import from .xlsx…' }), file);
+  const picker = el('button', {
+    type: 'button', class: 'secondary', 'data-perm': spec.write,
+    'data-i18n': 'wb.importFrom', text: 'Import from .xlsx…',
+    onclick: () => file.click(),
+  });
 
   file.addEventListener('change', () => {
     const chosen = Boolean(file.files?.length);
@@ -17319,16 +17570,35 @@ function buildSheetCard(spec) {
   cancel.addEventListener('click', reset);
   sheetCardResets.push(reset);
 
-  return el('div', { class: 'card', 'data-perm': spec.read },
-    el('h2', { 'data-i18n': 'wb.title', text: 'Spreadsheet' }),
+  card.append(
     el('p', {
       class: 'muted',
       'data-i18n': `sheet.${spec.key}.text`,
       text: SHEET_TEXTS[spec.key],
     }),
-    el('div', { class: 'row' }, exportButton, picker, check, write, cancel),
     summary,
-    wrap);
+    wrap,
+    el('div', { class: 'file-actions' }, pdfButton, exportButton, picker, file, check, write, cancel));
+}
+
+/**
+ * A table's card as a document: the table as its screen shows it, every page of
+ * it, narrowed where somebody narrowed it - which the subtitle then says.
+ *
+ * Read off the screen rather than asked of the server, as the other screens'
+ * documents are, so the words and the order are the reader's. The workbook beside
+ * it is the server's, because it is the file an import reads back.
+ */
+async function sheetDocument(spec) {
+  const table = $(spec.table);
+  const pager = pagers.get(table);
+
+  return {
+    title: spec.title(),
+    colours: screenColours(),
+    subtitle: [pager?.choice, pager?.query].filter(Boolean).join(' · '),
+    sections: [{ table: tableAsFigures(table) }],
+  };
 }
 
 /**
@@ -17340,29 +17610,25 @@ function buildSheetCard(spec) {
  * them.
  */
 const SHEET_TEXTS = {
-  projects: 'Exports your projects. An import matches rows '
-    + 'by name: a name that already exists is updated, a new one is created. '
-    + 'An empty cell leaves that '
-    + 'value alone, so nothing is lost by a column somebody deleted.',
-  roles: 'Exports every role with a column per permission, holding yes or no - which '
-    + 'is the grid you want when the question is what four roles may do. An import '
-    + 'matches rows by name, creates a role that is not there yet, and refuses a '
-    + 'heading naming a right this application does not enforce. A system role can be '
-    + 'described differently and nothing else.',
-  users: 'Exports every account: name, email, role, and whether its password lives in '
-    + 'the directory. An import changes the name and the role, matched on the email '
-    + 'address, and does not create accounts - a new one needs a password, which does '
-    + 'not belong in a spreadsheet. Working times and time zones are not here: they '
-    + 'belong to whoever they are about, who sets them under My account.',
+  projects: 'The PDF holds the list as this screen shows it. The .xlsx file holds your '
+    + 'projects, and an import matches its rows by name: a name that already exists is '
+    + 'updated, a new one is created. An empty cell leaves that value alone, so nothing '
+    + 'is lost by a column somebody deleted.',
+  roles: 'The PDF holds the list as this screen shows it. The .xlsx file holds every role '
+    + 'with a column per permission, holding yes or no - which is the grid you want when '
+    + 'the question is what four roles may do. An import matches rows by name, creates a '
+    + 'role that is not there yet, and refuses a heading naming a right this application '
+    + 'does not enforce. A system role can be described differently and nothing else.',
+  users: 'The PDF holds the list as this screen shows it. The .xlsx file holds every '
+    + 'account: name, email, role, and whether its password lives in the directory. An '
+    + 'import changes the name and the role, matched on the email address, and does not '
+    + 'create accounts - a new one needs a password, which does not belong in a '
+    + 'spreadsheet. Working times and time zones are not in it: they belong to whoever '
+    + 'they are about, who sets them under My account.',
 };
 
 function wireSheetCards() {
-  for (const spec of SHEET_CARDS) {
-    const view = $(spec.view);
-    if (!view) continue;
-
-    view.append(buildSheetCard(spec));
-  }
+  for (const spec of SHEET_CARDS) addExportsAndImport(spec);
 }
 
 /**
@@ -19210,7 +19476,7 @@ function appendLogLines(records) {
     // typed into it.
     message.textContent = record.message;
 
-    if (record.traceId) line.title = `trace ${record.traceId}`;
+    if (record.traceId) line.title = fillIn(t('log.trace', 'Trace ID {0}'), [record.traceId]);
 
     line.append(time, level, message);
     batch.append(line);
@@ -20728,6 +20994,10 @@ async function init() {
   $('#form-login').addEventListener('submit', submitLogin);
   wireTicketSignIn();
 
+  // The screen's ground, before anything is asked of the server, so the sky is
+  // there while the session is being checked rather than arriving after it.
+  wireSky();
+
   // Before anything can fail for want of a connection, so a page that cannot
   // reach the installation says so rather than only failing.
   keepTheShell();
@@ -20845,6 +21115,7 @@ async function init() {
     wireStatistics();
     wireDocumentExports();
     wireReportChart();
+    wireFileButtons();
     wireWorkbook();
     wireSheetCards();
     wireSetup();

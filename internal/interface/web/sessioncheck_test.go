@@ -47,11 +47,11 @@ func TestTheSignInFormIsHiddenWhileTheSessionIsChecked(t *testing.T) {
 
 	style := readAsset(t, "app.css")
 
-	// The footer is the one thing besides the spinner left on screen: it is up
-	// from the first paint, and the script moves it into the sign-in screen while
-	// the check is still running.
+	// The footer is one thing besides the spinner left on screen: it is up from
+	// the first paint, and the script moves it into the sign-in screen while the
+	// check is still running. The sky is the other: it is the screen's ground.
 	for _, rule := range []string{
-		".login-screen.checking > *:not(.session-check, .site-footer)",
+		".login-screen.checking > *:not(.session-check, .site-footer, .sky)",
 		".login-screen.checking .session-check",
 	} {
 		if !strings.Contains(style, rule) {

@@ -589,6 +589,10 @@ func overlongBranding(branding model.Branding) []string {
 		invalid = append(invalid, "companyName")
 	}
 
+	if model.TooLong(branding.CompanyURL, model.MaxCompanyURLLength) {
+		invalid = append(invalid, "companyUrl")
+	}
+
 	return invalid
 }
 
