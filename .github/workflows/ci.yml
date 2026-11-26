@@ -656,9 +656,29 @@ jobs:
             echo "${key}: read by this Gradle"
           done
 
+      # Gradle's downloads, kept between runs. Every run used to fetch the
+      # build's plugins and libraries again, over eight hundred files, and each
+      # request was a chance to meet the outage the retries in gradle.properties
+      # wait out. While the files that decide the downloads stay as they are, a
+      # run asks no repository at all: the whole build, every task rerun, passes
+      # with no network from this directory alone. After a version bump a run
+      # restores the newest cache and fetches only what changed. Only the
+      # dependency cache is kept: the rest of Gradle's home is rebuilt from it,
+      # and the lock and gc.properties are the last run's bookkeeping. The release
+      # does not restore it, because that job holds the signing key.
+      - name: Keep Gradle's downloads between runs
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle-android/caches/modules-2
+            !~/.gradle-android/caches/modules-2/*.lock
+            !~/.gradle-android/caches/modules-2/gc.properties
+          key: android-gradle-${{ hashFiles('internal/interface/mobile/*.gradle.kts', 'internal/interface/mobile/gradle.properties', 'internal/interface/mobile/Dockerfile') }}
+          restore-keys: android-gradle-
+
       - name: Test, lint and build the app
         run: >-
-          docker run --rm -v "$PWD:/src" -w /src/internal/interface/mobile timepulse-android
+          docker run --rm -v "$PWD:/src" -v "$HOME/.gradle-android:/root/.gradle" -w /src/internal/interface/mobile timepulse-android
           gradle --no-daemon --console=plain testDebugUnitTest assembleRelease lintRelease
 
   # Builds the Docker image on every PR as a smoke test. On pushes to main
