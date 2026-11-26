@@ -280,21 +280,29 @@ stopwatch past the hours chosen, and the last working day with nothing booked.
 Two things stay in a browser: passkeys and signing in through your organisation,
 which are set up there.
 
-**It belongs to the release it was built with.** Download
-`timepulse-mobile_<version>.apk` from the
-[release](https://github.com/dennis-dko/timepulse/releases) the
-installation runs - **My account → Install the Android app** shows it as a code
-the phone's camera downloads it from - and open it on the phone; Android asks once whether the
-browser or file manager it was opened from may install apps. Every release is
-signed with the same key, so the next one installs over it - and the app offers
-it itself: at every start it asks the installation which release it runs, and
-once that is newer than the app, a press downloads that release's app and hands
-it to Android, which asks once whether TimePulse may install apps. From Android
-12 on, every update after that installs without a question: the app closes for
-it, and a notification opens the new one where notifications are allowed. Below
-Android 12, Android asks to confirm each update. An installation whose
-certificate comes from an authority of its own needs that authority installed on
-the phone, as the phone's browser does.
+**The installation chooses the app.** **My account → Install the Android app**
+shows the newest `timepulse-mobile_<version>.apk` that fits the installation as
+a code the phone's camera downloads it from; open it on the phone, and Android
+asks once whether the browser or file manager it was opened from may install
+apps. Every release is signed with the same key, so the next one installs over
+it - and the app offers it itself. At every start it asks the installation which
+app fits it: the newest release's, as soon as that app speaks a contract the
+installation serves, even before the installation itself is updated, and the
+installation's own release's otherwise. Only the installation asks GitHub, not
+every phone. Once that app is newer, a press downloads it and hands it to
+Android, which asks once whether TimePulse may install apps. From Android 12 on,
+every update after that installs without a question: the app closes for it, and
+a notification opens the new one where notifications are allowed. Below Android
+12, Android asks to confirm each update.
+
+**An app and an installation that cannot work together do not connect.** The
+app says which contract it speaks when it signs in, and an installation that
+does not serve it refuses, saying which of the two needs updating; the app
+refuses an installation from before contracts that is too old for it in the same
+words. Every app and installation speaks the first contract today, so nothing is
+refused until a request between them changes. An installation whose certificate
+comes from an authority of its own needs that authority installed on the phone,
+as the phone's browser does.
 
 ## What it does
 

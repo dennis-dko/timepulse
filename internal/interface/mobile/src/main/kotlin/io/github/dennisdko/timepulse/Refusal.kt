@@ -55,6 +55,16 @@ fun Language.refused(status: Int, reason: String, body: String): String {
 }
 
 /**
+ * installationTooOld refuses an installation from before contracts whose newest
+ * contract is older than this app's. An installation that knows contracts says
+ * this itself, as appTooNew; the older one cannot, so the app says it in the same
+ * words, which a test in internal/interface/mobile holds to the installation's in
+ * both languages.
+ */
+fun Language.installationTooOld(): String =
+    text("mobile.installationTooOld", "this installation is too old for this app; update the installation")
+
+/**
  * inPageWords is a refusal as the web interface says it, or null where its
  * dictionary has no sentence for it - which in English is always, the page's
  * English being the fallbacks in its own script. The fields named first,

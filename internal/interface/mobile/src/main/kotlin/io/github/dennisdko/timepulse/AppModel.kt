@@ -145,8 +145,9 @@ class AppModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * askForUpdate asks the installation, once each time the app is started,
-     * whether the app of its release is newer than this one, and offers it where
-     * it is. An installation out of reach, or one that refuses, offers nothing.
+     * whether the app it passes on - the newest that fits it - is newer than this
+     * one, and offers it where it is. An installation out of reach, or one that
+     * refuses, offers nothing.
      */
     private fun askForUpdate(connection: Connection) {
         if (askedForUpdate) return

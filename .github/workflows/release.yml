@@ -524,6 +524,24 @@ jobs:
       # It also has to be this action that creates it. A tag pushed with
       # GITHUB_TOKEN triggers no further workflows, so a two-step "tag now,
       # release on the tag" arrangement would tag and then sit there.
+      # The contract the Android app of this release speaks with an installation.
+      # It is written into the release text as a comment GitHub does not show, so
+      # that an installation of an earlier release learns from the answer it
+      # already asks for whether this app fits it before offering it to its
+      # phones. It is read from the app's own declaration rather than written here
+      # a second time.
+      - name: Read the contract the app speaks
+        id: contract
+        run: |
+          set -euo pipefail
+          level=$(sed -n 's/^const val appContract = \([0-9][0-9]*\)$/\1/p' \
+            internal/interface/mobile/src/main/kotlin/io/github/dennisdko/timepulse/Installation.kt)
+          if [ -z "${level}" ]; then
+            echo "::error::Installation.kt declares no appContract, so no installation could tell whether this app fits it"
+            exit 1
+          fi
+          echo "level=${level}" >> "$GITHUB_OUTPUT"
+
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.version.outputs.version }}
@@ -552,8 +570,9 @@ jobs:
 
             `timepulse-web_*` is the installation: the server and its web
             interface. `timepulse-mobile_*.apk` is the Android app - the
-            installation's web interface in an app - which belongs to this release:
-            use it with an installation that runs this version. It is connected by
+            installation's web interface in an app. It works with every
+            installation that serves the contract it speaks, and an installation
+            offers it to its phones itself once it fits. It is connected by
             scanning the code a new personal token is shown with.
 
             An installation running v0.4.11 or earlier cannot update itself to
@@ -574,6 +593,8 @@ jobs:
             read by docker compose and means nothing beside a binary.) Settings the
             interface can change are stored in the database and are **not** read
             from there.
+
+            <!-- timepulse-app-contract: ${{ steps.contract.outputs.level }} -->
           append_body: true
 
   # There is no deploy job, and that is the decision rather than a gap waiting to

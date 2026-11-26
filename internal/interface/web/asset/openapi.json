@@ -272,17 +272,31 @@
           "auth"
         ],
         "summary": "Sign in to the web interface with a personal token",
-        "description": "The token travels as `Authorization: Bearer <token>` or `X-API-Token`, and the answer is a sign-in's: the session cookie, a new CSRF cookie and `{\"user\": {...}, \"permissions\": [...]}`. It is how the Android app signs in to the web interface it shows, connected by the code a new token is shown with. It grants nothing the token does not - the token already carries its owner's role through the API - and only the token decides who: a session cookie on the same request is not asked. The session ends with the token: revoking the token ends it, and it lasts no longer than the token does. A token that does not resolve is answered 401 as a wrong password is, one whose owner is still on the initial password 409 mustChangePasswordFirst, and during maintenance only an account that may end it gets a session.",
+        "description": "The token travels as `Authorization: Bearer <token>` or `X-API-Token`, and the answer is a sign-in's: the session cookie, a new CSRF cookie and `{\"user\": {...}, \"permissions\": [...]}`. It is how the Android app signs in to the web interface it shows, connected by the code a new token is shown with. It grants nothing the token does not - the token already carries its owner's role through the API - and only the token decides who: a session cookie on the same request is not asked. The session ends with the token: revoking the token ends it, and it lasts no longer than the token does. A token that does not resolve is answered 401 as a wrong password is, one whose owner is still on the initial password 409 mustChangePasswordFirst, and during maintenance only an account that may end it gets a session. The Android app also says which contract with an installation it speaks: an app outside the range this installation serves is refused 409 appTooOld or appTooNew before any session exists, and a sign-in that goes ahead answers the range served as appContracts, {\"oldest\": 1, \"newest\": 1}. A request saying no contract is served as before.",
         "security": [],
+        "parameters": [
+          {
+            "name": "X-TimePulse-App-Contract",
+            "in": "header",
+            "required": false,
+            "description": "The contract the Android app speaks, a whole number. Left out by anything that is not the app.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": "Signed in; a session cookie is set"
+          },
+          "400": {
+            "description": "X-TimePulse-App-Contract is not a whole number"
           },
           "401": {
             "description": "The token is not one this installation knows"
           },
           "409": {
-            "description": "The token's owner has to change the initial password first"
+            "description": "The token's owner has to change the initial password first, or the app speaks a contract this installation does not serve: appTooOld, appTooNew"
           }
         }
       }
@@ -2376,8 +2390,8 @@
         "tags": [
           "me"
         ],
-        "summary": "Where the Android app of this installation is downloaded, and the same as a QR code",
-        "description": "Answers {\"release\": \"https://github.com/dennis-dko/timepulse/releases/tag/v0.4.8\", \"download\": \"https://github.com/dennis-dko/timepulse/releases/download/v0.4.8/timepulse-mobile_v0.4.8.apk\", \"version\": \"v0.4.8\", \"qr\": \"data:image/svg+xml;base64,...\"}. The app belongs to the release it was built with, so these are the release this installation runs; an installation that runs no release - a build from source - is given the newest release's page and neither a download nor a version. version is what the Android app compares its own with at every start, offering to download and install the app at download where it is newer. The code is of the download, or of the page where there is none, for a phone's camera. Needs nothing beyond being signed in.",
+        "summary": "Where the Android app this installation offers is downloaded, and the same as a QR code",
+        "description": "Answers {\"release\": \"https://github.com/dennis-dko/timepulse/releases/tag/v0.4.8\", \"download\": \"https://github.com/dennis-dko/timepulse/releases/download/v0.4.8/timepulse-mobile_v0.4.8.apk\", \"version\": \"v0.4.8\", \"qr\": \"data:image/svg+xml;base64,...\"}. These are the newest release's, where the installation may look for releases, that release is newer than its own, and its app speaks a contract this installation serves - so a phone gets the newest app that fits before the installation is updated. Otherwise they are the release this installation runs, whose app always fits; an installation that runs no release - a build from source - is given the newest release's page and neither a download nor a version. version is what the Android app compares its own with at every start, offering to download and install the app at download where it is newer. The code is of the download, or of the page where there is none, for a phone's camera. Needs nothing beyond being signed in.",
         "responses": {
           "200": {
             "description": "OK"

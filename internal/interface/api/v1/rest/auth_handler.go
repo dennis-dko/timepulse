@@ -77,6 +77,11 @@ type LoginResponse struct {
 	// TOTPRequired tells the client to ask for the code and retry, rather
 	// than reporting the sign-in as failed.
 	TOTPRequired bool `json:"totpRequired"`
+
+	// AppContracts is the range of contracts with the Android app this
+	// installation serves, answered only to a sign-in with a token, which is how
+	// the app signs in.
+	AppContracts *AppContracts `json:"appContracts,omitempty"`
 }
 
 // Login handles POST /api/v1/auth/login.
