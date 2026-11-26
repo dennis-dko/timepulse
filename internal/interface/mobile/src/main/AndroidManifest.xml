@@ -21,12 +21,16 @@
          alarm comes within the hour after instead. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
-    <!-- The app offers the newer app of its installation's release at every
-         start and installs it when somebody presses to. Android asks once whether
-         the app may install apps, under "Install unknown apps", and asks to
-         confirm every installation; it installs one only signed with the key this
-         app was. -->
+    <!-- The app offers the newer app its installation passes on at every start
+         and installs it when somebody presses to. Android asks once whether
+         the app may install apps, under "Install unknown apps", and below Android
+         12 asks to confirm every installation; it installs one only signed with
+         the key this app was. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- From Android 12 on, an app replacing itself may skip that confirmation
+         where it declares this and its session says so. It is still only ever
+         this app, signed with this app's key, that it installs. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
     <!-- Nothing of the app's is backed up or carried to another phone.
          allowBackup="false" is what says so up to Android 11, so the rules file
@@ -73,5 +77,13 @@
              nothing else: it starts the screen the answer names, so no other app
              may send it one. -->
         <receiver android:name=".UpdateReceiver" android:exported="false" />
+        <!-- Told by Android that a newer app has replaced this one. Only the
+             system sends MY_PACKAGE_REPLACED, and the system reaches a receiver
+             that no other app may call. -->
+        <receiver android:name=".ReplacedReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

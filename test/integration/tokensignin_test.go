@@ -8,13 +8,15 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
 
 // tokenSignIn hands a personal token over for a session the way the Android app
-// does: the token and nothing else - no session, no CSRF token.
-func tokenSignIn(t *testing.T, base, token string) response {
+// does: the token and nothing else - no session, no CSRF token - and, where one
+// is given, the contract the app speaks.
+func tokenSignIn(t *testing.T, base, token string, contract ...string) response {
 	t.Helper()
 
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, base+"/api/v1/auth/token", nil)
@@ -24,6 +26,10 @@ func tokenSignIn(t *testing.T, base, token string) response {
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
+
+	for _, level := range contract {
+		req.Header.Set("X-TimePulse-App-Contract", level)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -139,6 +145,49 @@ func TestATokenSignsItsOwnerInToTheWebInterface(t *testing.T) {
 
 	if status := readingMe(t, a.BaseURL(), session); status != http.StatusOK {
 		t.Errorf("the session the token opened was answered %d", status)
+	}
+}
+
+// TestAnAppOutsideTheContractsServedOpensNoSession holds the lock the maintainer
+// asked for on 2026-11-26. The app says which contract it speaks when it signs
+// in with its token, and an installation that cannot serve it refuses before
+// opening a session, naming which side has to be updated. An app it serves gets
+// its session and the range served, which is how the app tells this
+// installation from one from before the contract, which answers no range.
+func TestAnAppOutsideTheContractsServedOpensNoSession(t *testing.T) {
+	t.Parallel()
+
+	a, _, worker := startWithWorker(t)
+	_, secret := madeToken(t, worker, "phone")
+
+	for contract, code := range map[string]string{"0": "appTooOld", "999": "appTooNew"} {
+		answer := tokenSignIn(t, a.BaseURL(), secret, contract)
+		if answer.Status != http.StatusConflict || !strings.Contains(string(answer.Body), `"`+code+`"`) {
+			t.Errorf("an app speaking contract %s was answered %d %s, want 409 %s", contract, answer.Status, answer.Body, code)
+		}
+
+		if session := sessionCookieOf(answer); session != "" {
+			t.Errorf("an app speaking contract %s was given a session it could not use", contract)
+		}
+	}
+
+	answer := tokenSignIn(t, a.BaseURL(), secret, "1")
+	if answer.Status != http.StatusCreated || sessionCookieOf(answer) == "" {
+		t.Fatalf("an app speaking contract 1 was answered %d %s", answer.Status, answer.Body)
+	}
+
+	var envelope struct {
+		Data struct {
+			AppContracts *struct {
+				Oldest int `json:"oldest"`
+				Newest int `json:"newest"`
+			} `json:"appContracts"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(answer.Body, &envelope); err != nil || envelope.Data.AppContracts == nil ||
+		envelope.Data.AppContracts.Oldest > 1 || envelope.Data.AppContracts.Newest < 1 {
+		t.Errorf("the sign-in does not tell the app the range served, which includes 1: %s", answer.Body)
 	}
 }
 

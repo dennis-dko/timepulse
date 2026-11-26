@@ -5,6 +5,7 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,6 +56,18 @@ class UpdateTest {
         assertNull(offerFor("v0.4.20", answer("v0.4.24", null)))
         assertNull(offerFor("v0.4.20", answer("v0.4.24", " ")))
         assertNull(offerFor("v0.4.20", null))
+    }
+
+    // The app that replaced this one says so only where it is the app an update
+    // this one started was to install. An update that never arrived and an app
+    // installed by hand since are not announced, nor is an app nobody updated.
+    @Test
+    fun onlyTheAppAnUpdateWasStartedForSaysItArrived() {
+        assertTrue(announces("v0.4.34", "v0.4.34"))
+
+        assertFalse(announces(null, "v0.4.34"))
+        assertFalse(announces("v0.4.34", "v0.4.35"))
+        assertFalse(announces("v0.4.34", "v0.4.33"))
     }
 
     // The installation is asked with the app's own token, and its answer is read

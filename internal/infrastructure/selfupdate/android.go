@@ -1,6 +1,10 @@
 package selfupdate
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+	"strconv"
+)
 
 // Releases is where this project's releases are shown, each carrying the
 // Android app built from the same commit.
@@ -24,6 +28,30 @@ func AndroidApp(version string) (page, download string) {
 func androidAssetName(version string) string {
 	return "timepulse-mobile_" + version + ".apk"
 }
+
+// appContractIn is the contract a release's text says its Android app speaks,
+// zero where it says none.
+//
+// The release workflow writes it as an HTML comment, which GitHub does not show
+// on the release page, because the text is also what people read. It is read
+// from the text rather than from a file of its own so that an installation
+// learns it from the answer it already asks for, with no second request.
+func appContractIn(notes string) int {
+	found := appContractMarker.FindStringSubmatch(notes)
+	if found == nil {
+		return 0
+	}
+
+	level, err := strconv.Atoi(found[1])
+	if err != nil {
+		return 0
+	}
+
+	return level
+}
+
+// appContractMarker is the comment appContractIn reads, as release.yml writes it.
+var appContractMarker = regexp.MustCompile(`<!-- timepulse-app-contract: ([0-9]{1,6}) -->`)
 
 // isRelease says whether version is the tag a release is named by and nothing
 // more: parseVersion also reads what a build from a source tree says about how

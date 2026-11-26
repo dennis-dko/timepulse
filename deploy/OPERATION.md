@@ -1549,11 +1549,17 @@ systemctl stop timepulse && cp timepulse-web_v1.3.0_linux_amd64 /opt/timepulse/t
 The schema migrates itself on the way up. There is no separate command, and
 nothing to run afterwards.
 
-Phones with the Android app are offered the new release's app at their next
-start: the app asks the installation which release it runs, and a press
-downloads that release's app from GitHub and hands it to Android, which asks
-to confirm it. The phone has to reach GitHub for that; one that cannot is told
-the download failed and keeps the app it has.
+Phones with the Android app are offered the newest app that fits the
+installation at their next start, and that need not wait for this update. The
+installation passes on the newest release's app as soon as that app speaks a
+contract the installation serves, and its own release's app otherwise. It looks
+this up with the release feed its update card uses, so with `UPDATE_CHECK=false`
+it offers its own release's app only. A press downloads the app from GitHub and
+hands it to Android, which asks to confirm it below Android 12 and installs it
+without a question from Android 12 on. The phone has to reach GitHub for the
+download; one that cannot is told the download failed and keeps the app it has.
+An app and an installation that do not serve each other's contract refuse to
+connect, and say which of the two to update.
 
 Releases up to v0.4.2 carried a terminal client beside this binary. None does since: booking is the web interface's and the
 Android app's. An update neither replaces nor removes a client already handed

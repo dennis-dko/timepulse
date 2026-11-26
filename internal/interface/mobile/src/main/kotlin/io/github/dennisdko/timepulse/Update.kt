@@ -1,11 +1,16 @@
 package io.github.dennisdko.timepulse
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
+import androidx.core.app.NotificationChannelCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.edit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.withContext
@@ -15,6 +20,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 
 /**
  * Release is a version as a release is named - v0.4.23 - and nothing else. A
@@ -33,19 +39,21 @@ fun releaseOf(version: String): Release? {
     return Release(major, minor, patch)
 }
 
-/** Offer is the app of the installation's release, newer than this one: which release it is, and where it is downloaded. */
+/** Offer is the app the installation passes on, newer than this one: which release it is, and where it is downloaded. */
 data class Offer(val version: String, val download: String)
 
 /**
  * offerFor is the app the installation offers this one, installed as
- * [installed], read from its answer to /api/v1/me/android: the app of its own
- * release, where that is newer.
+ * [installed], read from its answer to /api/v1/me/android, where that app is
+ * newer.
  *
- * The installation's rather than the newest on GitHub, because the app belongs to
- * the release it was built with, and one ahead of its installation could ask for
- * what that installation does not have yet. Nothing where either is no release:
- * an installation built from source has no app of its own, and an app built from
- * source is signed with a key a release's app cannot replace.
+ * The installation chooses rather than the newest on GitHub: it passes on the
+ * newest release whose app speaks a contract it serves, and its own release's
+ * app otherwise, as the maintainer chose on 2026-11-26. So an app ahead of its
+ * installation never asks for what that installation does not have, and only
+ * the installation asks GitHub, not every phone. Nothing where either is no
+ * release: an installation built from source has no app of its own, and an app
+ * built from source is signed with a key a release's app cannot replace.
  */
 fun offerFor(installed: String, answer: JSONObject?): Offer? {
     val mine = releaseOf(installed) ?: return null
@@ -79,6 +87,12 @@ val outcomes = MutableSharedFlow<Outcome>(extraBufferCapacity = 4)
  * it only where it is signed with the key this app was - every release is signed
  * with one key - and only where it is newer, so the worst an answer naming some
  * other file can do is be refused.
+ *
+ * From Android 12 on it installs without a question: the session says none is
+ * needed, which Android honours for an app replacing itself that declares
+ * UPDATE_PACKAGES_WITHOUT_USER_ACTION, as the maintainer asked on 2026-11-26.
+ * Below Android 12, or wherever Android asks anyway, its question reaches
+ * [UpdateReceiver] as before.
  */
 class Updater(private val context: Context, private val timeout: Int = Installation.requestTimeout) {
 
@@ -99,6 +113,9 @@ class Updater(private val context: Context, private val timeout: Int = Installat
             val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
             params.setAppPackageName(context.packageName)
             if (size > 0) params.setSize(size)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+            }
 
             val id = installer.createSession(params)
             session = id
@@ -109,6 +126,9 @@ class Updater(private val context: Context, private val timeout: Int = Installat
                     open.fsync(out)
                 }
 
+                // Remembered before the commit and written at once, because
+                // without a question Android ends this process to replace it.
+                awaitUpdate(context, offer.version)
                 open.commit(answerTo(context, id).intentSender)
             }
 
@@ -169,9 +189,9 @@ private fun answerTo(context: Context, session: Int): PendingIntent {
 
 /**
  * UpdateReceiver hears how an installation the app handed Android went. Where
- * Android asks whoever holds the phone to confirm it - as it does for every app
- * not installed from a store - its question is shown; anything else goes to the
- * offer on screen.
+ * Android asks whoever holds the phone to confirm it - below Android 12, and
+ * wherever it does not let the app go ahead without - its question is shown;
+ * anything else goes to the offer on screen.
  */
 class UpdateReceiver : BroadcastReceiver() {
 
@@ -195,3 +215,88 @@ class UpdateReceiver : BroadcastReceiver() {
             intent.getParcelableExtra(Intent.EXTRA_INTENT)
         }
 }
+
+/**
+ * ReplacedReceiver hears from Android that a newer app has replaced this one and,
+ * where this app started that update itself, says so in a notification that
+ * opens it again.
+ *
+ * Android ends an app to replace it and starts it again only when somebody does.
+ * From Android 10 on, an app in the background may not open a screen of its own,
+ * and MY_PACKAGE_REPLACED is not among the exceptions; a notification tapped is.
+ * Only after an update the app started, because an app installed by hand or by
+ * adb has its own way back, and a notification there would be noise.
+ */
+class ReplacedReceiver : BroadcastReceiver() {
+
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+
+        if (announces(awaited(context), BuildConfig.VERSION_NAME)) showUpdated(context, BuildConfig.VERSION_NAME)
+    }
+}
+
+/**
+ * announces says whether the app now running, [running], is the one an update
+ * this app started was to install, [awaited]. An update that never arrived and an
+ * app installed some other way since are told apart from it this way.
+ */
+fun announces(awaited: String?, running: String): Boolean = awaited != null && awaited == running
+
+/**
+ * awaitUpdate remembers that this app is handing Android [version] to install,
+ * for the app that replaces it. Written before it returns rather than in the
+ * background, because the process may be ended the moment the session is
+ * committed.
+ */
+private fun awaitUpdate(context: Context, version: String) {
+    context.getSharedPreferences(updateKept, Context.MODE_PRIVATE).edit(commit = true) { putString(awaitedKey, version) }
+}
+
+/** awaited is the version an update this app started was to install, answered once: it is forgotten as it is read. */
+private fun awaited(context: Context): String? {
+    val kept = context.getSharedPreferences(updateKept, Context.MODE_PRIVATE)
+
+    return kept.getString(awaitedKey, null).also { kept.edit { remove(awaitedKey) } }
+}
+
+// The leave to notify is asked for in mayNotify, which lint cannot follow.
+@SuppressLint("MissingPermission")
+private fun showUpdated(context: Context, version: String) {
+    if (!mayNotify(context)) return
+
+    val words = Dictionaries(context.assets).words(Locale.getDefault().language)
+    val manager = NotificationManagerCompat.from(context)
+
+    manager.createNotificationChannel(
+        NotificationChannelCompat.Builder(updateChannel, NotificationManagerCompat.IMPORTANCE_HIGH)
+            .setName(words.text("mobile.update.channel", "Updates"))
+            .build(),
+    )
+
+    val open = PendingIntent.getActivity(
+        context,
+        0,
+        Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    val notification = NotificationCompat.Builder(context, updateChannel)
+        .setSmallIcon(R.drawable.ic_notification)
+        .setContentTitle(words.text("mobile.update.done", "TimePulse is updated"))
+        .setContentText(words.text("mobile.update.reopen", "Now {0}. Tap to open it again.", version))
+        .setContentIntent(open)
+        .setAutoCancel(true)
+        .build()
+
+    manager.notify(updatedNotification, notification)
+}
+
+/** updateKept is where the app keeps the version an update it started is to install. */
+private const val updateKept = "update"
+private const val awaitedKey = "awaited"
+
+private const val updateChannel = "updates"
+
+/** updatedNotification is the update's notification, numbered beside the reminders' 1 and 2. */
+private const val updatedNotification = 3
