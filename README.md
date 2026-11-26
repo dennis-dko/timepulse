@@ -289,10 +289,12 @@ browser or file manager it was opened from may install apps. Every release is
 signed with the same key, so the next one installs over it - and the app offers
 it itself: at every start it asks the installation which release it runs, and
 once that is newer than the app, a press downloads that release's app and hands
-it to Android, which asks once whether TimePulse may install apps and asks to
-confirm each update. An installation whose certificate comes from an authority
-of its own needs that authority installed on the phone, as the phone's browser
-does.
+it to Android, which asks once whether TimePulse may install apps. From Android
+12 on, every update after that installs without a question: the app closes for
+it, and a notification opens the new one where notifications are allowed. Below
+Android 12, Android asks to confirm each update. An installation whose
+certificate comes from an authority of its own needs that authority installed on
+the phone, as the phone's browser does.
 
 ## What it does
 
