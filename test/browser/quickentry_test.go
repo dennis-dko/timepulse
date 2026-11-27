@@ -4,6 +4,7 @@ package browser
 
 import (
 	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 
@@ -202,4 +203,58 @@ func TestAQuickEntrysLineFollowsTheLanguage(t *testing.T) {
 
 	p.chooseLanguage("de")
 	p.waitForText("#quick-preview", "2,50 Std.")
+}
+
+// The button that books a line stands where the booking form below it puts its
+// own: in a row of its own under the field, at the field's left edge. It stood
+// at the end of the field, the one button on the tab to be looked for at the
+// right.
+func TestAQuickEntrysButtonStandsWhereTheBookingFormsDoes(t *testing.T) {
+	t.Parallel()
+
+	p := open(t)
+	p.readyWorker()
+
+	p.run("open the time entries", p.click(`.tab[data-view="timesheets"]`))
+	p.showTabOf("#form-quick")
+
+	type placed struct {
+		Left      float64 `json:"left"`
+		Below     float64 `json:"below"`
+		InActions bool    `json:"inActions"`
+	}
+
+	var layout struct {
+		Quick   placed `json:"quick"`
+		Booking placed `json:"booking"`
+	}
+
+	p.evalJSON(`JSON.stringify((() => {
+		// How far the submit button stands right of the form's leftmost field,
+		// and how far under its lowest one.
+		const measure = (selector) => {
+			const form = document.querySelector(selector);
+			const fields = [...form.querySelectorAll('input:not([type="hidden"]), select, textarea')]
+				.map((field) => field.getBoundingClientRect()).filter((box) => box.width > 0);
+			const button = form.querySelector('button[type="submit"]');
+			const box = button.getBoundingClientRect();
+
+			return {
+				left: box.left - Math.min(...fields.map((field) => field.left)),
+				below: box.top - Math.max(...fields.map((field) => field.bottom)),
+				inActions: Boolean(button.closest('.form-actions')),
+			};
+		};
+
+		return { quick: measure('#form-quick'), booking: measure('#form-timesheet') };
+	})())`, &layout)
+
+	if !layout.Booking.InActions || math.Abs(layout.Booking.Left) > 1 || layout.Booking.Below <= 0 {
+		t.Fatalf("the booking form's own button measures %+v, so this is not measuring what it was written for", layout.Booking)
+	}
+
+	if !layout.Quick.InActions || math.Abs(layout.Quick.Left) > 1 || layout.Quick.Below <= 0 {
+		t.Errorf("the quick entry's button stands %.0fpx right of its field's edge and %.0fpx under it (in a row of its own: %t), "+
+			"want it where the booking form's stands", layout.Quick.Left, layout.Quick.Below, layout.Quick.InActions)
+	}
 }

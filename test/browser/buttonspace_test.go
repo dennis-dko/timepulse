@@ -18,9 +18,9 @@ import (
 // Above it: the nearest element above the row the button stands in - or above
 // the button itself where it stands alone in a card, a form or a tile - and
 // not one beside it, as a card's title is beside the arrows in its head. A
-// button that ends level with a labelled field beside it, as Book does, is
-// measured from the top of its row, because what stands above the button there
-// is the field's own caption.
+// button that ends level with a labelled field beside it is measured from the
+// top of its row, because what stands above the button there is the field's
+// own caption.
 //
 // Left out, each for its reason: a screen's tabs and the bar's controls, which
 // are navigation; a table's buttons, which are a row's; a pager's arrows and a
@@ -84,9 +84,8 @@ const measureButtonSpace = `JSON.stringify((() => {
 	return problems;
 })())`
 
-// TestEveryButtonStandsTheButtonSpaceFromItsNeighbours walks every screen of
-// somebody who administers and of somebody who records time, every tab of each,
-// and the sign-in screen, measuring the space round every button.
+// TestEveryButtonStandsTheButtonSpaceFromItsNeighbours measures the space round
+// every button on every screen walkEveryScreen opens.
 //
 // Asked for by the maintainer on 2026-11-25: every button the same distance
 // from everything else, left, right, above and below. Measured before the
@@ -95,6 +94,15 @@ const measureButtonSpace = `JSON.stringify((() => {
 // figure the work of whichever rule applied there. One token decides it now.
 func TestEveryButtonStandsTheButtonSpaceFromItsNeighbours(t *testing.T) {
 	t.Parallel()
+
+	walkEveryScreen(t, (*page).check)
+}
+
+// walkEveryScreen opens every screen of somebody who administers and of somebody
+// who records time, every tab of each, and the sign-in screen, at a desktop's
+// width, and has check measure each of them.
+func walkEveryScreen(t *testing.T, check func(*page, *testing.T, string)) {
+	t.Helper()
 
 	for _, who := range []struct {
 		name  string
@@ -110,7 +118,7 @@ func TestEveryButtonStandsTheButtonSpaceFromItsNeighbours(t *testing.T) {
 			p := open(t)
 			p.run("a desktop", chromedp.EmulateViewport(1280, 900))
 			p.waitShown("#form-login")
-			p.check(t, "the sign-in screen")
+			check(p, t, "the sign-in screen")
 
 			who.ready(p)
 
@@ -124,7 +132,7 @@ func TestEveryButtonStandsTheButtonSpaceFromItsNeighbours(t *testing.T) {
 					`[...document.querySelectorAll('#view-`+view+` .screen-tab')].map((tab) => tab.dataset.cardTab)`, &tabs))
 
 				if len(tabs) == 0 {
-					p.check(t, view)
+					check(p, t, view)
 
 					continue
 				}
@@ -133,7 +141,7 @@ func TestEveryButtonStandsTheButtonSpaceFromItsNeighbours(t *testing.T) {
 					p.run("open "+tab, chromedp.Evaluate(
 						`document.querySelector('#view-`+view+` .screen-tab[data-card-tab="`+tab+`"]').click()`, nil))
 					p.atRest()
-					p.check(t, view+", "+tab)
+					check(p, t, view+", "+tab)
 				}
 			}
 		})

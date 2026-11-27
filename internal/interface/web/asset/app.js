@@ -6127,8 +6127,8 @@ function renderPermissionLegend() {
     const detail = permissionDetail(permission);
     if (!detail || !offeredRight(permission)) continue;
 
-    // A right and its sentence as one item, which the legend's columns keep
-    // together rather than breaking a name from what it allows.
+    // A right and its sentence as one item, one cell of the legend's rows, so a
+    // name is never parted from what it allows.
     list.append(el('div', {},
       el('dt', {},
         el('span', { text: permissionTitle(permission) }),
