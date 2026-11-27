@@ -164,6 +164,11 @@
  */
 html { scroll-padding-top: var(--topbar-height, 76px); }
 
+/* A tap leaves no box of the browser's own behind. On a touch screen it tints
+   whatever was tapped - blue in the Android app - over controls that answer a
+   press themselves. Inherited, so this reaches every element. */
+html { -webkit-tap-highlight-color: transparent; }
+
 /*
  * The `hidden` attribute must beat every layout rule below. Without this,
  * `display: flex` on `label` or `.login-screen` silently wins over the
@@ -3256,6 +3261,9 @@ a.tab:hover {
    that opens what is already open is a control that has to be explained. */
 .nav-toggle { display: none; }
 
+/* The drawer slides in from the edge it hangs on, as a telephone's do. */
+@keyframes drawer-in { from { transform: translateX(-100%); } }
+
 @media (max-width: 900px) {
   .topbar { gap: 16px; }
 
@@ -3299,24 +3307,52 @@ a.tab:hover {
      also showed three of nine and hid the rest with nothing to say they were
      there - somebody looking for Roles had to find it by dragging. A list says
      how many there are. */
-  #tabs {
-    display: none;
+  #tabs { display: none; }
+
+  /* Asked for, a drawer, the way a telephone's own applications open theirs: a
+     column at the left under the bar, with the rest of the screen dimmed beside
+     it, where a press closes it. The bar used to unfold to the height of the
+     window instead, which on a telephone covered the screen and left nowhere
+     beside the menu to press.
+
+     Never taller than the window: what does not fit scrolls inside the drawer
+     rather than the page under it. Above the page's own layers whether the bar
+     stays at the top or goes with the page, as it does on a short window. */
+  .topbar.nav-open #tabs {
+    animation: drawer-in 160ms ease-out;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    bottom: 0;
+    box-shadow: 0 16px 40px rgb(0 0 0 / 0.25);
+    display: flex;
     flex-direction: column;
     gap: 2px;
-  }
-
-  .topbar.nav-open #tabs { display: flex; }
-
-  /* Never taller than the window while it is open, and what does not fit scrolls
-     inside it. The bar stays at the top of the window, so an open menu taller
-     than the window stood still while the page passed underneath, and its last
-     points came up only at the very end of the page. dvh where it is known, so a
-     telephone's own toolbar is not counted as room. */
-  .topbar.nav-open {
-    max-height: 100vh;
-    max-height: 100dvh;
+    left: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding: 12px;
+    position: fixed;
+    top: var(--topbar-height, 0);
+    width: min(320px, 84vw);
+    z-index: 31;
+  }
+
+  .topbar.nav-open::after {
+    background: rgb(0 0 0 / 0.4);
+    bottom: 0;
+    content: '';
+    left: 0;
+    position: fixed;
+    right: 0;
+    top: var(--topbar-height, 0);
+    z-index: 30;
+  }
+
+  /* Nothing under the shade scrolls while the drawer is open. */
+  body:has(.topbar.nav-open) { overflow: hidden; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .topbar.nav-open #tabs { animation: none; }
   }
 
   .topbar.nav-open .tab {
@@ -3340,21 +3376,21 @@ a.tab:hover {
      somebody should not have to press anything to ask. */
   .topbar-controls { display: none; }
 
-  /* Unfolded, a line of its own and wrapping inside it. The three of them come
-     to more than the width of a telephone between them, so as the one
-     unshrinkable block the wide layout needs them to be, set beside a name,
-     they would hang over the edge of the screen. */
-  .topbar.nav-open .topbar-controls {
+  /* Unfolded, at the foot of the drawer under the points: showNavigationMenu
+     moves them in while it is open, so one drawer holds everything the burger
+     folds away. A column, each as wide as the drawer, because a select is as
+     wide as its longest option, which is a translated sentence: nothing here
+     decides how long that is in the next language. */
+  #tabs > .topbar-controls {
+    border-top: 1px solid var(--border);
     display: flex;
-    flex: 1 1 100%;
-    flex-wrap: wrap;
-    min-width: 0;
+    flex-direction: column;
+    gap: var(--button-space);
+    margin-top: auto;
+    padding-top: var(--button-space);
   }
 
-  /* And none of them wider than the bar itself. A select is as wide as its
-     longest option, which is a translated sentence: nothing here decides how
-     long that is in the next language. */
-  .topbar-controls > * { max-width: 100%; }
+  #tabs > .topbar-controls > * { width: 100%; }
 
   /* The right-hand group wraps, which is what gives the controls a line below
      the name rather than a place beside it. */

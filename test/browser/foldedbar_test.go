@@ -149,14 +149,13 @@ func TestTheAccountControlsFoldIntoTheBurgerOnAPhone(t *testing.T) {
 
 // The open menu fits in the window and scrolls inside itself.
 //
-// The menu unfolds inside the bar, and the bar stays at the top of the window -
-// so on a telephone held sideways the open bar was taller than the window, 601
-// pixels in 390, and the points at the bottom of the list lay below its edge.
-// Scrolling did reach them, eventually: the bar stood still while the whole page
-// passed underneath, and only at the very end did the last points come up -
-// 1,382 pixels of scrolling with nothing on screen moving, which is a menu that
-// looks as if it ends at the edge. Now the open bar is never taller than the
-// window, and what does not fit scrolls inside it.
+// On a telephone held sideways the menu holds more than the window does. When
+// it unfolded inside the bar, the open bar was 601 pixels tall in 390, and the
+// points at the bottom of the list lay below its edge: scrolling reached them
+// only after the whole page had passed underneath, 1,382 pixels with nothing on
+// screen moving, which is a menu that looks as if it ends at the edge. The
+// drawer it opens as now ends at the window's edge, and what does not fit
+// scrolls inside it.
 func TestTheOpenMenuFitsTheWindowAndScrollsInIt(t *testing.T) {
 	t.Parallel()
 
@@ -169,43 +168,125 @@ func TestTheOpenMenuFitsTheWindowAndScrollsInIt(t *testing.T) {
 			chromedp.Evaluate(`window.scrollTo(0, 0)`, nil))
 
 		p.run("open the menu", p.click("#nav-toggle"))
+		p.drawerAtRest()
 
 		var reading struct {
-			Bar      float64 `json:"bar"`
-			Window   float64 `json:"window"`
-			Last     string  `json:"last"`
-			Reached  bool    `json:"reached"`
-			PageMove float64 `json:"pageMove"`
+			Bottom  float64 `json:"bottom"`
+			Window  float64 `json:"window"`
+			Last    string  `json:"last"`
+			Reached bool    `json:"reached"`
 		}
 
 		p.evalJSON(`JSON.stringify((() => {
-			const bar = document.querySelector('header.topbar');
-			const last = [...document.querySelectorAll('#tabs .tab')].filter((tab) => !tab.hidden).pop();
+			const drawer = document.querySelector('#tabs');
+			const last = [...drawer.querySelectorAll('.tab')].filter((tab) => !tab.hidden).pop();
 
-			// Scrolled the way a finger on the menu scrolls it: the bar, not the page.
-			bar.scrollTop = bar.scrollHeight;
+			// Scrolled the way a finger on the menu scrolls it: the drawer, not the page.
+			drawer.scrollTop = drawer.scrollHeight;
 
 			const r = last.getBoundingClientRect();
 			const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
 
 			return {
-				bar: bar.getBoundingClientRect().height,
+				bottom: drawer.getBoundingClientRect().bottom,
 				window: window.innerHeight,
 				last: last.textContent.trim(),
 				reached: r.bottom <= window.innerHeight && (hit === last || last.contains(hit)),
-				pageMove: window.scrollY,
 			};
 		})())`, &reading)
 
-		if reading.Bar > reading.Window+1 {
-			t.Errorf("at %dx%d the open bar is %.0fpx tall in a %.0fpx window", size.w, size.h, reading.Bar, reading.Window)
+		if reading.Bottom > reading.Window+1 {
+			t.Errorf("at %dx%d the open menu ends at %.0fpx in a %.0fpx window", size.w, size.h, reading.Bottom, reading.Window)
 		}
 
 		if !reading.Reached {
-			t.Errorf("at %dx%d the menu's last point, %q, cannot be scrolled into view inside the open bar",
+			t.Errorf("at %dx%d the menu's last point, %q, cannot be scrolled into view inside the open menu",
 				size.w, size.h, reading.Last)
 		}
 
 		p.run("close the menu", p.click("#nav-toggle"))
 	}
+}
+
+// The open menu is a drawer, the way a telephone's own applications open
+// theirs: a column at the left under the bar, holding the points and the
+// account's controls, with the rest of the screen dimmed beside it, and a press
+// there closes it. Asked for by the maintainer on 2026-11-27. The menu used to
+// unfold the bar itself to the height of the window, so on a telephone it
+// covered the screen and there was nowhere beside it to press.
+func TestTheOpenMenuIsADrawerThatAPressBesideCloses(t *testing.T) {
+	t.Parallel()
+
+	p := open(t)
+	p.readyWorker()
+	p.run("a telephone", chromedp.EmulateViewport(390, 844))
+	p.run("open the menu", p.click("#nav-toggle"))
+	p.drawerAtRest()
+
+	var drawer struct {
+		Right     float64 `json:"right"`
+		Top       float64 `json:"top"`
+		Bottom    float64 `json:"bottom"`
+		Width     float64 `json:"width"`
+		Height    float64 `json:"height"`
+		BarBottom float64 `json:"barBottom"`
+		Controls  bool    `json:"controls"`
+	}
+
+	p.evalJSON(`JSON.stringify((() => {
+		const box = document.querySelector('#tabs').getBoundingClientRect();
+		const inside = (selector) => {
+			const r = document.querySelector(selector).getBoundingClientRect();
+
+			return r.width > 0 && r.left >= box.left - 1 && r.right <= box.right + 1
+				&& r.top >= box.top - 1 && r.bottom <= box.bottom + 1;
+		};
+
+		return {
+			right: box.right,
+			top: box.top,
+			bottom: box.bottom,
+			width: window.innerWidth,
+			height: window.innerHeight,
+			barBottom: document.querySelector('header.topbar').getBoundingClientRect().bottom,
+			controls: ['#theme-picker', '#language-picker', '#logout'].every(inside),
+		};
+	})())`, &drawer)
+
+	// Room beside it for a finger, which is what a press beside needs.
+	if drawer.Width-drawer.Right < 48 {
+		t.Errorf("the open menu reaches %.0fpx of a %.0fpx screen, leaving %.0fpx beside it to press",
+			drawer.Right, drawer.Width, drawer.Width-drawer.Right)
+	}
+
+	if drawer.Top < drawer.BarBottom-1 || drawer.Bottom > drawer.Height+1 {
+		t.Errorf("the open menu runs from %.0f to %.0f, want it under the bar (%.0f) and inside the %.0fpx window",
+			drawer.Top, drawer.Bottom, drawer.BarBottom, drawer.Height)
+	}
+
+	if !drawer.Controls {
+		t.Error("the appearance, the language and the way out are not in the open menu")
+	}
+
+	p.run("press beside it", chromedp.MouseClickXY(drawer.Width-20, drawer.Height*0.6))
+
+	if p.attr("#nav-toggle", "aria-expanded") != "false" {
+		t.Error("a press beside the open menu left it open")
+	}
+}
+
+// drawerAtRest waits until the drawer has slid in, so what is measured is where
+// it comes to rest rather than where it is on the way.
+func (p *page) drawerAtRest() {
+	p.t.Helper()
+
+	var done bool
+
+	p.awaitJSON(`(async () => {
+		await Promise.all(document.getAnimations()
+			.filter((animation) => animation.animationName === 'drawer-in')
+			.map((animation) => animation.finished.catch(() => {})));
+
+		return true;
+	})()`, &done)
 }
