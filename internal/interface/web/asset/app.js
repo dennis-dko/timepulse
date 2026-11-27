@@ -19917,8 +19917,11 @@ function wireNavigationMenu() {
     showNavigationMenu(!navigationMenuIsOpen());
   });
 
-  // Choosing one is the point of opening it.
-  tabs.addEventListener('click', () => showNavigationMenu(false));
+  // Choosing a point is the point of opening it. The account's controls share
+  // the drawer while it is open, and using one of them leaves it open.
+  tabs.addEventListener('click', (e) => {
+    if (e.target.closest('.tab')) showNavigationMenu(false);
+  });
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !navigationMenuIsOpen()) return;
@@ -19930,8 +19933,11 @@ function wireNavigationMenu() {
     toggle.focus();
   });
 
+  // The shade beside the drawer is the bar's own ::after, so a press on it
+  // reaches here as a press on the bar: what keeps the drawer open is a press in
+  // it or on its burger, not one anywhere in the bar.
   document.addEventListener('click', (e) => {
-    if (!navigationMenuIsOpen() || bar.contains(e.target)) return;
+    if (!navigationMenuIsOpen() || tabs.contains(e.target) || toggle.contains(e.target)) return;
 
     // Not while the walk through is running. It seals the page and opens this
     // fold itself, to point at something inside it - so the only press that can
@@ -19962,6 +19968,15 @@ function showNavigationMenu(open) {
   const bar = $('.topbar');
   const toggle = $('#nav-toggle');
   if (!bar || !toggle) return;
+
+  // The appearance, the language and the way out go into the drawer under the
+  // points while it is open, and back beside the account's name when it closes,
+  // so one drawer holds everything the burger folds away.
+  const controls = $('#topbar-controls');
+  const drawer = $('#tabs');
+  const home = $('.topbar-side-end');
+
+  if (controls && drawer && home) (open ? drawer : home).append(controls);
 
   bar.classList.toggle('nav-open', open);
   toggle.setAttribute('aria-expanded', String(open));
