@@ -164,6 +164,11 @@
  */
 html { scroll-padding-top: var(--topbar-height, 76px); }
 
+/* A tap leaves no box of the browser's own behind. On a touch screen it tints
+   whatever was tapped - blue in the Android app - over controls that answer a
+   press themselves. Inherited, so this reaches every element. */
+html { -webkit-tap-highlight-color: transparent; }
+
 /*
  * The `hidden` attribute must beat every layout rule below. Without this,
  * `display: flex` on `label` or `.login-screen` silently wins over the

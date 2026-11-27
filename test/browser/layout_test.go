@@ -598,3 +598,29 @@ func TestOnAShortWindowTheBarScrollsAwayWithThePage(t *testing.T) {
 		p.run("back to the top", chromedp.Evaluate(`window.scrollTo(0, 0)`, nil))
 	}
 }
+
+// A tap on a telephone leaves no box behind. A browser on a touch screen tints
+// what was tapped with a box of its own, blue in the Android app, over controls
+// that already answer a press themselves. Asked for by the maintainer on
+// 2026-11-27.
+func TestATapLeavesNoBoxBehind(t *testing.T) {
+	t.Parallel()
+
+	p := open(t)
+	p.readyWorker()
+	p.run("a telephone", chromedp.EmulateViewport(390, 844))
+
+	var tints map[string]string
+
+	p.evalJSON(`JSON.stringify(Object.fromEntries(['#nav-toggle', '#app-title', '.tab', '#logout', 'main'].map((selector) => {
+		const el = document.querySelector(selector);
+
+		return [selector, el ? getComputedStyle(el).webkitTapHighlightColor : 'missing'];
+	})))`, &tints)
+
+	for selector, tint := range tints {
+		if tint != "rgba(0, 0, 0, 0)" {
+			t.Errorf("a tap on %s is marked with %s", selector, tint)
+		}
+	}
+}
