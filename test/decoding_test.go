@@ -42,7 +42,7 @@ func TestEveryDecoderOfCompressedInputIsBounded(t *testing.T) {
 		"internal/support/backup/backup.go": "MaxFileSize (256 MiB) on the file, and MaxPayloadSize (4 GiB) on " +
 			"what it decompresses to, kept by a reader that refuses past it; a real backup measured 13:1",
 
-		"internal/support/document/document.go": "MaxChartPixels (16 MP), checked on the DecodeConfig already there",
+		"internal/support/document/chart.go": "MaxChartPixels (16 MP), checked on the DecodeConfig already there",
 
 		"internal/interface/api/v1/rest/document_handler.go": "document.MaxChartPixels, so the refusal is coded and translated",
 	}

@@ -27,7 +27,7 @@ import (
 // which is roughly 5 GB - on a machine whose disk is an SD card and whose memory
 // is measured in single-figure gigabytes.
 //
-// The dimensions were already being read here: writeChart calls png.DecodeConfig
+// The dimensions were already being read here: readChart calls png.DecodeConfig
 // and checks that they are positive. There was simply no upper bound beside the
 // lower one.
 func TestAChartWithTooManyPixelsIsRefusedBeforeItIsRead(t *testing.T) {
