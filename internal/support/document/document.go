@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"cmp"
 	"fmt"
-	"image/png"
 	"math"
 	"slices"
 	"strconv"
@@ -381,7 +380,36 @@ func use(pdf *fpdf.Fpdf, c colour) { pdf.SetTextColor(c.r, c.g, c.b) }
 // headings happen to match would have shared one picture - and the statistics
 // screen sends two charts at once.
 func writeSection(pdf *fpdf.Fpdf, ink inks, number int, section Section) error {
-	if heading := strings.TrimSpace(section.Heading); heading != "" {
+	heading := strings.TrimSpace(section.Heading)
+	caption := strings.TrimSpace(section.Caption)
+
+	// The chart decides the page before the heading is written, because a heading
+	// goes with its chart: left at the foot of a page whose chart had moved on,
+	// it headed nothing, over a gap the height of the chart.
+	var chart *picture
+
+	if len(section.Chart) > 0 {
+		read, err := readChart(pdf, number, section.Chart)
+		if err != nil {
+			return err
+		}
+
+		_, pageHeight := pdf.GetPageSize()
+		intro := introHeight(pdf, heading, caption)
+
+		var startsAPage bool
+
+		read.high, startsAPage = chartHeight(read.natural,
+			pageHeight-pageMargin-pdf.GetY()-intro, pageHeight-2*pageMargin-intro)
+
+		if startsAPage {
+			pdf.AddPage()
+		}
+
+		chart = &read
+	}
+
+	if heading != "" {
 		pdf.SetFont("go", "B", headingSize)
 		use(pdf, ink.accent)
 		pdf.MultiCell(contentWide, lineHeight, heading, "", "L", false)
@@ -389,7 +417,7 @@ func writeSection(pdf *fpdf.Fpdf, ink inks, number int, section Section) error {
 		pdf.Ln(1)
 	}
 
-	if caption := strings.TrimSpace(section.Caption); caption != "" {
+	if caption != "" {
 		pdf.SetFont("go", "", captionSize)
 		use(pdf, ink.muted)
 		pdf.MultiCell(contentWide, lineHeight-1, caption, "", "L", false)
@@ -397,10 +425,8 @@ func writeSection(pdf *fpdf.Fpdf, ink inks, number int, section Section) error {
 		pdf.Ln(1)
 	}
 
-	if len(section.Chart) > 0 {
-		if err := writeChart(pdf, number, section.Chart); err != nil {
-			return err
-		}
+	if chart != nil {
+		placeChart(pdf, *chart)
 	}
 
 	if section.Table != nil {
@@ -408,81 +434,6 @@ func writeSection(pdf *fpdf.Fpdf, ink inks, number int, section Section) error {
 	}
 
 	pdf.Ln(4)
-
-	return nil
-}
-
-// MaxChartPixels bounds what a chart may decode to, in pixels.
-//
-// The endpoint bounds the picture at a megabyte, and that says nothing about what
-// it costs to read: a PNG compresses by orders of magnitude, and the browser
-// sends exactly the kind that costs most. A canvas produces colour type 6, so the
-// alpha channel must be split from the colour, and splitting it means inflating
-// the whole image.
-//
-// Measured through Write with a flat RGBA chart rather than estimated: 8000
-// square arrives as 260 KB and allocates 782 MB; 12000 square arrives as 566 KB
-// and allocates 2.6 GB. Both are inside the byte limit, and extrapolated to it,
-// about 16000 square - roughly 5 GB, on machines whose memory is measured in
-// single-figure gigabytes.
-//
-// Sixteen megapixels is far above any chart that exists. app.js draws one at the
-// chart card's own box times CHART_SCALE, which is 2, so even a chart running the
-// full width of a 5120-pixel screen is around 8 megapixels. It is also far above
-// what the page can show: this is placed at the text width, about 170mm, which is
-// some 2000 pixels at 300 dpi.
-//
-// What it leaves is around 290 MB in the worst case, at the same 18 bytes per
-// pixel the measurements above work out to. That is not nothing, and it is the
-// honest trade: bounding tighter would start refusing a real report from a wide
-// screen, and the byte limit that was supposed to cover this cannot, because
-// bytes do not predict pixels.
-const MaxChartPixels = 16 << 20
-
-// writeChart places the picture the browser drew, at the width of the text.
-//
-// Its own proportions rather than a fixed height, so a chart of thirty projects
-// is not squashed into the space three needed. One that will not fit under what
-// is already on the page moves to the next one whole: half a chart at the foot
-// of a page says less than a gap does.
-func writeChart(pdf *fpdf.Fpdf, number int, chart []byte) error {
-	config, err := png.DecodeConfig(bytes.NewReader(chart))
-	if err != nil {
-		return fmt.Errorf("the chart is not a readable PNG: %w", err)
-	}
-
-	if config.Width <= 0 || config.Height <= 0 {
-		return fmt.Errorf("the chart has no size: %dx%d", config.Width, config.Height)
-	}
-
-	// The other end of the same question, which was missing. DecodeConfig has
-	// already read the header and nothing has been inflated yet, so this refuses
-	// before the cost is paid rather than after.
-	if config.Width*config.Height > MaxChartPixels {
-		return fmt.Errorf("the chart is too large at %dx%d pixels; at most %d "+
-			"megapixels are accepted", config.Width, config.Height, MaxChartPixels>>20)
-	}
-
-	name := "chart-" + strconv.Itoa(number)
-
-	pdf.RegisterImageOptionsReader(name, fpdf.ImageOptions{ImageType: "PNG"},
-		bytes.NewReader(chart))
-
-	if pdf.Err() {
-		return fmt.Errorf("the chart could not be placed: %s", pdf.Error())
-	}
-
-	height := contentWide * float64(config.Height) / float64(config.Width)
-
-	_, pageHeight := pdf.GetPageSize()
-	if pdf.GetY()+height > pageHeight-pageMargin {
-		pdf.AddPage()
-	}
-
-	pdf.ImageOptions(name, pageMargin, pdf.GetY(), contentWide, height, true,
-		fpdf.ImageOptions{ImageType: "PNG"}, 0, "")
-
-	pdf.Ln(3)
 
 	return nil
 }
