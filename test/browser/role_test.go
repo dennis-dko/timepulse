@@ -537,3 +537,46 @@ func TestEveryRightKeepsItsIdentifierBesideItsName(t *testing.T) {
 		}
 	}
 }
+
+// The legend of what each right allows reads in rows: the rights side by side
+// start at one height, so the eye goes across a row instead of down columns
+// whose entries each stand where the sentence above them ended. Asked for by
+// the maintainer on 2026-11-27; until then the legend flowed in columns.
+func TestTheLegendsRightsStandInRows(t *testing.T) {
+	t.Parallel()
+
+	p := open(t)
+	p.run("a desktop", chromedp.EmulateViewport(1280, 900))
+	p.readyAdmin()
+	p.run("open the roles", chromedp.Evaluate(`switchView('roles')`, nil))
+	p.atRest()
+
+	var tops []float64
+
+	p.run("measure the legend's entries", chromedp.Evaluate(
+		`[...document.querySelectorAll('#permission-legend-list > div')].map((entry) => Math.round(entry.getBoundingClientRect().top))`, &tops))
+
+	if len(tops) < 4 {
+		t.Fatalf("the legend has %d entries, too few to say whether they stand in rows", len(tops))
+	}
+
+	beside := map[float64]int{}
+	for _, top := range tops {
+		beside[top]++
+	}
+
+	// At a desktop's width two or more entries share a row; only the last row
+	// may hold a single one.
+	var alone []float64
+
+	for top, count := range beside {
+		if count == 1 {
+			alone = append(alone, top)
+		}
+	}
+
+	if len(beside) == len(tops) || len(alone) > 1 {
+		t.Errorf("the legend's %d entries start at %d heights, %d of them on a height of their own: %v",
+			len(tops), len(beside), len(alone), tops)
+	}
+}

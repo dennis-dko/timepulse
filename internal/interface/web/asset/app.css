@@ -3215,13 +3215,17 @@ a.tab:hover {
   padding: 1px 5px;
 }
 
-/* Two columns where each still holds a sentence comfortably: one column of
-   fifteen rights made the role screen the longest in the application, and
-   folded away the legend is read by nobody ticking the boxes, which is why it
-   opens open. */
-.perm-legend dl { column-gap: 32px; columns: 2 340px; margin: 0; }
-
-.perm-legend dl > div { break-inside: avoid; }
+/* Columns each still holding a sentence comfortably: one column of fifteen
+   rights made the role screen the longest in the application, and folded away
+   the legend is read by nobody ticking the boxes, which is why it opens open.
+   In rows rather than flowing columns, so the rights side by side start at one
+   height instead of wherever the sentence above them ended. */
+.perm-legend dl {
+  display: grid;
+  gap: var(--button-space) 32px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  margin: 0;
+}
 
 .perm-legend dt {
   align-items: baseline;
@@ -3229,7 +3233,6 @@ a.tab:hover {
   flex-wrap: wrap;
   font-weight: 600;
   gap: 6px;
-  margin-top: 10px;
 }
 
 .perm-legend dd {
