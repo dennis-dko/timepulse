@@ -539,6 +539,24 @@ main { flex: 1 0 auto; margin: 0 auto; max-width: 1080px; padding: 20px; width: 
 .grid > label > select,
 .grid > label > textarea { margin-top: auto; }
 
+/* Every fold looks alike - in the muted colour, bold, at the size of the text,
+   with a pointer - and stands the button space from what is around it, as a
+   button does: above, below, and between its line and what it unfolds. At the
+   foot of a card the card's own padding is the space under it. One rule for all
+   of them, so the next fold is one of them without being remembered: the four
+   there were had come in three sizes, two colours and two weights. The size is
+   written out because a fold may sit in smaller text, as a refusal's does. */
+summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+details { margin-block: var(--button-space); }
+details:last-child { margin-bottom: 0; }
+details[open] > summary { margin-bottom: var(--button-space); }
+
 label {
   display: flex;
   flex-direction: column;
@@ -918,18 +936,7 @@ button.danger:not(.link) {
    says what to add, and nothing has gone wrong yet. */
 .quick-preview.problem { color: var(--text); font-weight: 600; }
 
-.quick-how { margin-top: 6px; }
-.quick-how ul { margin: 6px 0 0; padding-left: 18px; }
-
-/* The folded explanations - how to write a booking in one line, and what each
-   right allows - look alike, in the muted colour, bold, at the size of the text
-   around them: two looks for one kind of thing read as two kinds. */
-.quick-how summary,
-.perm-legend summary {
-  color: var(--muted);
-  cursor: pointer;
-  font-weight: 600;
-}
+.quick-how ul { margin: 0; padding-left: 18px; }
 
 /* The week grid: a cell is a field the width of a figure, and what the week came
    to underneath reads as a total rather than as one more project.
@@ -1341,15 +1348,9 @@ td.pick input, th.pick input { cursor: pointer; margin: 0; }
   white-space: nowrap;
 }
 
-.refusal-detail { margin-top: 6px; font-size: 12px; }
+.refusal-detail { font-size: 12px; }
 
-.refusal-detail > summary {
-  color: var(--muted);
-  cursor: pointer;
-  list-style: revert;
-}
-
-.refusal-detail > summary:hover { color: var(--text); }
+.refusal-detail > summary { list-style: revert; }
 
 /* Whatever the driver said, as it said it. Wrapped rather than scrolled
    sideways - these are one long line more often than they are many - and in a
@@ -1360,7 +1361,7 @@ td.pick input, th.pick input { cursor: pointer; margin: 0; }
   border-radius: 8px;
   color: var(--text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  margin: 6px 0 0;
+  margin: 0;
   max-height: 220px;
   overflow: auto;
   padding: 8px 10px;
@@ -2124,13 +2125,6 @@ tr.self td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
   max-width: 220px;
   padding: 4px;
   width: 100%;
-}
-
-/* The typed key, folded away behind the picture. */
-#totp-manual summary {
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 13px;
 }
 
 /* Values shown for typing in elsewhere, so they must wrap rather than overflow.
@@ -3221,14 +3215,11 @@ a.tab:hover {
   padding: 1px 5px;
 }
 
-/* Open by default, and kept open: it is read while the boxes above are being
-   ticked, and a legend somebody has to open first is one they tick without. */
-.perm-legend { margin-top: 14px; }
-
 /* Two columns where each still holds a sentence comfortably: one column of
    fifteen rights made the role screen the longest in the application, and
-   folding the legend away is ruled out above. */
-.perm-legend dl { column-gap: 32px; columns: 2 340px; margin: 10px 0 0; }
+   folded away the legend is read by nobody ticking the boxes, which is why it
+   opens open. */
+.perm-legend dl { column-gap: 32px; columns: 2 340px; margin: 0; }
 
 .perm-legend dl > div { break-inside: avoid; }
 
